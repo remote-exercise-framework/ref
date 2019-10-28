@@ -101,10 +101,8 @@ def main():
         print(str(status_code), flush=True)
         if isinstance(resp, str):
             print(resp)
-            raise Exception('whops')
         else:
             print(resp['error'])
-            raise Exception('whops')
 
     #print('Requesting IP', flush=True)
     ip = resp['ip']
