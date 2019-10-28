@@ -241,7 +241,7 @@ class ExerciseInstanceManager():
 
         image_name = exercise.entry_service.image_name
         #Create container that is initally connected to the 'none' network
-        capas = ['CAP_SYS_PTRACE']
+        capas = ['SYS_PTRACE']
         container = dc.create_container(image_name, network_mode='none', volumes=mounts, cap_add=capas)
 
         #Remove created container from 'none' network
