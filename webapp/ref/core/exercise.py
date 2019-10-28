@@ -228,13 +228,13 @@ class ExerciseInstanceManager():
 
         persistance = Path(entry_service.overlay_upper())
         current_app.logger.info(f"creating {persistance}")
-        persistance.mkdir(parents=True)
+        persistance.mkdir(parents=True, exist_ok=True)
 
         persistance = Path(entry_service.overlay_work())
-        persistance.mkdir(parents=True)
+        persistance.mkdir(parents=True, exist_ok=True)
 
         persistance = Path(entry_service.overlay_merged())
-        persistance.mkdir(parents=True)
+        persistance.mkdir(parents=True, exist_ok=True)
 
         #Create overlayfs for container
         c = dc.path_to_local
