@@ -205,7 +205,7 @@ class ExerciseInstanceManager():
         instance.user = user
 
         persistance = Path(instance.persistance_path())
-        persistance.mkdir(parents=True)
+        persistance.mkdir(parents=True, exist_ok=True)
 
         #Get the container ID of the ssh container, thus we can connect the new instance
         #to it.
