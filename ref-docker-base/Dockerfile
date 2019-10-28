@@ -13,7 +13,12 @@ RUN apt install -y \
     openssh-server \
     nano \
     vim \
-    nasm
+    nasm \
+    gdb=8.1-0ubuntu3
+
+#Current version of gdb is broken. Prevent update until a fix was released.
+#https://stackoverflow.com/questions/58225562/how-to-fix-hang-in-gdb-in-ld-linux-so-2-when-running-a-32-bit-executable-on-a-64
+RUN apt-mark hold gdb
 
 RUN apt install -y \
     net-tools \
