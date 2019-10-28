@@ -254,8 +254,16 @@ class ExerciseInstanceManager():
         image_name = exercise.entry_service.image_name
         #Create container that is initally connected to the 'none' network
         mounts = None
-        capas = ['SYS_PTRACE']
-        container = dc.create_container(image_name, network_mode='none', volumes=mounts, cap_add=capas)
+
+        #Allow the usage of ptrace, thus we can use gdb
+        capabilities = ['SYS_PTRACE']
+
+        #Apply a custom seccomp profile that allows the personality syscall to disable ASLR
+        with open('/app/seccomp.json', 'r') as f:
+            seccomp_profile = f.read()
+
+        seccomp_profile = [f'seccomp={seccomp_profile}']
+        container = dc.create_container(image_name, network_mode='none', volumes=mounts, cap_add=capabilities, security_opt=seccomp_profile)
 
         #Remove created container from 'none' network
         none_network = dc.network('none')
