@@ -33,7 +33,7 @@ services:
          #Make docker availabe inside the container
          - /var/run/docker.sock:/var/run/docker.sock
       ports:
-         - "8000:8000"
+         - "80:8000"
       networks:
          - web-host
          - web-and-ssh
