@@ -98,7 +98,6 @@ def main():
     status_code, resp = get_container(real_user, pubkey)
 
     if status_code != 200:
-        print(str(status_code), flush=True)
         if isinstance(resp, str):
             print(resp)
         else:
