@@ -103,6 +103,7 @@ def main():
         else:
             print(resp['error'])
         exit(1)
+    print(f"Instance found :)")
 
     #print('Requesting IP', flush=True)
     ip = resp['ip']
@@ -129,7 +130,7 @@ def main():
 
     if result != 0:
         print('Failed to connect to your instance. Please try again.', flush=True)
-        print('If the problems persists, please contact a system administrator.', flush=True)
+        print('If the problems persist, please contact a system administrator.', flush=True)
         exit(1)
 
 
