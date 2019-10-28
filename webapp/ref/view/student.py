@@ -15,7 +15,7 @@ View the students can interact with (public).
 #(In case you lost your key, this password is required)
 class GetKeyForm(Form):
     mat_num = IntegerField('Matriculation Number', validators=[validators.Required()])
-    course = RadioField('Course of Study', choices=[(e, e.value) for e in CourseOfStudies])
+    course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = TextField('Firstname', validators=[validators.Required()])
     surname = TextField('Surname', validators=[validators.Required()])
     password = PasswordField('Password', validators=[validators.Required()])
@@ -112,7 +112,7 @@ def student_getkey():
             student.pub_key_ssh = pubkey
             student.priv_key = privkey
             student.registered_date = datetime.datetime.utcnow()
-            student.course_of_studies = form.course.data
+            student.course_of_studies = CourseOfStudies(form.course.data)
             student.is_admin = False
             db.session.add(student)
             db.session.commit()
