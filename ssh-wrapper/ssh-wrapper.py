@@ -103,6 +103,7 @@ def main():
             print(resp)
         else:
             print(resp['error'])
+        exit(1)
 
     #print('Requesting IP', flush=True)
     ip = resp['ip']
