@@ -94,7 +94,7 @@ def main():
     print(header, end='')
     #print(header_title)
 
-    print(f'Hello {real_name}!\nChecking whether there is an instance of task "{real_user}" for you...')
+    print(f'Hello {real_name}!\n Trying to connect to task "{real_user}"...')
     status_code, resp = get_container(real_user, pubkey)
 
     if status_code != 200:
@@ -103,7 +103,6 @@ def main():
         else:
             print(resp['error'])
         exit(1)
-    print(f"Instance found :)")
 
     #print('Requesting IP', flush=True)
     ip = resp['ip']
@@ -129,8 +128,8 @@ def main():
             break
 
     if result != 0:
-        print('Failed to connect to your instance. Please try again.', flush=True)
-        print('If the problems persist, please contact a system administrator.', flush=True)
+        print('Failed to connect. Please try again.', flush=True)
+        print('If the problems persist, please contact your system administrator.', flush=True)
         exit(1)
 
 
