@@ -46,6 +46,12 @@ class ExerciseInstanceEntryService(db.Model):
     def overlay_upper(self):
         return f'{self.instance.persistance_path}/entry-upper'
 
+    def overlay_work(self):
+        return f'{self.instance.persistance_path}/entry-work'
+
+    def overlay_merged(self):
+        return f'{self.instance.persistance_path}/entry-merged'
+
 class ExerciseInstance(db.Model):
     """
     An ExerciseInstance represents a instance of an exercise.
