@@ -52,7 +52,7 @@ class ExerciseImageManager():
         return True
 
     @staticmethod
-    def __build_template(app, files, build_cmd):
+    def __build_template(app, files, build_cmd, disable_aslr):
         with app.app_context():
             base = app.config['BASE_IMAGE_NAME']
         template = f'FROM {base}\n'
@@ -66,6 +66,12 @@ class ExerciseImageManager():
         if build_cmd:
             for line in build_cmd:
                 template += f'RUN {line}\n'
+
+        if disable_aslr:
+            template += 'CMD ["/usr/bin/setarch", "x86_64", "-R", "/usr/sbin/sshd", "-D"]\n'
+        else:
+            template += 'CMD ["/usr/sbin/sshd", "-D"]\n'
+
 
         return template
 
@@ -96,7 +102,8 @@ class ExerciseImageManager():
         dockerfile = ExerciseImageManager.__build_template(
             app,
             exercise.entry_service.files,
-            exercise.entry_service.build_cmd
+            exercise.entry_service.build_cmd,
+            exercise.entry_service.disable_aslr
         )
         build_ctx = exercise.template_path
         try:
@@ -272,7 +279,6 @@ class ExerciseInstanceManager():
         network.connect(container)
 
         entry_service.container_id = container.id
-
         current_app.db.session.add(entry_service)
         current_app.db.session.add(instance)
 
