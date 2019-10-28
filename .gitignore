@@ -1,0 +1,10 @@
+docker-compose.env
+
+
+**/.vscode
+
+**/__pycache__
+**/*.py[cod]
+**/*$py.class
+
+rq-worker

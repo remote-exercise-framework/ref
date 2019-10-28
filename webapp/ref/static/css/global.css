@@ -1,0 +1,27 @@
+#header.container {
+    background-color: #f1f1f1;
+    padding: 10px;
+    text-align: center;
+}
+
+#content.container {
+    background-color: #e3e3e3;
+    border-bottom-left-radius: 15px;
+    border-bottom-right-radius: 15px;
+    padding: 30px;
+}
+
+
+body {
+    background-color: #f6f6f6;
+    padding-bottom: 100px;
+}
+
+.btn-primary {
+    background-color: #77B76A;
+    border-color: rgb(93, 143, 83);
+}
+
+code {
+    border: 5px
+}

@@ -1,0 +1,97 @@
+@import url(reset.css);
+body { font-family: 'Droid Serif', serif; font-color:black; }
+#logo { max-width:100%;}
+#header { text-align: center; border-bottom: 1px solid #999; }
+#header p { margin:5px 0px; }
+#content { margin:0 auto; padding: 8% 0; text-align: center; }
+#headline { font-family:'Oswald', sans-serif; font-size: 300%; margin-top:5px; margin-bottom:5px;}
+
+/* reset5 Â© 2011 opensource.736cs.com MIT */
+html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, big, cite, code, del, dfn, em, font, img, ins, kbd, q, s, samp, small, strike, strong, sub, sup, tt, var, b, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, article, aside, audio, canvas, details, figcaption, figure, footer, header, hgroup, mark, menu, meter, nav, output, progress, section, summary, time, video {
+    border: 0;
+    outline: 0;
+    font-size: 100%;
+    vertical-align: baseline;
+    background: transparent;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    line-height: 1;
+}
+
+article, aside, dialog, figure, footer, header, hgroup, nav, section, blockquote {
+    display: block;
+}
+
+nav ul {
+    list-style: none;
+}
+
+ol {
+    list-style: decimal;
+}
+
+ul {
+    list-style: disc;
+}
+
+ul ul {
+    list-style: circle;
+}
+
+blockquote, q {
+    quotes: none;
+}
+
+blockquote:before, blockquote:after, q:before, q:after {
+    content: none;
+}
+
+ins {
+    text-decoration: underline;
+}
+
+del {
+    text-decoration: line-through;
+}
+
+mark {
+    background: none;
+}
+
+abbr[title], dfn[title] {
+    border-bottom: 1px dotted #000;
+    cursor: help;
+}
+
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+hr {
+    display: block;
+    height: 1px;
+    border: 0;
+    border-top: 1px solid #ccc;
+    margin: 1em 0;
+    padding: 0;
+}
+
+input[type=submit], input[type=button], button {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+input, select, a img {
+    vertical-align: middle;
+}
+
+
+h1 { font-size: 50px; }
+ body { font: 20px Helvetica, sans-serif; color: #333; }
+ article { display: block; text-align: left; width: 650px; margin: 0 auto; }
+ a { color: #6C99C2; text-decoration: none; }
+ a:hover { color: #333; text-decoration: none; }

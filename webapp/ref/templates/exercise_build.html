@@ -1,0 +1,21 @@
+{% extends "admin_base.html" %}
+
+{% block title %}
+Build Status
+{% endblock %}
+
+{% block content %}
+
+{% if exercise %}
+<dl class="row">
+    <dt class="col-sm-3">Short Name</dt>
+    <dd class="col-sm-9">{{ exercise.short_name }}</dd>
+    <dt class="col-sm-3">Version</dt>
+    <dd class="col-sm-9">{{ exercise.version }}</dd>
+    <dt class="col-sm-3">Build Status</dt>
+    <dd class="col-sm-9">{{ exercise.build_job_status.value }}</dd>
+</dl>
+
+{% endif %}
+
+{% endblock %}

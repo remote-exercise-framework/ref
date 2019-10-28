@@ -1,0 +1,62 @@
+
+
+{% macro render_field(field, type, label_visible=true, placeholder='') -%}
+    {% if field.type != 'HiddenField' and label_visible %}
+        <label for="{{ field.id }}">{{ field.label }}</label>
+    {% endif %}
+    <input name="{{ field.id }}" type="{{ type }}" class="form-control" id="{{ field.id }}" value="{{ field.data }}" placeholder="{{ placeholder }}">
+    {% if field.errors %}
+        {% for e in field.errors %}
+            <div class="alert alert-danger" role="alert">{{ e }}</div>
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{% macro render_textarea(field, label_visible=true, rows=8) -%}
+    {% if field.type != 'HiddenField' and label_visible %}
+        <label for="{{ field.id }}">{{ field.label }}</label>
+    {% endif %}
+    <textarea class="form-control" id="{{ field.id  }}" name="{{ field.id }}" rows="{{ rows }}">{{ field.data or "" }}</textarea>
+    {% if field.errors %}
+        {% for e in field.errors %}
+            <div class="alert alert-danger" role="alert">{{ e }}</div>
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{% macro render_radio(field, label_visible=true, vertical=false) -%}
+    {% if field.type != 'HiddenField' and label_visible %}
+        <label for="{{ field.id }}">{{ field.label }}</label>
+    {% endif %}
+    <fieldset>
+    {% for r in field %}
+        <div class="form-check form-check-inline">
+          <label class="form-check-label">
+            <input class="form-check-input" type="radio" name="{{ r.name }}" id="{{ r.id }}" value="{{ r.data }}"
+                   {% if field.data == r.data %}
+                    checked
+                   {% endif %}
+            > {{ r.label }}
+          </label>
+        </div>
+        {% if vertical %}
+            <br>
+        {% endif %}
+    {% endfor %}
+    </fieldset>
+    {% if field.errors %}
+    {% for e in field.errors %}
+        <div class="alert alert-danger" role="alert">{{ e }}</div>
+    {% endfor %}
+{% endif %}
+{%- endmacro %}
+
+
+{% macro render_submit(field, class='btn btn-primary btn-lg btn-block') -%}
+            <button type="submit" class="{{ class }}"
+                    name="{{ field.id }}" id="{{ field.id }}"
+                    value="{{ field.id }}">{{ field.label.text }}
+            </button>
+{%- endmacro %}
+
+

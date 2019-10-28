@@ -1,0 +1,82 @@
+version: '3'
+
+services:
+   sshserver:
+      environment:
+         - DEBUG=${DEBUG}
+      build:
+         ./ssh-wrapper
+      #volumes:
+      ports:
+         - "4444:4444"
+      networks:
+         - ssh-and-host
+         - web-and-ssh
+   web:
+      environment:
+         #Folder used for persistent data
+         - BASEDIR=/data
+         - DEBUG=${DEBUG}
+         - REDIS_URL=redis://redis
+      build:
+         context: ./webapp
+         args:
+            #Pass the hosts docker group id, since we are using the docker socket from the host.
+            DOCKER_GROUP_ID: ${DOCKER_GROUP_ID}
+      volumes:
+         #The webinterface, only needed for live updating during development
+         - ./webapp/:/app
+         #Persistance folder (db, templates, ...)
+         - ./data:/data
+         #The exercise templates to import
+         - ./exercises/:/exercises
+         #Make docker availabe inside the container
+         - /var/run/docker.sock:/var/run/docker.sock
+      ports:
+         - "8000:8000"
+      networks:
+         - web-host
+         - web-and-ssh
+   # redis:
+   #    image: 'bitnami/redis:5.0'
+   #    environment:
+   #       # ALLOW_EMPTY_PASSWORD is recommended only for development.
+   #       - ALLOW_EMPTY_PASSWORD=yes
+   #       - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+   #    ports:
+   #       - '6379:6379'
+   #    volumes:
+   #       - 'redis_data:/bitnami/redis/data'
+   # rq-worker:
+   #    build:
+   #       context: ./rq-worker
+   #       args:
+   #          DOCKER_GROUP_ID: ${DOCKER_GROUP_ID}
+   #    links:
+   #       - redis:redis
+   #    volumes:
+   #       - ./webapp/:/app:ro
+   #       - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+   redis_data:
+      driver: local
+
+networks:
+   #Network used to connect the webinterface to the host
+   web-host:
+      driver: bridge
+      driver_opts:
+         com.docker.network.bridge.name: "br-ref-webhost"
+   #Webinterface between the SSH entry server and the webinterface.
+   #This interface is used by the SSH server to retrive information
+   #on how a incoming connection should be routed.
+   web-and-ssh:
+      driver: bridge
+      driver_opts:
+         com.docker.network.bridge.name: "br-ref-webtossh"
+   #This network connects the SSH entry server to the host.
+   ssh-and-host:
+      driver: bridge
+      driver_opts:
+         com.docker.network.bridge.name: "br-ref-sshhost"

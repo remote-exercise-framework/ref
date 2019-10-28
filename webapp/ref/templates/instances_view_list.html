@@ -1,0 +1,38 @@
+{% extends "admin_base.html" %}
+
+{% block title %}
+Instances
+{% endblock %}
+
+{% block content %}
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+        <th scope="col">#</th>
+        <th scope="col">Exercise</th>
+        <th scope="col">Version</th>
+        <th scope="col">User</th>
+        <th scope="col"></th>
+        </tr>
+    </thead>
+    <tbody>
+{% for i in instances %}
+    <tr>
+        <td>{{ i.id }}</td>
+        <td>{{ i.exercise.short_name }}</td>
+        <td>{{ i.exercise.version }}</td>
+        <td>{{ i.user.first_name }} {{ i.user.surname }} ({{ i.user.id }})</td>
+        <td>
+            <a role="button" class="btn btn-outline-success" href="">View</a>
+            <a role="button" class="btn btn-outline-success" href="">Stop</a>
+            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id) }}">Delete</a>
+        </td>
+    </tr>
+{% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
+
+
