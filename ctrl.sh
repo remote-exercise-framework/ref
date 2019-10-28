@@ -2,7 +2,7 @@
 
 set -e
 
-mkdir data
+mkdir -p data
 
 function usage {
 cat <<EOF
