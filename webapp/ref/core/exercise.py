@@ -243,7 +243,7 @@ class ExerciseInstanceManager():
         c = dc.path_to_local
         cmd = [
             'mount', 'overlay', 'overlay',
-            '-o', f'lowerdir={c(exercise.persistance_lower)},upperdir={c(entry_service.overlay_upper())},workdir={c(entry_service.overlay_work())}',
+            '-o', f'lowerdir={c(exercise.entry_service.persistance_lower)},upperdir={c(entry_service.overlay_upper())},workdir={c(entry_service.overlay_work())}',
             f'{c(entry_service.overlay_merged())}'
         ]
         #subprocess.check_call(cmd, shell=True)
