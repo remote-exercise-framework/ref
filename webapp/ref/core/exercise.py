@@ -204,9 +204,9 @@ class ExerciseInstanceManager():
         instance.exercise = exercise
         instance.user = user
 
-        #persistance = Path(instance.persistance_path())
-        #assert not persistance.exists()
-        #persistance.mkdir(parents=True)
+        persistance = Path(instance.persistance_path())
+        assert not persistance.exists()
+        persistance.mkdir(parents=True)
 
         #Get the container ID of the ssh container, thus we can connect the new instance
         #to it.
@@ -227,13 +227,22 @@ class ExerciseInstanceManager():
         entry_service.instance = instance
         #instance.entry_service = entry_service
 
-        #persistance = Path(entry_service.overlay_upper())
-        #assert not persistance.exists()
-        #persistance.mkdir(parents=True)
+        persistance = Path(entry_service.overlay_upper())
+        assert not persistance.exists()
+        persistance.mkdir(parents=True)
+
+        persistance = Path(entry_service.overlay_work())
+        assert not persistance.exists()
+        persistance.mkdir(parents=True)
+
+        persistance = Path(entry_service.overlay_merged())
+        assert not persistance.exists()
+        persistance.mkdir(parents=True)
 
         image_name = exercise.entry_service.image_name
         #Create container that is initally connected to the 'none' network
-        container = dc.create_container(image_name, network_mode='none')
+        capas = ['CAP_SYS_PTRACE']
+        container = dc.create_container(image_name, network_mode='none', volumes=mounts, cap_add=capas)
 
         #Remove created container from 'none' network
         none_network = dc.network('none')
@@ -350,7 +359,8 @@ class ExerciseInstanceManager():
         After calling this function, the given instance is deleted from the DB.
         """
         self.stop()
-        #TODO: Remove persisted data
+        if os.path.exists(self.instance.persistance_path()):
+            shutil.rmtree(self.instance.persistance_path())
         current_app.db.session.delete(self.instance.entry_service)
         current_app.db.session.delete(self.instance)
         current_app.db.session.commit()
