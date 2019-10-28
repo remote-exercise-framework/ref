@@ -1,5 +1,5 @@
 from flask import Flask, render_template, Blueprint, redirect, url_for, request, Response, current_app
-from wtforms import Form, IntegerField, validators, SubmitField, RadioField, TextField, PasswordField
+from wtforms import Form, IntegerField, validators, SubmitField, RadioField, TextField, StringField, PasswordField
 from ref import refbp, db
 from ref.model import User
 from ref.model.enums import CourseOfStudies
@@ -7,6 +7,9 @@ import datetime
 from Crypto.PublicKey import RSA
 from itsdangerous import URLSafeTimedSerializer
 from ref.core import flash, admin_required
+import re
+
+
 
 """
 View the students can interact with (public).
@@ -14,7 +17,9 @@ View the students can interact with (public).
 
 #(In case you lost your key, this password is required)
 class GetKeyForm(Form):
-    mat_num = IntegerField('Matriculation Number', validators=[validators.Required()])
+    mat_num = StringField('Matriculation Number', validators=[
+        validators.Required(), validators.Regexp(r"^1080[0-2][0-9][1-2][0-9]{5}$")
+        ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = TextField('Firstname', validators=[validators.Required()])
     surname = TextField('Surname', validators=[validators.Required()])
@@ -74,8 +79,6 @@ def student_download_privkey(signed_mat):
     else:
         flash.error('Unknown student')
         return render_template('400.html'), 400
-
-
 
 @refbp.route('/student/getkey', methods=('GET', 'POST'))
 def student_getkey():
