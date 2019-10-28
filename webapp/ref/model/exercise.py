@@ -44,13 +44,13 @@ class ExerciseInstanceEntryService(db.Model):
     container_id = db.Column(db.Text(), unique=True)
 
     def overlay_upper(self):
-        return f'{self.instance.persistance_path}/entry-upper'
+        return f'{self.instance.persistance_path()}/entry-upper'
 
     def overlay_work(self):
-        return f'{self.instance.persistance_path}/entry-work'
+        return f'{self.instance.persistance_path()}/entry-work'
 
     def overlay_merged(self):
-        return f'{self.instance.persistance_path}/entry-merged'
+        return f'{self.instance.persistance_path()}/entry-merged'
 
 class ExerciseInstance(db.Model):
     """

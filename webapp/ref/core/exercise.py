@@ -205,7 +205,6 @@ class ExerciseInstanceManager():
         instance.user = user
 
         persistance = Path(instance.persistance_path())
-        assert not persistance.exists()
         persistance.mkdir(parents=True)
 
         #Get the container ID of the ssh container, thus we can connect the new instance
@@ -228,6 +227,7 @@ class ExerciseInstanceManager():
         #instance.entry_service = entry_service
 
         persistance = Path(entry_service.overlay_upper())
+        current_app.logger.info(f"creating {persistance}")
         assert not persistance.exists()
         persistance.mkdir(parents=True)
 
@@ -238,6 +238,21 @@ class ExerciseInstanceManager():
         persistance = Path(entry_service.overlay_merged())
         assert not persistance.exists()
         persistance.mkdir(parents=True)
+
+        #Create overlayfs for container
+        c = dc.path_to_local
+        cmd = [
+            'mount', 'overlay', 'overlay',
+            '-o', f'lowerdir={c(exercise.persistance_lower)},upperdir={c(entry_service.overlay_upper())},workdir={c(entry_service.overlay_work())}',
+            f'{c(entry_service.overlay_merged())}'
+        ]
+        #subprocess.check_call(cmd, shell=True)
+
+        mounts = {
+            c(entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
+            }
+
+        current_app.logger.info(f'mounting persistance {mounts}')
 
         image_name = exercise.entry_service.image_name
         #Create container that is initally connected to the 'none' network
