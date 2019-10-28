@@ -228,15 +228,12 @@ class ExerciseInstanceManager():
 
         persistance = Path(entry_service.overlay_upper())
         current_app.logger.info(f"creating {persistance}")
-        assert not persistance.exists()
         persistance.mkdir(parents=True)
 
         persistance = Path(entry_service.overlay_work())
-        assert not persistance.exists()
         persistance.mkdir(parents=True)
 
         persistance = Path(entry_service.overlay_merged())
-        assert not persistance.exists()
         persistance.mkdir(parents=True)
 
         #Create overlayfs for container
