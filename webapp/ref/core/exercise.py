@@ -254,6 +254,8 @@ class ExerciseInstanceManager():
         """
         Starts the given instance.
         """
+        assert not self.is_running()
+
         exercise = self.instance.exercise
         entry_service = self.instance.entry_service
         #Get the container ID of the ssh container, thus we can connect the new instance
@@ -263,7 +265,8 @@ class ExerciseInstanceManager():
 
         #Create a network. The bridge of an internal network is not connected
         #to the host (i.e., the host has no interface attached to it).
-        network = dc.create_network(internal=not self.instance.exercise.allow_internet)
+        network_name = f'ref-{self.instance.exercise.short_name}v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}'
+        network = dc.create_network(name=network_name, internal=not self.instance.exercise.allow_internet)
 
         #Make the ssh server join the network
         current_app.logger.info(f'connecting {ssh_container.id} to network')
@@ -304,8 +307,10 @@ class ExerciseInstanceManager():
         mem_limit = current_app.config['EXERCISE_CONTAINER_MEMORY_LIMIT']
 
         seccomp_profile = [f'seccomp={seccomp_profile}']
+        entry_container_name = f'ref-{self.instance.exercise.short_name}v{self.instance.exercise.version}-entry-{self.instance.id}'
         container = dc.create_container(
             image_name,
+            name=entry_container_name,
             network_mode='none',
             volumes=mounts,
             cap_add=capabilities,
@@ -373,6 +378,7 @@ class ExerciseInstanceManager():
     def is_running(self):
         """
         Check whether all components of the instance are running.
+        This function only returns True if all components are completely healthy.
         """
         if not self.instance.entry_service.container_id:
             return False
@@ -390,7 +396,7 @@ class ExerciseInstanceManager():
         ssh_container = self._d.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
         assert ssh_container
 
-        #Check if the ssh container is connected to our network. This happens if the ssh server
+        #Check if the ssh container is connected to our network. This might not be the case if the ssh server
         #was removed and restarted with a new id that is not part of our network anymore.
         #i.e., docker-compose down -> docker-compose up
         ssh_to_entry_network.reload()
@@ -486,7 +492,7 @@ class ExerciseManager():
         exercise.short_name = ExerciseManager._parse_attr(cfg, 'short-name', str)
         exercise.description = ExerciseManager._parse_attr(cfg, 'description', str)
         exercise.version = ExerciseManager._parse_attr(cfg, 'version', int)
-        exercise.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', int)
+        exercise.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', bool, required=False, default=False)
         exercise.is_default = False
         exercise.build_job_status = ExerciseBuildStatus.NOT_BUILD
 
@@ -533,7 +539,6 @@ class ExerciseManager():
         assert not persistence_path.exists()
         persistence_path.mkdir(parents=True)
         exercise.persistence_path = persistence_path.as_posix()
-
 
         template_path = template_path.as_posix()
         #Copy data from import folder into an internal folder
