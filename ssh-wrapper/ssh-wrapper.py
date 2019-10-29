@@ -132,12 +132,12 @@ def main():
         print('If the problems persist, please contact your system administrator.', flush=True)
         exit(1)
 
-
-
     os.execvp('/usr/bin/ssh', cmd)
 
 if __name__ == "__main__":
     try:
         main()
+    except KeyboardInterrupt:
+        print('Bye bye\n', flush=True)
     except Exception as e:
         print(traceback.format_exc(), flush=True)
