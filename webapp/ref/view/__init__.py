@@ -3,3 +3,4 @@ from .student import student_getkey, student_restorekey, student_view_all, stude
 from .api import api_provision
 from .instances import instances_view_all, instance_delete, instance_stop
 from .login import login
+from .graph import graph

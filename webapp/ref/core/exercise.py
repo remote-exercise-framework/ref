@@ -113,7 +113,7 @@ class ExerciseImageManager():
         except Exception as e:
             raise e
 
-        #Make a copy of the data that need to be persisted
+        #Make a copy of the data that needs to be persisted
         if exercise.entry_service.persistance_container_path:
             client = DockerClient()
             log += client.copy_from_image(
@@ -263,7 +263,7 @@ class ExerciseInstanceManager():
 
         #Create a network. The bridge of an internal network is not connected
         #to the host (i.e., the host has no interface attached to it).
-        network_name = f'ref-{self.instance.exercise.short_name}v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}'
+        network_name = f'ref-{self.instance.exercise.short_name}-v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}'
         network = self.dc.create_network(name=network_name, internal=not self.instance.exercise.allow_internet)
 
         #Make the ssh server join the network
@@ -407,12 +407,6 @@ class ExerciseInstanceManager():
 
         return True
 
-    def get_container(self, instance: ExerciseInstance):
-        """
-        Returns an instance of DockerContainer. In case the
-        instance is currently stopped, it is started again.
-        """
-
     def remove(self):
         """
         Kill the instance and remove all associated persisted data.
@@ -429,14 +423,6 @@ class ExerciseInstanceManager():
         current_app.db.session.delete(self.instance.entry_service)
         current_app.db.session.delete(self.instance)
         current_app.db.session.commit()
-
-    def update(self, instance: ExerciseInstance, exercise: Exercise) -> ExerciseInstance:
-        pass
-
-    def get_instance(self, exercise: Exercise, user: User) -> ExerciseInstance:
-        """
-        Returns a ExerciseInstance of the given exercise bound to the given user.
-        """
 
 
 class ExerciseManager():
