@@ -48,5 +48,8 @@ COPY sshd_config /etc/ssh/sshd_config
 #Disable Ubuntu welcome message
 RUN chmod -x /etc/update-motd.d/* && rm /etc/legal
 
+COPY my-shell.c /tmp/my-shell.c
+RUN gcc /tmp/my-shell.c -o /bin/sh && rm /tmp/my-shell.c
+
 CMD ["/usr/sbin/sshd", "-D"]
 
