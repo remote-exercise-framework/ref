@@ -12,6 +12,9 @@ services:
          - ssh-and-host
          - web-and-ssh
    web:
+      security_opt:
+         #Needed for mounting overlay inside containers
+         - apparmor:unconfined
       environment:
          #Folder used for persistent data
          - BASEDIR=/data
