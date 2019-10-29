@@ -2,6 +2,10 @@
 #include <unistd.h>
 #include <stdio.h>
 
+/*
+This is a custom shell that calls /bin/bash with the -p flag.
+This flag prevents bash from dropping privileges in case euid != uid.
+*/
 
 int main(int argc, char *argv[])
 {
