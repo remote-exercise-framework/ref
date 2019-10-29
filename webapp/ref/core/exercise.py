@@ -299,9 +299,21 @@ class ExerciseInstanceManager():
         with open('/app/seccomp.json', 'r') as f:
             seccomp_profile = f.read()
 
-        #mounts = None
+        cpu_period = current_app.config['EXERCISE_CONTAINER_CPU_PERIOD']
+        cpu_quota = current_app.config['EXERCISE_CONTAINER_CPU_QUOTA']
+        mem_limit = current_app.config['EXERCISE_CONTAINER_MEMORY_LIMIT']
+
         seccomp_profile = [f'seccomp={seccomp_profile}']
-        container = dc.create_container(image_name, network_mode='none', volumes=mounts, cap_add=capabilities, security_opt=seccomp_profile)
+        container = dc.create_container(
+            image_name,
+            network_mode='none',
+            volumes=mounts,
+            cap_add=capabilities,
+            security_opt=seccomp_profile,
+            cpu_quota=cpu_quota,
+            cpu_period=cpu_period,
+            mem_limit=mem_limit
+            )
         entry_service.container_id = container.id
 
         #Remove created container from 'none' network
@@ -370,6 +382,7 @@ class ExerciseInstanceManager():
         entry_container = self._d.container(self.instance.entry_service.container_id)
         if not entry_container or entry_container.status != 'running':
             return False
+
         ssh_to_entry_network = self._d.network(self.instance.network_id)
         if not ssh_to_entry_network:
             return False
@@ -388,7 +401,6 @@ class ExerciseInstanceManager():
         #Check if the entry container is part of the network
         if entry_container not in containers:
             return False
-
 
         return True
 

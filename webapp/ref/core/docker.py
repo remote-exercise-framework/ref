@@ -108,10 +108,23 @@ class DockerClient():
                 return v['IPv4Address']
         return None
 
-    def create_container(self, image_name, name=None, auto_remove=True, network_mode='none', volumes=None, cap_add=[], security_opt=[]):
+    def create_container(self, image_name, name=None, auto_remove=True, network_mode='none', volumes=None, cap_add=[], security_opt=[], cpu_period=None, cpu_quota=None, mem_limit=None):
         if not name:
             name = 'ref-' + ''.join(random.choices(string.ascii_uppercase, k=10))
-        return self.client.containers.run(image_name, detach=True, privileged=True, name=name, volumes=volumes, cap_add=cap_add, auto_remove=auto_remove, network_mode=network_mode, security_opt=security_opt)
+        return self.client.containers.run(
+            image_name,
+            detach=True,
+            privileged=False,
+            name=name,
+            volumes=volumes,
+            cap_add=cap_add,
+            auto_remove=auto_remove,
+            network_mode=network_mode,
+            security_opt=security_opt,
+            cpu_period=cpu_period,
+            cpu_quota=cpu_quota,
+            mem_limit=mem_limit
+            )
 
     def create_network(self, name=None, driver='bridge', internal=False):
         """
