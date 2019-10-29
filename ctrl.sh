@@ -23,8 +23,26 @@ if [[ $# -lt 1 ]]; then
     usage
 fi
 
+#Check the .env files used to parametrize the docker-compose file.
+
 if [[ ! -f '.env' ]]; then
     echo "Please copy template.env to .env and adapt the values"
+    exit 1
+fi
+
+source .env
+if [[ -z "$DOCKER_GROUP_ID" ]]; then
+    echo "Please set DOCKER_GROUP_ID in .env to your docker group ID"
+    exit 1
+fi
+
+if [[ "$(getent group docker | cut -d ':' -f 3)" != "$DOCKER_GROUP_ID" ]]; then
+    echo "DOCKER_GROUP_ID in .env does not match the local docker group ID"
+    exit 1
+fi
+
+if [[ -z "$SSH_HOST_PORT" ]]; then
+    echo "Please set SSH_HOST_PORT in .env to the port the entry ssh server should be expose on the host"
     exit 1
 fi
 
@@ -71,6 +89,10 @@ function log {
     docker-compose logs $@
 }
 
+function stop {
+    docker-compose stop
+}
+
 cmd="$1"
 shift
 
@@ -86,6 +108,9 @@ case "$cmd" in
     ;;
     logs)
         log $@
+    ;;
+    stop)
+        stop $@
     ;;
     *)
         echo "$cmd is not a valid command"

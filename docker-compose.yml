@@ -7,7 +7,7 @@ services:
          ./ssh-wrapper
       #volumes:
       ports:
-         - "22:4444"
+         - "${SSH_HOST_PORT}:4444"
       networks:
          - ssh-and-host
          - web-and-ssh
