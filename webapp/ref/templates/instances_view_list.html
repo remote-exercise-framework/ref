@@ -26,9 +26,11 @@ Instances
         <td>{{ i.user.first_name }} {{ i.user.surname }} ({{ i.user.id }})</td>
         <td>{{ i.running }}</td>
         <td>
-            <a role="button" class="btn btn-outline-success" href="">View</a>
-            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_stop', instance_id=i.id) }}">Stop</a>
-            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id) }}">Delete</a>
+            <div class="btn-group">
+                <a role="button" class="btn btn-outline-success" href="">View</a>
+                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_stop', instance_id=i.id) }}">Stop</a>
+                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id) }}">Delete</a>
+            </div>
         </td>
     </tr>
 {% endfor %}
