@@ -27,7 +27,6 @@ class ReleaseConfig(object):
     INSTANCES_NETWORK_NAME = os.environ.get('INSTANCES_NETWORK_NAME') or 'ref-instances'
     SECRET_KEY = 'cowhSpWKs26DQA7KloZ5SJmPP2BMdY'
 
-
     EXERCISE_CONTAINER_CPU_PERIOD = 100000
 
     """
@@ -45,3 +44,4 @@ class ReleaseConfig(object):
 
 class DebugConfig(ReleaseConfig):
     debug = True
+    DEBUG_TB_INTERCEPT_REDIRECTS = False
