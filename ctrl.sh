@@ -51,6 +51,11 @@ if [[ -z "$SSH_HOST_PORT" ]]; then
     exit 1
 fi
 
+if [[ -z "$HTTP_HOST_PORT" ]]; then
+    echo "Please set HTTP_HOST_PORT in .env to the port the entry ssh server should be expose on the host"
+    exit 1
+fi
+
 
 function build {
     #Build the base image for all exercises
