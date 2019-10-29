@@ -32,7 +32,7 @@ class ExerciseImageManager():
     """
 
     def __init__(self, exercise: Exercise):
-        self._d = DockerClient()
+        self.dc = DockerClient()
         self.exercise = exercise
 
     def is_build(self) -> bool:
@@ -42,7 +42,7 @@ class ExerciseImageManager():
 
         #Check the image of the entry service
         image_name = self.exercise.entry_service.image_name
-        image = self._d.image(image_name)
+        image = self.dc.image(image_name)
         if not image:
             return False
 
@@ -119,7 +119,7 @@ class ExerciseImageManager():
             log += client.copy_from_image(
                 image_name,
                 exercise.entry_service.persistance_container_path,
-                client.path_to_local(exercise.entry_service.persistance_lower)
+                client.local_path_to_host(exercise.entry_service.persistance_lower)
                 )
 
         return log
@@ -178,8 +178,8 @@ class ExerciseImageManager():
 
         #Delete docker image of entry service
         image_name = self.exercise.entry_service.image_name
-        if self._d.image(image_name):
-            img = self._d.rmi(image_name)
+        if self.dc.image(image_name):
+            img = self.dc.rmi(image_name)
 
         #Remove template
         if os.path.isdir(self.exercise.template_path):
@@ -199,7 +199,7 @@ class ExerciseInstanceManager():
     """
 
     def __init__(self, instance: ExerciseInstance):
-        self._d = DockerClient()
+        self.dc = DockerClient()
         self.instance = instance
 
     @staticmethod
@@ -242,11 +242,10 @@ class ExerciseInstanceManager():
         """
         Returns the IP of entry service that can be used by the SSH server to forward connections.
         """
-        dc = DockerClient()
-        network = dc.network(self.instance.network_id)
-        container = dc.container(self.instance.entry_service.container_id)
+        network = self.dc.network(self.instance.network_id)
+        container = self.dc.container(self.instance.entry_service.container_id)
         current_app.logger.info(f'Getting IP of container {self.instance.entry_service.container_id} on network {self.instance.network_id}')
-        ip = dc.container_get_ip(container, network)
+        ip = self.dc.container_get_ip(container, network)
         current_app.logger.info(f'IP is {ip}')
         return ip.split('/')[0]
 
@@ -260,13 +259,12 @@ class ExerciseInstanceManager():
         entry_service = self.instance.entry_service
         #Get the container ID of the ssh container, thus we can connect the new instance
         #to it.
-        dc = DockerClient()
-        ssh_container = dc.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
+        ssh_container = self.dc.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
 
         #Create a network. The bridge of an internal network is not connected
         #to the host (i.e., the host has no interface attached to it).
         network_name = f'ref-{self.instance.exercise.short_name}v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}'
-        network = dc.create_network(name=network_name, internal=not self.instance.exercise.allow_internet)
+        network = self.dc.create_network(name=network_name, internal=not self.instance.exercise.allow_internet)
 
         #Make the ssh server join the network
         current_app.logger.info(f'connecting {ssh_container.id} to network')
@@ -274,7 +272,6 @@ class ExerciseInstanceManager():
         self.instance.network_id = network.id
 
         #Create overlayfs for container
-        c = dc.path_to_local
         cmd = [
             'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
             f'-olowerdir={exercise.entry_service.persistance_lower},upperdir={entry_service.overlay_upper()},workdir={entry_service.overlay_work()}',
@@ -287,7 +284,7 @@ class ExerciseInstanceManager():
         subprocess.check_call(cmd, shell=True)
 
         mounts = {
-            c(entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
+            self.dc.local_path_to_host(entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
             }
 
         current_app.logger.info(f'mounting persistance {mounts}')
@@ -308,7 +305,7 @@ class ExerciseInstanceManager():
 
         seccomp_profile = [f'seccomp={seccomp_profile}']
         entry_container_name = f'ref-{self.instance.exercise.short_name}v{self.instance.exercise.version}-entry-{self.instance.id}'
-        container = dc.create_container(
+        container = self.dc.create_container(
             image_name,
             name=entry_container_name,
             network_mode='none',
@@ -322,7 +319,7 @@ class ExerciseInstanceManager():
         entry_service.container_id = container.id
 
         #Remove created container from 'none' network
-        none_network = dc.network('none')
+        none_network = self.dc.network('none')
         none_network.disconnect(container)
 
         #Join the network of the ssh server
@@ -333,7 +330,7 @@ class ExerciseInstanceManager():
 
 
     def _stop_networks(self):
-        network = self._d.network(self.instance.network_id)
+        network = self.dc.network(self.instance.network_id)
         if not network:
             return
         network.reload()
@@ -345,7 +342,7 @@ class ExerciseInstanceManager():
         entry_container = self.instance.entry_service.container_id
         if not entry_container:
             return
-        entry_container = self._d.container(entry_container)
+        entry_container = self.dc.container(entry_container)
         if entry_container:
             entry_container.kill()
 
@@ -385,15 +382,15 @@ class ExerciseInstanceManager():
         if not self.instance.network_id:
             return False
 
-        entry_container = self._d.container(self.instance.entry_service.container_id)
+        entry_container = self.dc.container(self.instance.entry_service.container_id)
         if not entry_container or entry_container.status != 'running':
             return False
 
-        ssh_to_entry_network = self._d.network(self.instance.network_id)
+        ssh_to_entry_network = self.dc.network(self.instance.network_id)
         if not ssh_to_entry_network:
             return False
 
-        ssh_container = self._d.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
+        ssh_container = self.dc.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
         assert ssh_container
 
         #Check if the ssh container is connected to our network. This might not be the case if the ssh server
