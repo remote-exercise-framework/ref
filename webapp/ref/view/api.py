@@ -75,7 +75,6 @@ def api_provision():
 
         if instance:
             linfo('User already has an instance')
-            #return error_response('There is an instance')
         else:
             linfo('Creating a new instance')
             instance = ExerciseInstanceManager.create_instance(user, exercise)

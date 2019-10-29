@@ -194,3 +194,12 @@ def exercise_view(exercise_id):
         return render_template('400.html'), 400
 
     return render_template('exercise_view_single.html', exercise=exercise)
+
+
+@refbp.route('/admin', methods=('GET', 'POST'))
+@admin_required
+def admin_default_routes():
+    """
+    List all students currently registered.
+    """
+    return redirect(url_for('ref.exercise_view_all'))

@@ -183,3 +183,11 @@ def student_view_single(user_id):
         return render_template('400.html'), 400
 
     return render_template('student_view_single.html', user=user)
+
+@refbp.route('/student', methods=('GET', 'POST'))
+@refbp.route('/', methods=('GET', 'POST'))
+def student_default_routes():
+    """
+    List all students currently registered.
+    """
+    return redirect(url_for('ref.student_getkey'))
