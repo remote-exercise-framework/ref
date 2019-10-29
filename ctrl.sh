@@ -10,8 +10,13 @@ Usage:
 $0 <cmd>
 
 Commands:
-    - build
-    - up
+    build:
+        Build all images.
+    up:
+        Start all serviceses.
+            --debug
+            Enables debug mode. This causes exception to be printed
+            on the webinterface. Use this only for development.
     - down
     - logs#
 
@@ -78,7 +83,7 @@ function up {
         export DEBUG=1
     fi
 
-    docker-compose up -d
+    docker-compose up $@
 }
 
 function down {
@@ -91,6 +96,10 @@ function log {
 
 function stop {
     docker-compose stop
+}
+
+function ps {
+    docker-compose ps
 }
 
 cmd="$1"
@@ -111,6 +120,9 @@ case "$cmd" in
     ;;
     stop)
         stop $@
+    ;;
+    ps)
+        ps $@
     ;;
     *)
         echo "$cmd is not a valid command"
