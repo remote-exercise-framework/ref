@@ -25,7 +25,7 @@ class ReleaseConfig(object):
     #Network the instances are connected to. The SSH server must be part of this
     #network, thus it can forward incoming connections to a specific instance.
     INSTANCES_NETWORK_NAME = os.environ.get('INSTANCES_NETWORK_NAME') or 'ref-instances'
+    SECRET_KEY = 'cowhSpWKs26DQA7KloZ5SJmPP2BMdY'
 
 class DebugConfig(ReleaseConfig):
     debug = True
-    SECRET_KEY = b'123'
