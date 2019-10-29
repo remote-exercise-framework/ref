@@ -30,7 +30,7 @@ Port 13370
 
 #LoginGraceTime 2m
 #PermitRootLogin prohibit-password
-#StrictModes yes
+StrictModes no
 #MaxAuthTries 6
 #MaxSessions 10
 

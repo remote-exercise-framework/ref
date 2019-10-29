@@ -68,7 +68,7 @@ class DockerClient():
             local_dst_path: {'bind': '/ref-copy', 'mode': 'rw'}
             }
 
-        cmd = ['/bin/bash', '-c', f'cp -avr {container_src_path}/* /ref-copy/']
+        cmd = ['/bin/bash', '-c', f'cp -avrT {container_src_path}/ /ref-copy/']
         log = ""
         log += ' --- Copying data from image ---\n'
         log += self.client.containers.run(image_name, cmd, stderr=True, volumes=mounts, auto_remove=True).decode()

@@ -113,7 +113,7 @@ class ExerciseImageManager():
         except Exception as e:
             raise e
 
-        #Make a copy of the data that needs to be persisted
+        #Make a copy of the data that need to be persisted
         if exercise.entry_service.persistance_container_path:
             client = DockerClient()
             log += client.copy_from_image(
@@ -203,9 +203,14 @@ class ExerciseInstanceManager():
         self.instance = instance
 
     @staticmethod
+    def _create_entry_service_folder():
+        pass
+
+    @staticmethod
     def create_instance(user: User, exercise: Exercise) -> ExerciseInstance:
         """
         Creates an instance of the given exercise for the given user.
+        After creating an instance, .start() must be used to start it.
         """
         instance = ExerciseInstance()
         instance.exercise = exercise
@@ -214,24 +219,9 @@ class ExerciseInstanceManager():
         persistance = Path(instance.persistance_path())
         persistance.mkdir(parents=True, exist_ok=True)
 
-        #Get the container ID of the ssh container, thus we can connect the new instance
-        #to it.
-        dc = DockerClient()
-        ssh_container = dc.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
-
-        #Create a network. The bridge of an internal network is not connected
-        #to the host (i.e., the host has no interface attached to it).
-        network = dc.create_network(internal=True)
-
-        #Make the ssh server join the network
-        current_app.logger.info(f'connecting {ssh_container.id} to network')
-        network.connect(ssh_container)
-        instance.network_id = network.id
-
         #Create the entry container
         entry_service = ExerciseInstanceEntryService()
         entry_service.instance = instance
-        #instance.entry_service = entry_service
 
         persistance = Path(entry_service.overlay_upper())
         current_app.logger.info(f"creating {persistance}")
@@ -243,42 +233,6 @@ class ExerciseInstanceManager():
         persistance = Path(entry_service.overlay_merged())
         persistance.mkdir(parents=True, exist_ok=True)
 
-        #Create overlayfs for container
-        c = dc.path_to_local
-        cmd = [
-            'mount', 'overlay', 'overlay',
-            '-o', f'lowerdir={c(exercise.entry_service.persistance_lower)},upperdir={c(entry_service.overlay_upper())},workdir={c(entry_service.overlay_work())}',
-            f'{c(entry_service.overlay_merged())}'
-        ]
-        #subprocess.check_call(cmd, shell=True)
-
-        mounts = {
-            c(entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
-            }
-
-        current_app.logger.info(f'mounting persistance {mounts}')
-
-        image_name = exercise.entry_service.image_name
-        #Create container that is initally connected to the 'none' network
-        mounts = None
-
-        #Allow the usage of ptrace, thus we can use gdb
-        capabilities = ['SYS_PTRACE']
-
-        #Apply a custom seccomp profile that allows the personality syscall to disable ASLR
-        with open('/app/seccomp.json', 'r') as f:
-            seccomp_profile = f.read()
-
-        seccomp_profile = [f'seccomp={seccomp_profile}']
-        container = dc.create_container(image_name, network_mode='none', volumes=mounts, cap_add=capabilities, security_opt=seccomp_profile)
-
-        #Remove created container from 'none' network
-        none_network = dc.network('none')
-        none_network.disconnect(container)
-
-        network.connect(container)
-
-        entry_service.container_id = container.id
         current_app.db.session.add(entry_service)
         current_app.db.session.add(instance)
 
@@ -300,21 +254,63 @@ class ExerciseInstanceManager():
         """
         Starts the given instance.
         """
-        ssh_container = self._d.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
+        exercise = self.instance.exercise
+        entry_service = self.instance.entry_service
+        #Get the container ID of the ssh container, thus we can connect the new instance
+        #to it.
+        dc = DockerClient()
+        ssh_container = dc.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
 
-        #Create a network
-        network = self._d.create_network(internal=False)
+        #Create a network. The bridge of an internal network is not connected
+        #to the host (i.e., the host has no interface attached to it).
+        network = dc.create_network(internal=True)
 
         #Make the ssh server join the network
         current_app.logger.info(f'connecting {ssh_container.id} to network')
         network.connect(ssh_container)
         self.instance.network_id = network.id
 
-        image_name = self.instance.exercise.entry_service.image_name
-        container = self._d.create_container(image_name)
+        #Create overlayfs for container
+        c = dc.path_to_local
+        cmd = [
+            'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
+            f'-olowerdir={exercise.entry_service.persistance_lower},upperdir={entry_service.overlay_upper()},workdir={entry_service.overlay_work()}',
+            f'{entry_service.overlay_merged()}'
+        ]
+        subprocess.check_call(cmd)
+
+        #Fix mountpoint permission, thus the folder is owned by the container user "user".
+        cmd = f'sudo chown 9999:9999 {entry_service.overlay_merged()}'
+        subprocess.check_call(cmd, shell=True)
+
+        mounts = {
+            c(entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
+            }
+
+        current_app.logger.info(f'mounting persistance {mounts}')
+
+        image_name = exercise.entry_service.image_name
+        #Create container that is initally connected to the 'none' network
+
+        #Allow the usage of ptrace, thus we can use gdb
+        capabilities = ['SYS_PTRACE']
+
+        #Apply a custom seccomp profile that allows the personality syscall to disable ASLR
+        with open('/app/seccomp.json', 'r') as f:
+            seccomp_profile = f.read()
+
+        #mounts = None
+        seccomp_profile = [f'seccomp={seccomp_profile}']
+        container = dc.create_container(image_name, network_mode='none', volumes=mounts, cap_add=capabilities, security_opt=seccomp_profile)
+        entry_service.container_id = container.id
+
+        #Remove created container from 'none' network
+        none_network = dc.network('none')
+        none_network.disconnect(container)
+
+        #Join the network of the ssh server
         network.connect(container)
 
-        self.instance.entry_service.container_id = container.id
         current_app.db.session.add(self.instance)
         current_app.db.session.commit()
 
@@ -350,6 +346,11 @@ class ExerciseInstanceManager():
 
         self._stop_containers()
 
+        #umount entry service persistance
+        if os.path.ismount(self.instance.entry_service.overlay_merged()):
+            cmd = ['sudo', '/bin/umount', self.instance.entry_service.overlay_merged()]
+            subprocess.check_call(cmd)
+
         #Sync state back to DB
         self.instance.entry_service.container_id = None
         self.instance.network_id = None
@@ -366,12 +367,29 @@ class ExerciseInstanceManager():
         if not self.instance.network_id:
             return False
 
-        container = self._d.container(self.instance.entry_service.container_id)
-        if not container or container.status != 'running':
+        entry_container = self._d.container(self.instance.entry_service.container_id)
+        if not entry_container or entry_container.status != 'running':
             return False
-        network = self._d.network(self.instance.network_id)
-        if not network:
+        ssh_to_entry_network = self._d.network(self.instance.network_id)
+        if not ssh_to_entry_network:
             return False
+
+        ssh_container = self._d.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
+        assert ssh_container
+
+        #Check if the ssh container is connected to our network. This happens if the ssh server
+        #was removed and restarted with a new id that is not part of our network anymore.
+        #i.e., docker-compose down -> docker-compose up
+        ssh_to_entry_network.reload()
+        containers = ssh_to_entry_network.containers
+        if ssh_container not in containers:
+            return False
+
+        #Check if the entry container is part of the network
+        if entry_container not in containers:
+            return False
+
+
         return True
 
     def get_container(self, instance: ExerciseInstance):
@@ -386,8 +404,13 @@ class ExerciseInstanceManager():
         After calling this function, the given instance is deleted from the DB.
         """
         self.stop()
+
+        if os.path.ismount(self.instance.entry_service.overlay_merged()):
+            cmd = ['sudo', '/bin/umount', self.instance.entry_service.overlay_merged()]
+            subprocess.check_call(cmd)
         if os.path.exists(self.instance.persistance_path()):
-            shutil.rmtree(self.instance.persistance_path())
+            subprocess.check_call(f'sudo rm -rf {self.instance.persistance_path()}', shell=True)
+
         current_app.db.session.delete(self.instance.entry_service)
         current_app.db.session.delete(self.instance)
         current_app.db.session.commit()

@@ -87,7 +87,7 @@ def api_provision():
         #Check if the instance is running
         running = instance_manager.is_running()
         if not running:
-            linfo('Instance is not running, restarting...')
+            linfo('Instance is not running, starting...')
             instance_manager.stop()
             instance_manager.start()
 

@@ -113,6 +113,8 @@ def exercise_view_all():
 
     exercises = Exercise.query.all()
 
+    exercises = sorted(exercises, key=lambda e: e.short_name)
+
     #Check whether our DB and the local docker repo are in sync
     for exercise in exercises:
         mgr = ExerciseManager(exercise)

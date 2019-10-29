@@ -1,5 +1,4 @@
-version: '3'
-
+version: "3.7"
 services:
    sshserver:
       environment:
@@ -18,16 +17,22 @@ services:
          - BASEDIR=/data
          - DEBUG=${DEBUG}
          - REDIS_URL=redis://redis
+      cap_add:
+         - SYS_ADMIN
       build:
          context: ./webapp
          args:
             #Pass the hosts docker group id, since we are using the docker socket from the host.
             DOCKER_GROUP_ID: ${DOCKER_GROUP_ID}
       volumes:
+         - type: bind
+           source: ./data
+           target: /data
+           bind:
+             propagation: shared
          #The webinterface, only needed for live updating during development
          - ./webapp/:/app
          #Persistance folder (db, templates, ...)
-         - ./data:/data
          #The exercise templates to import
          - ./exercises/:/exercises
          #Make docker availabe inside the container
