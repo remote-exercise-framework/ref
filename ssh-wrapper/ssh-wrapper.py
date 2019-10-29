@@ -94,7 +94,7 @@ def main():
     print(header, end='')
     #print(header_title)
 
-    print(f'Hello {real_name}!\n Trying to connect to task "{real_user}"...')
+    print(f'Hello {real_name}!\nTrying to connect to task "{real_user}"...')
     status_code, resp = get_container(real_user, pubkey)
 
     if status_code != 200:
