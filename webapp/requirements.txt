@@ -21,3 +21,4 @@ celery
 rq
 gunicorn
 flask-login
+flask-debugtoolbar
