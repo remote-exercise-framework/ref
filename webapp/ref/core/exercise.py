@@ -271,7 +271,11 @@ class ExerciseInstanceManager():
         network.connect(ssh_container)
         self.instance.network_id = network.id
 
-        #Create overlayfs for container
+        #Create overlay for the container persistance. All changes made by the student are recorded in the upper dir.
+        #In case a update of the container is necessary, we can replace the lower dir with a new one and reuse the upper
+        #dir. The directory used as mount target (overlay_merged) has shared mount propagation, i.e., the mount we are
+        #doing here is propageted to the host. This is needed, since we are mounting this merged directory into a container
+        #that is started by the host (see below for further details).
         cmd = [
             'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
             f'-olowerdir={exercise.entry_service.persistance_lower},upperdir={entry_service.overlay_upper()},workdir={entry_service.overlay_work()}',
@@ -279,10 +283,12 @@ class ExerciseInstanceManager():
         ]
         subprocess.check_call(cmd)
 
-        #Fix mountpoint permission, thus the folder is owned by the container user "user".
+        #FIXME: Fix mountpoint permission, thus the folder is owned by the container user "user".
         cmd = f'sudo chown 9999:9999 {entry_service.overlay_merged()}'
         subprocess.check_call(cmd, shell=True)
 
+        #Since we are using the hosts docker deamon, the mount source must be a path that is mounted in the hosts tree,
+        #hence we need to translate the locale mount path to the host ones.
         mounts = {
             self.dc.local_path_to_host(entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
             }
