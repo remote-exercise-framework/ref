@@ -38,6 +38,11 @@ COPY container-key/container-key.pub .ssh/authorized_keys
 RUN chown root:root .ssh/authorized_keys \
     && chmod 444 .ssh/authorized_keys
 
+#Install gef
+RUN wget -O /home/user/.gdbinit-gef.py -q https://github.com/hugsy/gef/raw/master/gef.py \
+    && echo source /home/user/.gdbinit-gef.py >> /home/user/.gdbinit \
+    && chown user:user /home/user/.gdbinit
+
 COPY sshd_config /etc/ssh/sshd_config
 
 #Disable Ubuntu welcome message
