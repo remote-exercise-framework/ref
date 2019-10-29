@@ -28,6 +28,9 @@ services:
             #Pass the hosts docker group id, since we are using the docker socket from the host.
             DOCKER_GROUP_ID: ${DOCKER_GROUP_ID}
       volumes:
+         #Persistance folder (db, templates, ...)
+         #The mounts need to be propageted, thus we can mount mounts created
+         #in this container from the host into other containers
          - type: bind
            source: ./data
            target: /data
@@ -35,7 +38,6 @@ services:
              propagation: shared
          #The webinterface, only needed for live updating during development
          - ./webapp/:/app
-         #Persistance folder (db, templates, ...)
          #The exercise templates to import
          - ./exercises/:/exercises
          #Make docker availabe inside the container
