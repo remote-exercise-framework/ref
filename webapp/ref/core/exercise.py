@@ -263,7 +263,7 @@ class ExerciseInstanceManager():
 
         #Create a network. The bridge of an internal network is not connected
         #to the host (i.e., the host has no interface attached to it).
-        network = dc.create_network(internal=True)
+        network = dc.create_network(internal=not self.instance.exercise.allow_internet)
 
         #Make the ssh server join the network
         current_app.logger.info(f'connecting {ssh_container.id} to network')
@@ -486,6 +486,7 @@ class ExerciseManager():
         exercise.short_name = ExerciseManager._parse_attr(cfg, 'short-name', str)
         exercise.description = ExerciseManager._parse_attr(cfg, 'description', str)
         exercise.version = ExerciseManager._parse_attr(cfg, 'version', int)
+        exercise.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', int)
         exercise.is_default = False
         exercise.build_job_status = ExerciseBuildStatus.NOT_BUILD
 
