@@ -1,6 +1,7 @@
 from flask_login import login_required, current_user
 from flask import current_app
 from functools import wraps
+from ref.core import flash
 
 def admin_required(func):
     @wraps(func)

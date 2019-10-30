@@ -26,7 +26,7 @@ Exercises
         <td>{{ e.build_job_status.value }}</td>
         <td>{{ e.instances|length }}</td>
         <td>
-            <div class="btn-group">
+            <div class="btn-group-vertical">
                 {% if e.build_job_status.value == 'FINISHED' %}
                     {% if e.is_default %}
                     <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id) }}">Default</a>
@@ -39,7 +39,7 @@ Exercises
                 <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id) }}">Build</a>
                 {% endif %}
                 {% if e.build_job_status.value not in ['BUILDING'] %}
-                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_delete', exercise_id=e.id) }}">Delete</a>
+                <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_delete', exercise_id=e.id) }}">Delete</a>
                 {% endif %}
             </div>
         </td>

@@ -10,7 +10,7 @@ from flask_login import current_user, login_user, logout_user
 
 
 class LoginForm(Form):
-    username = StringField('Username', validators=[validators.Required()])
+    username = StringField('Matriculation Number', validators=[validators.Required()])
     password = PasswordField('Password', validators=[validators.Required()])
     submit = SubmitField('Login')
 
@@ -23,19 +23,21 @@ def logout():
 @refbp.route('/login', methods=('GET', 'POST'))
 def login():
     """
-    This endpoint allows a user to restore its key using its matriculation number
-    and password that was initially used to create the account.
+    This endpoint allows a user to login.
     """
-    if current_user.is_authenticated:
+    if current_user.is_authenticated and current_user.is_admin:
+        #Only redirect admins, since non admin users are going to be redirected
+        #back to this page...
         return redirect(url_for('ref.exercise_view_all'))
 
     form = LoginForm(request.form)
     if form.submit.data and form.validate():
+        #Right now we allow the mat. num. and the login_name as login
         user = User.query.filter_by(login_name=form.username.data).first()
         if user is None:
             user = User.query.filter_by(mat_num=form.username.data).first()
 
-        if user is None or not user.check_password(form.password.data):
+        if user is None or not user.check_password(form.password.data) or not user.is_admin:
             flash.error('Invalid username or password')
             return render_template('login.html', form=form)
         login_user(user)

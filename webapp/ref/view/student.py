@@ -205,7 +205,7 @@ def student_view_single(user_id):
 @admin_required
 def student_edit(user_id):
     """
-    List all students currently registered.
+    Edit the user with the id user_id.
     """
     form = EditUserForm(request.form)
     user: User = User.query.filter(User.id == user_id).first()
