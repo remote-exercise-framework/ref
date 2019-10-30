@@ -43,7 +43,7 @@ services:
          #Make docker availabe inside the container
          - /var/run/docker.sock:/var/run/docker.sock
       ports:
-         - "${WEB_HOST_PORT}:8000"
+         - "${HTTP_HOST_PORT}:8000"
       networks:
          - web-host
          - web-and-ssh
