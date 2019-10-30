@@ -83,6 +83,7 @@ networks:
    #on how a incoming connection should be routed.
    web-and-ssh:
       driver: bridge
+      internal: true
       driver_opts:
          com.docker.network.bridge.name: "br-ref-webtossh"
    #This network connects the SSH entry server to the host.
