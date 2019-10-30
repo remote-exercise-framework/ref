@@ -1,0 +1,59 @@
+{% extends "admin_base.html" %}
+
+{% block head %}
+<style> body { margin: 0; } </style>
+<script src="//unpkg.com/force-graph"></script>
+{% endblock %}
+
+{% block title %}
+Graph
+{% endblock %}
+
+{% block content %}
+
+
+
+<div id="graph" class="container"></div>
+
+<script>
+data = {
+    "nodes": [
+        {% for e in nodes %}
+        {
+            "id": "{{ e.id }}",
+            "name": "{{ e.name }}",
+            "type": "{{ e.type }}",
+            "val": "{{ e.size }}",
+        },
+        {% endfor %}
+    ],
+    "links": [
+        {% for e in links %}
+        {
+            "source": "{{ e.source }}",
+            "target": "{{ e.target }}",
+            "name": "{{ e.name }}",
+        },
+        {% endfor %}
+    ]
+}
+
+const elem = document.getElementById('graph');
+
+const Graph = ForceGraph()(elem)
+    .graphData(data)
+    .width(document.getElementById('graph').offsetWidth)
+    .nodeLabel('name')
+    .nodeAutoColorBy('type')
+    .linkDirectionalParticles(2)
+    .linkDirectionalParticleWidth(1.4)
+    .onNodeHover(node => elem.style.cursor = node ? 'pointer' : null)
+    .onNodeClick(node => {
+        // Center/zoom on node
+        Graph.centerAt(node.x, node.y, 1000);
+        Graph.zoom(8, 2000);
+    });
+</script>
+
+
+{% endblock %}

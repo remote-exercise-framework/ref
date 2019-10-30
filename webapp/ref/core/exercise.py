@@ -310,7 +310,7 @@ class ExerciseInstanceManager():
         mem_limit = current_app.config['EXERCISE_CONTAINER_MEMORY_LIMIT']
 
         seccomp_profile = [f'seccomp={seccomp_profile}']
-        entry_container_name = f'ref-{self.instance.exercise.short_name}v{self.instance.exercise.version}-entry-{self.instance.id}'
+        entry_container_name = f'ref-{self.instance.exercise.short_name}-v{self.instance.exercise.version}-entry-{self.instance.id}'
         container = self.dc.create_container(
             image_name,
             name=entry_container_name,

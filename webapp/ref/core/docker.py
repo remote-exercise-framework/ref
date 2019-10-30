@@ -86,6 +86,9 @@ class DockerClient():
         """
         return self.client.containers.list(all=include_stopped)
 
+    def networks(self):
+        return self.client.networks.list(greedy=True)
+
     def container(self, name_or_id):
         """
         Get a container by its id or name. In case no container was
