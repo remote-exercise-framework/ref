@@ -14,6 +14,7 @@ Students
         <th scope="col">Course</th>
         <th scope="col">Name</th>
         <th scope="col">#Instances</th>
+        <th scope="col">Admin</th>
         <th scope='col'></th>
         </tr>
     </thead>
@@ -26,8 +27,10 @@ Students
         <td>
             {{ student.exercise_instances|length }}
         </td>
+        <td>{{student.is_admin}}</td>
         <td>
             <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.student_view_single', user_id=student.id) }}">View</a>
+            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.student_edit', user_id=student.id) }}">Edit</a>
         </td>
     </tr>
 {% endfor %}

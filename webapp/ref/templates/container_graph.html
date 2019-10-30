@@ -24,6 +24,9 @@ data = {
             "name": "{{ e.name }}",
             "type": "{{ e.type }}",
             "val": "{{ e.size }}",
+            {% if e.color %}
+            "color": "{{ e.color }}",
+            {% endif %}
         },
         {% endfor %}
     ],

@@ -1,5 +1,5 @@
 from flask import Flask, render_template, Blueprint, redirect, url_for, request, Response, current_app
-from wtforms import Form, IntegerField, validators, SubmitField, RadioField, TextField, StringField, PasswordField
+from wtforms import Form, IntegerField, validators, SubmitField, BooleanField, RadioField, TextField, StringField, PasswordField
 from ref import refbp, db
 from ref.model import User
 from ref.model.enums import CourseOfStudies
@@ -9,12 +9,28 @@ from itsdangerous import URLSafeTimedSerializer
 from ref.core import flash, admin_required
 import re
 
-
 mat_regex = r"^1080[0-2][0-9][1-2][0-9]{5}$"
+linfo = lambda msg: current_app.logger.info(msg)
+
 
 """
 View the students can interact with (public).
 """
+
+class EditUserForm(Form):
+    id = IntegerField('ID')
+    mat_num = StringField('Matriculation Number', validators=[
+        validators.Required(), validators.Regexp(r"^1080[0-2][0-9][1-2][0-9]{5}$")
+        ])
+    course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
+    firstname = TextField('Firstname', validators=[validators.Required()])
+    surname = TextField('Surname', validators=[validators.Required()])
+    password = PasswordField('Password')
+    password_rep = PasswordField('Password (Repeat)')
+    is_admin = BooleanField('Is Admin?')
+
+    submit = SubmitField('Update')
+
 
 #(In case you lost your key, this password is required)
 class GetKeyForm(Form):
@@ -180,10 +196,52 @@ def student_view_single(user_id):
     """
     user =  User.query.filter(User.id == user_id).first()
     if not user:
-        flash.error(f'Unknown exercise ID {user_id}')
+        flash.error(f'Unknown user ID {user_id}')
         return render_template('400.html'), 400
 
     return render_template('student_view_single.html', user=user)
+
+@refbp.route('/student/edit/<int:user_id>', methods=('GET', 'POST'))
+@admin_required
+def student_edit(user_id):
+    """
+    List all students currently registered.
+    """
+    form = EditUserForm(request.form)
+    user: User = User.query.filter(User.id == user_id).first()
+    if not user:
+        flash.error(f'Unknown user ID {user_id}')
+        return render_template('400.html'), 400
+
+    if form.submit.data and form.validate():
+        if form.password.data != '':
+            if form.password.data != form.password_rep.data:
+                form.password.errors += ['Passwords do not match']
+                return render_template('user_edit.html', form=form)
+            else:
+                user.set_password(form.password.data)
+        user.mat_num = form.mat_num.data
+        user.course_of_studies = CourseOfStudies(form.course.data)
+        user.first_name = form.firstname.data
+        user.surname = form.surname.data
+        user.is_admin = form.is_admin.data
+        current_app.db.session.add(user)
+        current_app.db.session.commit()
+        flash.success('Updated!')
+        return render_template('user_edit.html', form=form)
+    else:
+        form.id.data = user.id
+        form.mat_num.data = user.mat_num
+        form.course.data = user.course_of_studies.value
+        form.firstname.data = user.first_name
+        form.surname.data = user.surname
+        form.is_admin.data = user.is_admin
+        #Leave password empty
+        form.password.data = ''
+        form.password_rep.data = ''
+
+
+    return render_template('user_edit.html', form=form)
 
 @refbp.route('/student', methods=('GET', 'POST'))
 @refbp.route('/', methods=('GET', 'POST'))

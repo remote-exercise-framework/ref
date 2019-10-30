@@ -1,0 +1,55 @@
+{% extends "admin_base.html" %}
+{% import "wtf_bootstrap_utils.html" as wtf_utils %}
+
+{% block title %}
+User Edit
+{% endblock %}
+
+{% block content %}
+
+<form method="POST">
+        {{ form.csrf_token }}
+        <div class="form-row" id="from_group_3">
+                <div class="form-group col-md-6">
+                    {{ wtf_utils.render_field(form.id, "number", readonly=True) }}
+                </div>
+        </div>
+        <div class="form-row" id="from_group_3">
+            <div class="form-group col-md-6">
+                {{ wtf_utils.render_field(form.mat_num, "number") }}
+            </div>
+        </div>
+        <div class="form-row" id="from_group_3">
+                <div class="form-group col-md-3">
+                    {{ wtf_utils.render_field(form.password, "password") }}
+                </div>
+                <div class="form-group col-md-3">
+                        {{ wtf_utils.render_field(form.password_rep, "password") }}
+                </div>
+        </div>
+        <div class="form-row" id="from_group_3">
+                <div class="form-group col-md-3">
+                    {{ wtf_utils.render_field(form.firstname, "text") }}
+                </div>
+                <div class="form-group col-md-3">
+                        {{ wtf_utils.render_field(form.surname, "text") }}
+                </div>
+        </div>
+
+        <div class="form-row" id="from_group_3">
+                <div class="form-group col-md-3">
+                    {{ wtf_utils.render_radio(form.course, vertical=True) }}
+                </div>
+                <div class="form-group col-md-3">
+                    {{ wtf_utils.render_field(form.is_admin, "checkbox") }}
+                </div>
+            </div>
+        <div class="form-row" id="from_group_3">
+            <div class="form-group col-md-3">
+                {{ wtf_utils.render_submit(form.submit) }}<br>
+           </div>
+        </div>
+</form>
+
+
+{% endblock %}

@@ -32,9 +32,12 @@ def login():
     form = LoginForm(request.form)
     if form.submit.data and form.validate():
         user = User.query.filter_by(login_name=form.username.data).first()
+        if user is None:
+            user = User.query.filter_by(mat_num=form.username.data).first()
+
         if user is None or not user.check_password(form.password.data):
             flash.error('Invalid username or password')
-            return redirect(url_for('ref.login'))
+            return render_template('login.html', form=form)
         login_user(user)
         return redirect(url_for('ref.login'))
 

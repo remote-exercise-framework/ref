@@ -28,11 +28,12 @@ lwarn = lambda msg: current_app.logger.warning(msg)
 
 class Node():
 
-    def __init__(self, id, name, type, size=1):
+    def __init__(self, id, name, type, size=1, color=None):
         self.id = id
         self.name = name
         self.type = type
         self.size = size
+        self.color = color
 
 class Link():
 
@@ -53,29 +54,47 @@ def graph():
     nodes.append(external_node)
 
     dc = DockerClient()
+
+    #Create node for each container
     containers = dc.containers()
     for c in containers:
         n = Node(c.id, c.name, 'container')
         valid_ids.append(c.id)
         nodes.append(n)
-    nodes.append(n)
 
+        #Create nodes and links for processes running in each container
+        processes = c.top()['Processes']
+        for p in processes:
+            #Indices for p ['UID', 'PID', 'PPID', 'C', 'STIME', 'TTY', 'TIME', 'CMD']
+            n = Node(c.id + '_' + p[1], p[7] + f' ({p[1]})', 'process', 0.5)
+            nodes.append(n)
+            l = Link('test', n.id, c.id)
+            links.append(l)
+
+    #Create node for each network
     networks = dc.networks()
-    for e in networks:
-        if e.name in ['host', 'none']:
+    for network in networks:
+        if network.name in ['host', 'none']:
             continue
-        n = Node(e.id, e.name, 'network', 3)
-        valid_ids.append(e.id)
+        n = Node(network.id, network.name, 'network', 3)
+        valid_ids.append(network.id)
         nodes.append(n)
 
-    for e in networks:
-        e.reload()
-        for k, v in e.attrs['Containers'].items():
-            if e.id in valid_ids and k in valid_ids:
-                l = Link('test', e.id, k)
+    #Create links between containers and networks.
+    for network in networks:
+        network.reload()
+        for container_id in network.attrs['Containers']:
+            if network.id in valid_ids and container_id in valid_ids:
+                l = Link('test', network.id, container_id)
                 links.append(l)
-        if e.id in valid_ids and not e.attrs['Internal']:
-            l = Link('test', e.id, external_node.id)
+            elif network.id in valid_ids:
+                #Container does not exists anymore
+                n = Node(container_id, container_id + ' (dead)', 'container_dead', color='red')
+                l = Link('test', container_id, network.id)
+                nodes.append(n)
+                links.append(l)
+        if network.id in valid_ids and not network.attrs['Internal']:
+            l = Link('test', network.id, external_node.id)
             links.append(l)
 
     return render_template('container_graph.html', nodes=nodes, links=links)

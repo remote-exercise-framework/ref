@@ -1,10 +1,19 @@
 
 
-{% macro render_field(field, type, label_visible=true, placeholder='') -%}
+{% macro render_field(field, type, label_visible=true, placeholder='', readonly=False) -%}
+    {% if readonly %}
+        {% set readonly = 'readonly' %}
+    {% else %}
+        {% set readonly = '' %}
+    {% endif %}
     {% if field.type != 'HiddenField' and label_visible %}
         <label for="{{ field.id }}">{{ field.label }}</label>
     {% endif %}
-    <input name="{{ field.id }}" type="{{ type }}" class="form-control" id="{{ field.id }}" value="{{ field.data }}" placeholder="{{ placeholder }}">
+    {% if field.type == 'BooleanField' %}
+        {{ field }}
+    {% else %}
+        <input name="{{ field.id }}" type="{{ type }}" class="form-control" id="{{ field.id }}" value="{{ field.data }}" placeholder="{{ placeholder }}" {{ readonly }}>
+    {% endif %}
     {% if field.errors %}
         {% for e in field.errors %}
             <div class="alert alert-danger" role="alert">{{ e }}</div>
