@@ -12,11 +12,6 @@ import re
 mat_regex = r"^1080[0-2][0-9][1-2][0-9]{5}$"
 linfo = lambda msg: current_app.logger.info(msg)
 
-
-"""
-View the students can interact with (public).
-"""
-
 class EditUserForm(Form):
     id = IntegerField('ID')
     mat_num = StringField('Matriculation Number', validators=[
@@ -31,8 +26,6 @@ class EditUserForm(Form):
 
     submit = SubmitField('Update')
 
-
-#(In case you lost your key, this password is required)
 class GetKeyForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.Required()
@@ -242,6 +235,26 @@ def student_edit(user_id):
 
 
     return render_template('user_edit.html', form=form)
+
+@refbp.route('/student/delete/<int:user_id>')
+@admin_required
+def student_delete(user_id):
+    """
+    Deletes the given user.
+    """
+    user: User =  User.query.filter(User.id == user_id).first()
+    if not user:
+        flash.error(f'Unknown user ID {user_id}')
+        return render_template('400.html'), 400
+
+    if len(user.exercise_instances) > 0:
+        flash.error('User has active instances, please delete them first!')
+    else:
+        current_app.db.session.delete(user)
+        current_app.db.session.commit()
+        flash.success(f'User {user.id} deleted')
+
+    return redirect(url_for('ref.student_view_all'))
 
 @refbp.route('/student', methods=('GET', 'POST'))
 @refbp.route('/', methods=('GET', 'POST'))

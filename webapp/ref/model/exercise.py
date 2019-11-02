@@ -44,12 +44,22 @@ class ExerciseInstanceEntryService(db.Model):
     container_id = db.Column(db.Text(), unique=True)
 
     def overlay_upper(self):
+        """
+        Path to the directory that contains the persisted user data if this service.
+        This directory is used as the 'upper' directory for overlayfs.
+        """
         return f'{self.instance.persistance_path()}/entry-upper'
 
     def overlay_work(self):
+        """
+        Path to the working directory used by overlayfs for persistance.
+        """
         return f'{self.instance.persistance_path()}/entry-work'
 
     def overlay_merged(self):
+        """
+        Path to the directory that contains the merged content of the upper and lower directory.
+        """
         return f'{self.instance.persistance_path()}/entry-merged'
 
 class ExerciseInstance(db.Model):
@@ -62,8 +72,13 @@ class ExerciseInstance(db.Model):
 
     entry_service = db.relationship("ExerciseInstanceEntryService", uselist=False, backref="instance")
 
-    #Network id all containers of this exercise are connected to
+    #The network the entry service is connected to the ssh server by
     network_id = db.Column(db.Text(), unique=True)
+
+    #peripheral_services =  db.relationship("...", uselist=False, backref="instance")
+
+    #Network the entry service is connected to the peripheral services
+    #services_network_id = db.Column(db.Text(), unique=True)
 
     #Exercise this instance belongs to (backref name is exercise)
     exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id'),
@@ -74,23 +89,29 @@ class ExerciseInstance(db.Model):
         nullable=False)
 
     def persistance_path(self):
+        """
+        Path used to store all all data that belongs to this instance.
+        """
         return self.exercise.persistence_path + f'/instances/{self.user.id}'
 
 
 class ExerciseEntryService(db.Model):
     """
-    A ExerciseService descrives a service that is provided to the user.
+    Each Exercise must have exactly one ExerciseEntryService that represtens the service
+    that serves as entry point for an exercise.
 
     """
     __tablename__ = 'exercise_entry_service'
     id = db.Column(db.Integer, primary_key=True)
 
+    #The exercise this entry service belongs to
     exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id'), nullable=False)
 
     #Path inside the container that is persistet
     persistance_container_path = db.Column(db.Text())
 
     files = db.Column(PickleType())
+
     build_cmd = db.Column(db.PickleType(), nullable=True)
 
     disable_aslr = db.Column(db.Boolean(), nullable=False)
@@ -98,6 +119,9 @@ class ExerciseEntryService(db.Model):
 
     @property
     def persistance_lower(self):
+        """
+        
+        """
         return self.exercise.persistence_path + f'/entry-server/lower'
 
     @property

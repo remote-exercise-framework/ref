@@ -255,8 +255,9 @@ class ExerciseInstanceManager():
         """
         assert not self.is_running()
 
-        exercise = self.instance.exercise
-        entry_service = self.instance.entry_service
+        exercise: Exercise = self.instance.exercise
+        exercise_entry_service = exercise.entry_service
+        instance_entry_service = self.instance.instance_entry_service
         #Get the container ID of the ssh container, thus we can connect the new instance
         #to it.
         ssh_container = self.dc.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
@@ -271,31 +272,34 @@ class ExerciseInstanceManager():
         network.connect(ssh_container)
         self.instance.network_id = network.id
 
-        #Create overlay for the container persistance. All changes made by the student are recorded in the upper dir.
-        #In case a update of the container is necessary, we can replace the lower dir with a new one and reuse the upper
-        #dir. The directory used as mount target (overlay_merged) has shared mount propagation, i.e., the mount we are
-        #doing here is propageted to the host. This is needed, since we are mounting this merged directory into a container
-        #that is started by the host (see below for further details).
-        cmd = [
-            'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
-            f'-olowerdir={exercise.entry_service.persistance_lower},upperdir={entry_service.overlay_upper()},workdir={entry_service.overlay_work()}',
-            f'{entry_service.overlay_merged()}'
-        ]
-        subprocess.check_call(cmd)
+        #Mounts of the entry services
+        mounts = None
+        if exercise_entry_service.persistance_container_path:
+            #Create overlay for the container persistance. All changes made by the student are recorded in the upper dir.
+            #In case a update of the container is necessary, we can replace the lower dir with a new one and reuse the upper
+            #dir. The directory used as mount target (overlay_merged) has shared mount propagation, i.e., the mount we are
+            #doing here is propageted to the host. This is needed, since we are mounting this merged directory into a container
+            #that is started by the host (see below for further details).
+            cmd = [
+                'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
+                f'-olowerdir={exercise.instance_entry_service.persistance_lower},upperdir={instance_entry_service.overlay_upper()},workdir={instance_entry_service.overlay_work()}',
+                f'{instance_entry_service.overlay_merged()}'
+            ]
+            subprocess.check_call(cmd)
 
-        #FIXME: Fix mountpoint permission, thus the folder is owned by the container user "user".
-        cmd = f'sudo chown 9999:9999 {entry_service.overlay_merged()}'
-        subprocess.check_call(cmd, shell=True)
+            #FIXME: Fix mountpoint permissions, thus the folder is owned by the container user "user".
+            cmd = f'sudo chown 9999:9999 {instance_entry_service.overlay_merged()}'
+            subprocess.check_call(cmd, shell=True)
 
-        #Since we are using the hosts docker deamon, the mount source must be a path that is mounted in the hosts tree,
-        #hence we need to translate the locale mount path to the host ones.
-        mounts = {
-            self.dc.local_path_to_host(entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
-            }
+            #Since we are using the hosts docker deamon, the mount source must be a path that is mounted in the hosts tree,
+            #hence we need to translate the locale mount path to the host ones.
+            mounts = {
+                self.dc.local_path_to_host(instance_entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
+                }
 
         current_app.logger.info(f'mounting persistance {mounts}')
 
-        image_name = exercise.entry_service.image_name
+        image_name = exercise.instance_entry_service.image_name
         #Create container that is initally connected to the 'none' network
 
         #Allow the usage of ptrace, thus we can use gdb
@@ -322,7 +326,7 @@ class ExerciseInstanceManager():
             cpu_period=cpu_period,
             mem_limit=mem_limit
             )
-        entry_service.container_id = container.id
+        instance_entry_service.container_id = container.id
 
         #Remove created container from 'none' network
         none_network = self.dc.network('none')
