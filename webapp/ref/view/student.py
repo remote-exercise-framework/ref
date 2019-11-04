@@ -1,5 +1,5 @@
 from flask import Flask, render_template, Blueprint, redirect, url_for, request, Response, current_app
-from wtforms import Form, IntegerField, validators, SubmitField, BooleanField, RadioField, TextField, StringField, PasswordField
+from wtforms import Form, IntegerField, validators, SubmitField, RadioField, TextField, StringField, PasswordField, BooleanField
 from ref import refbp, db
 from ref.model import User
 from ref.model.enums import CourseOfStudies
@@ -171,6 +171,48 @@ def student_restorekey():
 
     return render()
 
+@refbp.route('/student/edit/<int:user_id>', methods=('GET', 'POST'))
+@admin_required
+def student_edit(user_id):
+    """
+    List all students currently registered.
+    """
+    form = EditUserForm(request.form)
+    user: User = User.query.filter(User.id == user_id).first()
+    if not user:
+        flash.error(f'Unknown user ID {user_id}')
+        return render_template('400.html'), 400
+
+    if form.submit.data and form.validate():
+        if form.password.data != '':
+            if form.password.data != form.password_rep.data:
+                form.password.errors += ['Passwords do not match']
+                return render_template('user_edit.html', form=form)
+            else:
+                user.set_password(form.password.data)
+        user.mat_num = form.mat_num.data
+        user.course_of_studies = CourseOfStudies(form.course.data)
+        user.first_name = form.firstname.data
+        user.surname = form.surname.data
+        user.is_admin = form.is_admin.data
+        current_app.db.session.add(user)
+        current_app.db.session.commit()
+        flash.success('Updated!')
+        return render_template('user_edit.html', form=form)
+    else:
+        form.id.data = user.id
+        form.mat_num.data = user.mat_num
+        form.course.data = user.course_of_studies.value
+        form.firstname.data = user.first_name
+        form.surname.data = user.surname
+        form.is_admin.data = user.is_admin
+        #Leave password empty
+        form.password.data = ''
+        form.password_rep.data = ''
+
+
+    return render_template('user_edit.html', form=form)
+
 
 @refbp.route('/student/view', methods=('GET', 'POST'))
 @admin_required
@@ -194,6 +236,7 @@ def student_view_single(user_id):
 
     return render_template('student_view_single.html', user=user)
 
+<<<<<<< HEAD
 @refbp.route('/student/edit/<int:user_id>', methods=('GET', 'POST'))
 @admin_required
 def student_edit(user_id):
@@ -236,10 +279,13 @@ def student_edit(user_id):
 
     return render_template('user_edit.html', form=form)
 
+=======
+>>>>>>> Allow to edit/delete users
 @refbp.route('/student/delete/<int:user_id>')
 @admin_required
 def student_delete(user_id):
     """
+<<<<<<< HEAD
     Deletes the given user.
     """
     user: User =  User.query.filter(User.id == user_id).first()
@@ -256,6 +302,23 @@ def student_delete(user_id):
 
     return redirect(url_for('ref.student_view_all'))
 
+=======
+    Shows details for the user that belongs to the given user_id.
+    """
+    user =  User.query.filter(User.id == user_id).first()
+    if not user:
+        flash.error(f'Unknown exercise ID {user_id}')
+        return render_template('400.html'), 400
+
+    if len(user.exercise_instances) > 0:
+        flash.warning('Unable to delete user with associated instances')
+        return redirect(url_for('ref.student_view_all'))
+
+    return redirect(url_for('ref.student_view_all'))
+
+
+
+>>>>>>> Allow to edit/delete users
 @refbp.route('/student', methods=('GET', 'POST'))
 @refbp.route('/', methods=('GET', 'POST'))
 def student_default_routes():
