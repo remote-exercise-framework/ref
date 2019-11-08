@@ -6,7 +6,9 @@ from ref.core import flash
 def admin_required(func):
     @wraps(func)
     def decorated_view(*args, **kwargs):
-        if not current_user.is_admin:
+        if 'LOGIN_DISABLED' in current_app.config and current_app.config['LOGIN_DISABLED']:
+            pass
+        elif not current_user.is_admin:
             return current_app.login_manager.unauthorized()
         return func(*args, **kwargs)
     return login_required(decorated_view)

@@ -14,6 +14,7 @@ class ReleaseConfig(object):
     PERSISTANCE_PATH =  os.path.join(DATADIR, 'persistance')
     SQLALCHEMY_MIGRATE_REPO = 'migrations' #os.path.join(BASEDIR, 'migrations')
     IMAGE_BUILD_TIMEOUT = 120
+    LOGIN_DISABLED = False
 
     #Docker image that servers as base for all exercises
     BASE_IMAGE_NAME = 'remote-exercises-framework-exercise-base:latest'
@@ -42,6 +43,8 @@ class ReleaseConfig(object):
     """
     EXERCISE_CONTAINER_MEMORY_LIMIT = '256m'
 
+
 class DebugConfig(ReleaseConfig):
     debug = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
+    #LOGIN_DISABLED = False
