@@ -177,6 +177,10 @@ class Exercise(db.Model):
 
     #Name that identifies the exercise
     short_name = db.Column(db.Text(), nullable=False, unique=False)
+
+    #Used to group the exercises
+    category = db.Column(db.Text(), nullable=True, unique=False)
+
     description = db.Column(db.Text(), nullable=False)
     version = db.Column(db.Integer(), nullable=False)
 

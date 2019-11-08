@@ -1,2 +1,4 @@
-from .exercise import Exercise, ExerciseInstance, ConfigParsingError, ExerciseEntryService, ExerciseService, ExerciseInstanceEntryService
+from .exercise import (ConfigParsingError, Exercise, ExerciseEntryService,
+                       ExerciseInstance, ExerciseInstanceEntryService,
+                       ExerciseService)
 from .user import User
