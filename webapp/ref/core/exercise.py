@@ -450,7 +450,7 @@ class ExerciseManager():
     def _parse_attr(yaml_dict, attr_name, expected_type, required=True, default=None):
         if required:
             if attr_name not in yaml_dict or yaml_dict[attr_name] == None:
-                raise ExerciseConfigError(f'Missing required attribute {attr_name}')
+                raise ExerciseConfigError(f'Missing required attribute "{attr_name}"')
         else:
             if attr_name not in yaml_dict or yaml_dict[attr_name] == None:
                 if attr_name in yaml_dict:
@@ -459,7 +459,7 @@ class ExerciseManager():
 
         if not isinstance(yaml_dict[attr_name], expected_type):
             t = type(yaml_dict[attr_name])
-            raise ExerciseConfigError(f'Type of attribute {attr_name} is {t}, but {expected_type} was expected.')
+            raise ExerciseConfigError(f'Type of attribute "{attr_name}" is {t}, but {expected_type} was expected.')
 
         ret = yaml_dict[attr_name]
         del yaml_dict[attr_name]
@@ -483,6 +483,8 @@ class ExerciseManager():
 
         #General metadata describing the exercise
         exercise.short_name = ExerciseManager._parse_attr(cfg, 'short-name', str)
+        exercise.category = ExerciseManager._parse_attr(cfg, 'category', str)
+
         exercise.description = ExerciseManager._parse_attr(cfg, 'description', str)
         exercise.version = ExerciseManager._parse_attr(cfg, 'version', int)
         exercise.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', bool, required=False, default=False)
