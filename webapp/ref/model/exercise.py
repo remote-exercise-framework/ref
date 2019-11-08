@@ -195,4 +195,3 @@ class Exercise(db.Model):
 
     #All running instances of this exercise
     instances = db.relationship('ExerciseInstance', backref='exercise', lazy=True)
-
