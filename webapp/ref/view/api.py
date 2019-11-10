@@ -16,7 +16,7 @@ from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
 from ref.core import flash, ExerciseImageManager, ExerciseInstanceManager, ExerciseManager
-from ref.model import ConfigParsingError, Exercise, ExerciseInstance, User
+from ref.model import ConfigParsingError, Exercise, Instance, User
 from ref.model.enums import ExerciseBuildStatus
 
 lerr = lambda msg: current_app.logger.error(msg)
@@ -47,7 +47,7 @@ def api_provision():
         linfo(f'exercise_name={exercise_name}')
         linfo(f'pubkey={pubkey[:32]}')
 
-        user = db.get(User, pub_key_ssh=pubkey)
+        user: User = db.get(User, pub_key_ssh=pubkey)
         if not user:
             return error_response('Unknown public-key')
 
@@ -73,9 +73,27 @@ def api_provision():
             if i.user == user:
                 instance = i
 
+
         if instance:
             linfo('User already has an instance')
         else:
+            #Check if there is an older instance of the given user that can be upgraded
+            old_instance: Instance = None
+            user_old_instances = filter(lambda instance: instance.exercise.version < exercise.version,  user.exercise_instances)
+            user_old_instances = sorted(user_old_instances, key=lambda instance: instance.exercise.version)
+
+            if len(user_old_instances):
+                old_instance = user_old_instances[-1]
+
+            if old_instance:
+                linfo(f'Found upgradeable instance ({old_instance.exercise.version} -> {exercise.version})')
+
+            #Manually upgradeing a instance to a non default version
+            #Set default if there are already instances of newer version
+            #Rename delete button to reload if same version
+            #Allow admins to create non default instances
+            #group exercise by version
+
             linfo('Creating a new instance')
             instance = ExerciseInstanceManager.create_instance(user, exercise)
             exercise.instances.append(instance)
@@ -93,7 +111,8 @@ def api_provision():
         ip = instance_manager.get_entry_ip()
 
         resp = {
-            'ip': ip
+            'ip': ip,
+            'bind_executable': instance.exercise.entry_service.bind_executable
         }
 
         return ok_response(resp)

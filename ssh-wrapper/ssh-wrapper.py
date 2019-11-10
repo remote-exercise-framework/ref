@@ -109,11 +109,14 @@ def main():
     #print(f'Got IP {ip}', flush=True)
 
     #print(f'SSH_ORIGINAL_COMMAND={os.environ.get("SSH_ORIGINAL_COMMAND")}', flush=True)
-    ssh_cmd = os.environ.get("SSH_ORIGINAL_COMMAND")
 
     cmd = ['/usr/bin/ssh', '-t', '-o', ' StrictHostKeyChecking=no', '-i', '/home/sshserver/.ssh/container-key', '-p', '13370', '-l', 'user', ip]
-    #FIXME: Check whether bind executable is used
-    if ssh_cmd:
+
+    ssh_cmd = os.environ.get("SSH_ORIGINAL_COMMAND")
+    bind_executable = resp['bind_executable']
+    if bind_executable:
+        cmd += [bind_executable]
+    elif ssh_cmd:
         cmd += [ssh_cmd]
 
 

@@ -279,19 +279,21 @@ def student_edit(user_id):
 
     return render_template('user_edit.html', form=form)
 
-=======
->>>>>>> Allow to edit/delete users
+
 @refbp.route('/student/delete/<int:user_id>')
 @admin_required
 def student_delete(user_id):
     """
-<<<<<<< HEAD
     Deletes the given user.
     """
     user: User =  User.query.filter(User.id == user_id).first()
     if not user:
         flash.error(f'Unknown user ID {user_id}')
         return render_template('400.html'), 400
+
+    if user.is_admin:
+        flash.warning('Admin users can not be deleted')
+        return redirect(url_for('ref.student_view_all'))
 
     if len(user.exercise_instances) > 0:
         flash.error('User has active instances, please delete them first!')
@@ -302,23 +304,10 @@ def student_delete(user_id):
 
     return redirect(url_for('ref.student_view_all'))
 
-=======
-    Shows details for the user that belongs to the given user_id.
-    """
-    user =  User.query.filter(User.id == user_id).first()
-    if not user:
-        flash.error(f'Unknown exercise ID {user_id}')
-        return render_template('400.html'), 400
-
-    if len(user.exercise_instances) > 0:
-        flash.warning('Unable to delete user with associated instances')
-        return redirect(url_for('ref.student_view_all'))
-
-    return redirect(url_for('ref.student_view_all'))
 
 
 
->>>>>>> Allow to edit/delete users
+
 @refbp.route('/student', methods=('GET', 'POST'))
 @refbp.route('/', methods=('GET', 'POST'))
 def student_default_routes():

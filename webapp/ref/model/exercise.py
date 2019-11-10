@@ -27,10 +27,10 @@ class ParsingError(Exception):
 
 #Upgrade -> stop old container -> start new container with new overlay
 
-class ExerciseInstanceEntryService(db.Model):
+class InstanceEntryService(db.Model):
     """
-    An ExerciseInstanceContainer represents a container that belongs to a specififc
-    ExerciseInstance. A ExerciseInstance can have multiple containers.
+    Container that represents the entrypoint for a specific task instance.
+    Such and InstanceEntryService is exposed via SSH and supports data persistance.
     """
     __tablename__ = 'exercise_instance_entry_service'
     id = db.Column(db.Integer, primary_key=True)
@@ -38,9 +38,7 @@ class ExerciseInstanceEntryService(db.Model):
     #The instance this entry service belongs to
     instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id'))
 
-    # exercise_entry_service_id = db.Column(db.Integer, db.ForeignKey('exercise_entry_service.id'),
-    #     nullable=False)
-
+    #ID of the container
     container_id = db.Column(db.Text(), unique=True)
 
     def overlay_upper(self):
@@ -62,15 +60,15 @@ class ExerciseInstanceEntryService(db.Model):
         """
         return f'{self.instance.persistance_path()}/entry-merged'
 
-class ExerciseInstance(db.Model):
+class Instance(db.Model):
     """
-    An ExerciseInstance represents a instance of an exercise.
+    An Instance represents a instance of an exercise.
     Such a instance is bound to a single user.
     """
     __tablename__ = 'exercise_instance'
     id = db.Column(db.Integer, primary_key=True)
 
-    entry_service = db.relationship("ExerciseInstanceEntryService", uselist=False, backref="instance")
+    entry_service = db.relationship("InstanceEntryService", uselist=False, backref="instance")
 
     #The network the entry service is connected to the ssh server by
     network_id = db.Column(db.Text(), unique=True)
@@ -116,6 +114,10 @@ class ExerciseEntryService(db.Model):
 
     disable_aslr = db.Column(db.Boolean(), nullable=False)
     cmd = db.Column(db.Text(), nullable=True)
+
+    bind_executable = db.Column(db.Text(), nullable=True)
+
+    readonly = db.Column(db.Boolean(), default=False)
 
     @property
     def persistance_lower(self):
@@ -194,4 +196,4 @@ class Exercise(db.Model):
     build_job_status: ExerciseBuildStatus = db.Column(db.Enum(ExerciseBuildStatus), nullable=False)
 
     #All running instances of this exercise
-    instances = db.relationship('ExerciseInstance', backref='exercise', lazy=True)
+    instances = db.relationship('Instance', backref='exercise', lazy=True)

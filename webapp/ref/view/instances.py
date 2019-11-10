@@ -17,40 +17,70 @@ from wtforms import Form, IntegerField, SubmitField, validators
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, admin_required,
                       ExerciseImageManager, ExerciseManager, flash, ExerciseInstanceManager)
-from ref.model import ConfigParsingError, Exercise, User, ExerciseInstance
+from ref.model import ConfigParsingError, Exercise, User, Instance, ExerciseEntryService
 from ref.model.enums import ExerciseBuildStatus
 
 lerr = lambda msg: current_app.logger.error(msg)
 linfo = lambda msg: current_app.logger.info(msg)
 lwarn = lambda msg: current_app.logger.warning(msg)
 
+def get_newest_exercise_version(exercise: Exercise):
+    exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
+    new_exercise = list(filter(lambda e: e.version > exercise.version, exercises))
+    if len(new_exercise):
+        return max(new_exercise, key=lambda e: e.version)
+    else:
+        return None
 
+@refbp.route('/instances/update/<int:instance_id>')
+@admin_required
+def instance_update(instance_id):
+    instance: Instance =  Instance.query.filter(Instance.id == instance_id).first()
+    if not instance:
+        flash.error(f'Unknown instance ID {instance_id}')
+        return render_template('400.html'), 400
+
+    new_exercise: Exercise = get_newest_exercise_version(instance.exercise)
+    if not new_exercise:
+        flash.error(f'There is no new version for this exercise')
+        return render_template('400.html'), 400
+
+    mgr = ExerciseInstanceManager(instance)
+    new_instance = mgr.update_instance(new_exercise)
+
+    current_app.db.session.commit()
+    return redirect(url_for('ref.instances_view_all'))
+    #Check if build
+
+
+@refbp.route('/instances/view/<int:instance_id>')
+@admin_required
+def instances_view_details(instance_id):
+    instance =  Instance.query.filter(Instance.id == instance_id).first()
+    if not instance:
+        flash.error(f'Unknown instance ID {instance_id}')
+        return render_template('400.html'), 400
+
+    return render_template('instance_view_details.html', instance=instance)
 
 @refbp.route('/instances/view')
 @admin_required
 def instances_view_all():
-    instances = ExerciseInstance.query.all()
+    instances = Instance.query.all()
+
     for i in instances:
         running = ExerciseInstanceManager(i).is_running()
         setattr(i, 'running', running)
 
+        new_exercise = get_newest_exercise_version(i.exercise)
+        setattr(i, 'new_exercise', new_exercise)
+
     return render_template('instances_view_list.html', instances=instances)
-
-
-@refbp.route('/instances/view/<int:exercise_id>')
-@admin_required
-def instances_view_by_exercise(exercise_id):
-    exercise =  Exercise.query.filter(Exercise.id == exercise_id).first()
-    if not exercise:
-        flash.error(f'Unknown exercise ID {exercise_id}')
-        return render_template('400.html'), 400
-
-    return render_template('exercise_view_single.html', exercise=exercise)
 
 @refbp.route('/instances/stop/<int:instance_id>')
 @admin_required
 def instance_stop(instance_id):
-    instance =  ExerciseInstance.query.filter(ExerciseInstance.id == instance_id).first()
+    instance =  Instance.query.filter(Instance.id == instance_id).first()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400
@@ -63,7 +93,7 @@ def instance_stop(instance_id):
 @refbp.route('/instances/delete/<int:instance_id>')
 @admin_required
 def instance_delete(instance_id):
-    instance =  ExerciseInstance.query.filter(ExerciseInstance.id == instance_id).first()
+    instance =  Instance.query.filter(Instance.id == instance_id).first()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400

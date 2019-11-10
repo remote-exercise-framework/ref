@@ -1,78 +1,76 @@
-{% extends "admin_base.html" %}
+<div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="exampleModalLongTitle">{{ exercise.short_name }}</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+                <h5>Meta</h5>
+                <dl class="row">
+                    <dt class="col-sm-3">Imported From</dt>
+                    <dd class="col-sm-9">{{ exercise.template_import_path }}</dd>
+                    <dt class="col-sm-3">Stored at</dt>
+                    <dd class="col-sm-9">{{ exercise.template_path }}</dd>
+                    <dt class="col-sm-3">Short Name</dt>
+                    <dd class="col-sm-9">{{ exercise.short_name }}</dd>
+                    <dt class="col-sm-3">Version</dt>
+                    <dd class="col-sm-9">{{ exercise.version }}</dd>
+                    <dt class="col-sm-3">Build Status</dt>
+                    <dd class="col-sm-9">{{ exercise.build_job_status }}</dd>
+                    <dt class="col-sm-3">Build Result</dt><dd class="col-sm-9"></dd>
+                    {% if exercise.build_job_result %}
+                        {% for l in exercise.build_job_result.split('\n') %}
+                            <dt class="col-sm-3"></dt><dd class="col-sm-9">{{ l }}</dd>
+                        {% endfor %}
+                    {% else %}
+                        <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
+                    {% endif %}
 
-{% block title %}
-Exercises
-{% endblock %}
+                </dl>
 
-{% block content %}
+                <h5>Entry Service</h5>
 
-{% if exercise %}
+                <dl class="row">
+                    <dt class="col-sm-3">Persisted Container Path</dt>
+                    <dd class="col-sm-9">{{ exercise.entry_service.persistance_container_path }}</dd>
 
-<h5>Meta</h5>
-<dl class="row">
-    <dt class="col-sm-3">Imported From</dt>
-    <dd class="col-sm-9">{{ exercise.template_import_path }}</dd>
-    <dt class="col-sm-3">Stored at</dt>
-    <dd class="col-sm-9">{{ exercise.template_path }}</dd>
-    <dt class="col-sm-3">Short Name</dt>
-    <dd class="col-sm-9">{{ exercise.short_name }}</dd>
-    <dt class="col-sm-3">Description</dt>
-    <dd class="col-sm-9">{{ exercise.description }}</dd>
-    <dt class="col-sm-3">Version</dt>
-    <dd class="col-sm-9">{{ exercise.version }}</dd>
-    <dt class="col-sm-3">Build Status</dt>
-    <dd class="col-sm-9">{{ exercise.build_job_status }}</dd>
-    <dt class="col-sm-3">Build Result</dt><dd class="col-sm-9"></dd>
-    {% if exercise.build_job_result %}
-        {% for l in exercise.build_job_result.split('\n') %}
-            <dt class="col-sm-3"></dt><dd class="col-sm-9">{{ l }}</dd>
-        {% endfor %}
-    {% else %}
-        <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
-    {% endif %}
+                    <dt class="col-sm-3">Local Persistance Lower Directory</dt>
+                    <dd class="col-sm-9">{{ exercise.entry_service.persistance_lower }}</dd>
 
-</dl>
+                    <dt class="col-sm-3">Files</dt><dd class="col-sm-9"></dd>
+                    {% if exercise.entry_service.files %}
+                        {% for l in exercise.entry_service.files %}
+                            <dt class="col-sm-3"></dt><dd class="col-sm-9">- {{ l }}</dd>
+                        {% endfor %}
+                    {% else %}
+                        <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
+                    {% endif %}
 
-<h5>Entry Service</h5>
-
-<dl class="row">
-    <dt class="col-sm-3">Persisted Container Path</dt>
-    <dd class="col-sm-9">{{ exercise.entry_service.persistance_container_path }}</dd>
-
-    <dt class="col-sm-3">Local Persistance Lower Directory</dt>
-    <dd class="col-sm-9">{{ exercise.entry_service.persistance_lower }}</dd>
-
-    <dt class="col-sm-3">Files</dt><dd class="col-sm-9"></dd>
-    {% if exercise.entry_service.files %}
-        {% for l in exercise.entry_service.files %}
-            <dt class="col-sm-3"></dt><dd class="col-sm-9">{{ l }}</dd>
-        {% endfor %}
-    {% else %}
-        <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
-    {% endif %}
-
-    <dt class="col-sm-3">Build Command</dt><dd class="col-sm-9"></dd>
-    {% if exercise.entry_service.build_cmd %}
-        {% for l in exercise.entry_service.build_cmd %}
-            <dt class="col-sm-3"></dt><dd class="col-sm-9">{{ l }}</dd>
-        {% endfor %}
-    {% else %}
-        <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
-    {% endif %}
+                    <dt class="col-sm-3">Build Command</dt><dd class="col-sm-9"></dd>
+                    {% if exercise.entry_service.build_cmd %}
+                        {% for l in exercise.entry_service.build_cmd %}
+                            <dt class="col-sm-3"></dt><dd class="col-sm-9">- {{ l }}</dd>
+                        {% endfor %}
+                    {% else %}
+                        <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
+                    {% endif %}
 
 
-    <dt class="col-sm-3">ASLR Disabled</dt>
-    <dd class="col-sm-9">{{ exercise.entry_service.disable_aslr }}</dd>
+                    <dt class="col-sm-3">ASLR Disabled</dt>
+                    <dd class="col-sm-9">{{ exercise.entry_service.disable_aslr }}</dd>
 
-    <dt class="col-sm-3">Command</dt>
-    <dd class="col-sm-9">{{ exercise.entry_service.cmd }}</dd>
+                    <dt class="col-sm-3">Readonly</dt>
+                    <dd class="col-sm-9">{{ exercise.entry_service.readonly }}</dd>
 
-</dl>
+                    <dt class="col-sm-3">Command</dt>
+                    <dd class="col-sm-9">{{ exercise.entry_service.cmd }}</dd>
 
-
-
-
-{% endif %}
-
-
-{% endblock %}
+                </dl>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+</div>

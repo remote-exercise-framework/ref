@@ -1,4 +1,4 @@
 from .exercise import (ConfigParsingError, Exercise, ExerciseEntryService,
-                       ExerciseInstance, ExerciseInstanceEntryService,
+                       Instance, InstanceEntryService,
                        ExerciseService)
 from .user import User

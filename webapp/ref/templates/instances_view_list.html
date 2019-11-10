@@ -22,12 +22,17 @@ Instances
     <tr>
         <td>{{ i.id }}</td>
         <td>{{ i.exercise.short_name }}</td>
-        <td>{{ i.exercise.version }}</td>
+        <td>{{ i.exercise.version }}
+            {% if i.new_exercise %}
+                ({{ i.exercise.version }} => {{ i.new_exercise.version }})
+            {% endif %}
+        </td>
         <td>{{ i.user.first_name }} {{ i.user.surname }} ({{ i.user.id }})</td>
         <td>{{ i.running }}</td>
         <td>
             <div class="btn-group">
-                <a role="button" class="btn btn-outline-success" href="">View</a>
+                <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.instances_view_details', instance_id=i.id) }}">View</a>
+                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_update', instance_id=i.id) }}">Update</a>
                 <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_stop', instance_id=i.id) }}">Stop</a>
                 <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id) }}">Delete</a>
             </div>
@@ -36,6 +41,21 @@ Instances
 {% endfor %}
   </tbody>
 </table>
+
+<script>
+    $(document).ready(function(){
+        //On click on a element with class ok-modal load the URL href points at,
+        //and create a modal using the retrived data.
+        $( ".ok-modal" ).click(function() {
+            var target = $( this ).attr('href')
+            $.get(target, function(data){
+                $("#modal").html(data);
+                $("#modal").modal("show");
+            });
+            return false;
+        });
+    });
+</script>
 
 {% endblock %}
 

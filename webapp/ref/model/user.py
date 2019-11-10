@@ -22,7 +22,7 @@ class User(UserMixin, db.Model):
 
 
     #Exercise instances associated to the student
-    exercise_instances = db.relationship('ExerciseInstance', backref='user', lazy=True)
+    exercise_instances = db.relationship('Instance', backref='user', lazy=True)
 
     def set_password(self, password):
         """

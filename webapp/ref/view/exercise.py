@@ -2,16 +2,18 @@ import datetime
 import os
 import shutil
 import tempfile
+import urllib
 import typing
 from collections import namedtuple
 from pathlib import Path
 
+from collections import defaultdict
 import docker
 import redis
 import rq
 import yaml
 from flask import (Blueprint, Flask, abort, current_app, redirect,
-                   render_template, request, url_for)
+                   render_template, request, url_for, jsonify)
 from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
@@ -46,6 +48,44 @@ class ImportableExercise():
     def exercise(self):
         return self.new
 
+@refbp.route('/exercises/<int:exercise_id>/build_status', methods=('GET',))
+@admin_required
+def testx(exercise_id):
+    exercise: Exercise = db.get(Exercise, id=exercise_id)
+    if exercise:
+        return jsonify({'build_status': exercise.build_job_status.value}), 200
+    else:
+        return jsonify({'error': 'Unknown exercise ID'}), 400
+
+@refbp.route('/exercises/<int:exercise_id>/build', methods=('PUT',))
+@admin_required
+def exercise_build_rest(exercise_id):
+    exercise: Exercise = db.get(Exercise, id=exercise_id)
+    if not exercise:
+        flash.error(f"Unknown exercise ID {exercise_id}")
+        return render_template('500.html'), 400
+
+    if exercise.build_job_status in [ ExerciseBuildStatus.BUILDING,  ExerciseBuildStatus.FINISHED]:
+        flash.error("Already build!")
+        return render_template('500.html'), 400
+
+    mgr = ExerciseImageManager(exercise)
+    if mgr.is_build():
+        linfo(f'Build for already build exercise {exercise} was requested.')
+        flash.success('Container already build')
+        return redirect(url_for('ref.exercise_view_all'))
+    else:
+        #Start new build
+        flash.info("Build started...")
+        current_app.logger.info(f"Starting build for exercise {exercise}. Setting state to  {ExerciseBuildStatus.BUILDING}")
+        exercise.build_job_status = ExerciseBuildStatus.BUILDING
+        exercise.build_job_result = None
+        db.session.add(exercise)
+        db.session.commit()
+        mgr.build()
+        return redirect(url_for('ref.exercise_view_all'))
+
+
 @refbp.route('/exercise/build/<int:exercise_id>')
 @admin_required
 def exercise_build(exercise_id):
@@ -74,12 +114,57 @@ def exercise_build(exercise_id):
         mgr.build()
         return redirect(url_for('ref.exercise_view_all'))
 
+@refbp.route('/exercise/import/<string:cfg_path>')
+@admin_required
+def exercise_do_import(cfg_path):
+    render = lambda: redirect(url_for('ref.exercise_view_all'))
+
+    try:
+        cfg_path = urllib.parse.unquote_plus(cfg_path)
+    except:
+        flash.error('Invalid config path')
+        return render()
+
+    cfg_path = Path(cfg_path).resolve()
+    exercise_dir_path = Path(current_app.config['EXERCISES_PATH']).resolve()
+    if not cfg_path.as_posix().startswith(exercise_dir_path.as_posix()):
+        flash.error('Nope')
+        return render()
+
+    linfo(f'Importing {cfg_path}')
+
+    exercise = ExerciseManager.from_template(cfg_path)
+    #Check if this is really a new version or a new task
+
+    same_exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
+    if same_exercises:
+        newest_exercise = max(same_exercises, key=lambda e: e.version)
+        if newest_exercise.version >= exercise.version:
+            flash.warning('Unable to import older version of already existing task')
+            return render()
+        old_path = newest_exercise.entry_service.persistance_container_path
+        new_path = exercise.entry_service.persistance_container_path
+        #The persistance path is only allowed to change if the new version is
+        #readonly, i.e., there is no path to persist.
+        if old_path != new_path and not exercise.entry_service.readonly:
+            flash.error(f'{exercise.template_import_path}: Persistance path changes are not allowed between versions')
+            return render()
+
+    ExerciseManager.create(exercise)
+    db.session.add_all([exercise.entry_service, exercise])
+    db.session.commit()
+
+    return render()
+
 @refbp.route('/exercise/view')
 @admin_required
 def exercise_view_all():
     #Exercises already added to the DB
     exercises = []
-    render = lambda: render_template('exercise_view_all.html', exercises=exercises)
+    categories = {}
+    #Exercises that might be imported by a user
+    importable = []
+    render = lambda: render_template('exercise_view_all.html', exercises=exercises, categories=categories, importable=importable)
 
     #Parse all available configs
     import_candidates = []
@@ -94,26 +179,28 @@ def exercise_view_all():
             exercises = []
             return render()
 
-    #Check if there are new/updated exercises and import them.
+    #Check if there are new/updated exercises
     for exercise in import_candidates:
-        old_exercise = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
-        if old_exercise:
-            old_exercise = max(old_exercise, key=lambda e: e.version)
+        newest_exercise = None
+        exercise.errors = []
 
-        if not old_exercise:
-            #New exercise
-            ExerciseManager.create(exercise)
-            db.session.add_all([exercise.entry_service, exercise])
-            db.session.commit()
-        elif old_exercise.version < exercise.version:
-            #Update
-            ExerciseManager.create(exercise)
-            db.session.add_all([exercise.entry_service, exercise])
-            db.session.commit()
+        same_exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
+        if same_exercises:
+            newest_exercise = max(same_exercises, key=lambda e: e.version)
+
+        if newest_exercise:
+            if newest_exercise.version >= exercise.version:
+                #Do not import exercises of same type with version <= the currently imported versions.
+                continue
+
+            if newest_exercise.entry_service.readonly != exercise.entry_service.readonly:
+                exercise.errors += [f'{exercise.template_import_path}: Changing the readonly flag between versions cause loss of data during instance upgrade']
+
+        importable.append(exercise)
 
     exercises = Exercise.query.all()
-
-    exercises = sorted(exercises, key=lambda e: e.short_name)
+    #category might be none, since this attribute was introduced in a later release
+    exercises = sorted(exercises, key=lambda e: e.category or "None")
 
     #Check whether our DB and the local docker repo are in sync
     for exercise in exercises:
@@ -131,7 +218,16 @@ def exercise_view_all():
             db.session.add(exercise)
             db.session.commit()
 
+    categories = defaultdict(list)
+    for e in exercises:
+        categories[e.category] += [e]
+
+    for k in categories:
+        categories[k] = sorted(categories[k], key=lambda e: e.short_name)
+
     return render()
+
+
 
 
 @refbp.route('/exercise/<int:exercise_id>/delete')
@@ -195,7 +291,6 @@ def exercise_view(exercise_id):
 
     return render_template('exercise_view_single.html', exercise=exercise)
 
-
 @refbp.route('/admin', methods=('GET', 'POST'))
 @admin_required
 def admin_default_routes():
@@ -203,3 +298,5 @@ def admin_default_routes():
     List all students currently registered.
     """
     return redirect(url_for('ref.exercise_view_all'))
+
+

@@ -6,48 +6,139 @@ Exercises
 
 {% block content %}
 
-<table class="table table-hover">
-    <thead>
+{% if importable|length %}
+<div class="card">
+    <div class="card-header">
+        Importable
+    </div>
+    <div class="card-body">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+            <th scope="col">Short Name</th>
+            <th scope="col">Version</th>
+            <th scope="col">Category</th>
+            <th scope="col"></th>
+            </tr>
+        </thead>
+        <tbody>
+    {% for exercise in importable %}
         <tr>
-        <th scope="col">Short Name</th>
-        <th scope="col">Description</th>
-        <th scope="col">Version</th>
-        <th scope="col">Status</th>
-        <th scope="col">#Instances</th>
-        <th scope="col"></th>
-        </tr>
-    </thead>
-    <tbody>
-{% for e in exercises %}
-    <tr>
-        <td>{{ e.short_name }}</td>
-        <td>{{ e.description }}</td>
-        <td>{{ e.version }}</td>
-        <td>{{ e.build_job_status.value }}</td>
-        <td>{{ e.instances|length }}</td>
-        <td>
-            <div class="btn-group-vertical">
-                {% if e.build_job_status.value == 'FINISHED' %}
-                    {% if e.is_default %}
-                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id) }}">Default</a>
-                    {% else %}
-                    <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id) }}">Default</a>
-                    {% endif %}
-                {% endif %}
-                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}">View</a>
-                {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
-                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id) }}">Build</a>
-                {% endif %}
-                {% if e.build_job_status.value not in ['BUILDING'] %}
-                <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_delete', exercise_id=e.id) }}">Delete</a>
-                {% endif %}
+                <td>{{ exercise.short_name }}</td>
+                <td>{{ exercise.version }}</td>
+                <td>{{ exercise.category }}</td>
+                <td>
+                    <div class="btn-group">
+                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_do_import', cfg_path=exercise.template_import_path|quote_plus) }}">Import</a>
+                    </div>
+                </td>
+        {% if exercise.errors %}
+        {% for message in exercise.errors  %}
+        <tr>
+            <div class="alert alert-warning" role="alert">
+                    {{ message }}
             </div>
-        </td>
+        {% endfor %}
+    {% endif %}
+    {% endfor %}
+    </tbody>
+    </table>
+    </div>
+</div>
+<br>
+{% endif %}
 
-        
-    </tr>
-{% endfor %}
-  </tbody>
-</table>
+
+
+    {% for category, tasks in categories.items() %}
+        <div class="card">
+            <div class="card-header">
+              {{ category }}
+            </div>
+            <div class="card-body">
+                <table class="table table-hover">
+                        <thead>
+                            <tr>
+                            <th scope="col">Short Name</th>
+                            <th scope="col">Version</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">#Instances</th>
+                            <th scope="col"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    <!-- Create a row for each exercise -->
+                    {% for e in tasks %}
+                        <tr>
+                            <td>{{ e.short_name }}</td>
+                            <td>{{ e.version }}</td>
+                            <td>{{ e.build_job_status.value }}</td>
+                            <td>{{ e.instances|length }}</td>
+                            <td>
+                                <div class="btn-group">
+                                        {% if e.build_job_status.value == 'FINISHED' %}
+                                            {% if e.is_default %}
+                                            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id) }}">Default</a>
+                                            {% else %}
+                                            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id) }}">Default</a>
+                                            {% endif %}
+                                        {% endif %}
+                                        <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}">View</a>
+                                        {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
+                                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id) }}">Build</a>
+                                        {% endif %}
+                                        {% if e.build_job_status.value not in ['BUILDING'] %}
+                                        <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_delete', exercise_id=e.id) }}">Delete</a>
+                                        {% endif %}
+                                    </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <br>
+    {% endfor %}
+
+<script>
+    function setCookie(name,value,days) {
+        var expires = "";
+        if (days) {
+            var date = new Date();
+            date.setTime(date.getTime() + (days*24*60*60*1000));
+            expires = "; expires=" + date.toUTCString();
+        }
+        document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+    }
+    function getCookie(name) {
+        var nameEQ = name + "=";
+        var ca = document.cookie.split(';');
+        for(var i=0;i < ca.length;i++) {
+            var c = ca[i];
+            while (c.charAt(0)==' ') c = c.substring(1,c.length);
+            if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+        }
+        return null;
+    }
+    function eraseCookie(name) {
+        document.cookie = name+'=; Max-Age=-99999999;';
+    }
+
+
+    $(document).ready(function(){
+        //On click on a element with class ok-modal load the URL href points at,
+        //and create a modal using the retrived data.
+        $( ".ok-modal" ).click(function() {
+            var target = $( this ).attr('href')
+            $.get(target, function(data){
+                $("#modal").html(data);
+                $("#modal").modal("show");
+            });
+            return false;
+        });
+    });
+
+</script>
 
 {% endblock %}

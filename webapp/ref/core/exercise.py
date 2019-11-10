@@ -15,8 +15,8 @@ import docker
 import yaml
 from flask import current_app
 
-from ref.model import (Exercise, ExerciseEntryService, ExerciseInstance,
-                       ExerciseInstanceEntryService, ExerciseService, User)
+from ref.model import (Exercise, ExerciseEntryService, Instance,
+                       InstanceEntryService, ExerciseService, User)
 from ref.model.enums import ExerciseBuildStatus
 
 from .docker import DockerClient
@@ -198,7 +198,7 @@ class ExerciseInstanceManager():
     Used to manage ExerciseInstance's.
     """
 
-    def __init__(self, instance: ExerciseInstance):
+    def __init__(self, instance: Instance):
         self.dc = DockerClient()
         self.instance = instance
 
@@ -207,12 +207,12 @@ class ExerciseInstanceManager():
         pass
 
     @staticmethod
-    def create_instance(user: User, exercise: Exercise) -> ExerciseInstance:
+    def create_instance(user: User, exercise: Exercise) -> Instance:
         """
         Creates an instance of the given exercise for the given user.
         After creating an instance, .start() must be used to start it.
         """
-        instance = ExerciseInstance()
+        instance = Instance()
         instance.exercise = exercise
         instance.user = user
 
@@ -220,7 +220,7 @@ class ExerciseInstanceManager():
         persistance.mkdir(parents=True, exist_ok=True)
 
         #Create the entry container
-        entry_service = ExerciseInstanceEntryService()
+        entry_service = InstanceEntryService()
         entry_service.instance = instance
 
         persistance = Path(entry_service.overlay_upper())
@@ -237,6 +237,34 @@ class ExerciseInstanceManager():
         current_app.db.session.add(instance)
 
         return instance
+
+    def update_instance(self, new_exercise: Exercise) -> Instance:
+        assert self.instance.exercise.short_name == new_exercise.short_name
+        assert self.instance.exercise.version < new_exercise.version
+
+        #Create new instance
+        new_instance = ExerciseInstanceManager.create_instance(self.instance.user, new_exercise)
+        new_mgr = ExerciseInstanceManager(new_instance)
+        new_mgr.start()
+
+        #Copy old persisted data. If the new exercise version is readonly, the persisted data is discarded.
+        if not new_exercise.entry_service.readonly and self.instance.exercise.entry_service.persistance_container_path:
+            #We are working directly on the merged directory, since changeing the upper dir itself causes issues:
+            #[328100.750176] overlayfs: failed to verify origin (entry-server/lower, ino=31214863, err=-116)
+            #[328100.750178] overlayfs: failed to verify upper root origin
+            cmd = f'sudo cp -arT {self.instance.entry_service.overlay_upper()} {new_instance.entry_service.overlay_merged()}'
+            subprocess.check_call(cmd, shell=True)
+
+        #Stop the old instance
+        self.stop()
+        #Remove old instance and all persisted data
+        self.remove()
+
+        #Stop new instance
+        new_mgr.stop()
+
+        return new_instance
+
 
     def get_entry_ip(self):
         """
@@ -257,7 +285,7 @@ class ExerciseInstanceManager():
 
         exercise: Exercise = self.instance.exercise
         exercise_entry_service = exercise.entry_service
-        instance_entry_service = self.instance.instance_entry_service
+        instance_entry_service = self.instance.entry_service
         #Get the container ID of the ssh container, thus we can connect the new instance
         #to it.
         ssh_container = self.dc.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
@@ -275,6 +303,7 @@ class ExerciseInstanceManager():
         #Mounts of the entry services
         mounts = None
         if exercise_entry_service.persistance_container_path:
+            assert not exercise_entry_service.readonly
             #Create overlay for the container persistance. All changes made by the student are recorded in the upper dir.
             #In case a update of the container is necessary, we can replace the lower dir with a new one and reuse the upper
             #dir. The directory used as mount target (overlay_merged) has shared mount propagation, i.e., the mount we are
@@ -282,7 +311,7 @@ class ExerciseInstanceManager():
             #that is started by the host (see below for further details).
             cmd = [
                 'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
-                f'-olowerdir={exercise.instance_entry_service.persistance_lower},upperdir={instance_entry_service.overlay_upper()},workdir={instance_entry_service.overlay_work()}',
+                f'-olowerdir={exercise.entry_service.persistance_lower},upperdir={instance_entry_service.overlay_upper()},workdir={instance_entry_service.overlay_work()}',
                 f'{instance_entry_service.overlay_merged()}'
             ]
             subprocess.check_call(cmd)
@@ -296,10 +325,12 @@ class ExerciseInstanceManager():
             mounts = {
                 self.dc.local_path_to_host(instance_entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
                 }
+            current_app.logger.info(f'mounting persistance {mounts}')
+        else:
+            current_app.logger.info('Container is readonly')
 
-        current_app.logger.info(f'mounting persistance {mounts}')
 
-        image_name = exercise.instance_entry_service.image_name
+        image_name = exercise.entry_service.image_name
         #Create container that is initally connected to the 'none' network
 
         #Allow the usage of ptrace, thus we can use gdb
@@ -324,7 +355,8 @@ class ExerciseInstanceManager():
             security_opt=seccomp_profile,
             cpu_quota=cpu_quota,
             cpu_period=cpu_period,
-            mem_limit=mem_limit
+            mem_limit=mem_limit,
+            read_only=exercise.entry_service.readonly
             )
         instance_entry_service.container_id = container.id
 
@@ -485,11 +517,16 @@ class ExerciseManager():
         exercise.short_name = ExerciseManager._parse_attr(cfg, 'short-name', str)
         exercise.category = ExerciseManager._parse_attr(cfg, 'category', str)
 
-        exercise.description = ExerciseManager._parse_attr(cfg, 'description', str)
+        exercise.description = ExerciseManager._parse_attr(cfg, 'description', str, required=False, default="")
         exercise.version = ExerciseManager._parse_attr(cfg, 'version', int)
         exercise.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', bool, required=False, default=False)
         exercise.is_default = False
         exercise.build_job_status = ExerciseBuildStatus.NOT_BUILD
+
+        #Check for unknown attrs
+        unparsed_keys = list(set(cfg.keys()) - set(['entry']))
+        if len(unparsed_keys):
+            raise ExerciseConfigError(f'Unknown key(s) {unparsed_keys}')
 
         #Check if there is an entry service
         if 'entry' not in cfg:
@@ -518,8 +555,17 @@ class ExerciseManager():
 
         entry.disable_aslr = ExerciseManager._parse_attr(entry_cfg, 'disable-aslr', bool, required=False, default=False)
         entry.cmd = ExerciseManager._parse_attr(entry_cfg, 'cmd', list, required=False, default='/bin/bash')
-
         entry.persistance_container_path = ExerciseManager._parse_attr(entry_cfg, 'persistance-path', str, required=False, default=None)
+        entry.readonly = ExerciseManager._parse_attr(entry_cfg, 'read-only', bool, required=False, default=False)
+        entry.bind_executable = ExerciseManager._parse_attr(entry_cfg, 'bind-executable', str, required=False, default=None)
+
+        if entry.readonly and entry.persistance_container_path:
+            raise ExerciseConfigError('persistance-path and readonly are mutually exclusive')
+
+        #Check for unknown attrs
+        unparsed_keys = list(entry_cfg.keys())
+        if len(unparsed_keys):
+            raise ExerciseConfigError(f'Unknown key(s) in entry service configuration {unparsed_keys}')
 
         return exercise
 
@@ -558,11 +604,11 @@ class ExerciseManager():
 
         return exercise
 
-    def get_instances(self) -> typing.List[ExerciseInstance]:
+    def get_instances(self) -> typing.List[Instance]:
         """
         Returns all instances of the given exercise.
         """
-        instances = ExerciseInstance.query.filter(ExerciseInstance.exercise == self.exercise).all()
+        instances = Instance.query.filter(Instance.exercise == self.exercise).all()
         return instances
 
     def remove(self, exercise: Exercise):
