@@ -15,7 +15,7 @@ linfo = lambda msg: current_app.logger.info(msg)
 class EditUserForm(Form):
     id = IntegerField('ID')
     mat_num = StringField('Matriculation Number', validators=[
-        validators.Required(), validators.Regexp(r"^1080[0-2][0-9][1-2][0-9]{5}$")
+        validators.Required()
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = TextField('Firstname', validators=[validators.Required()])
