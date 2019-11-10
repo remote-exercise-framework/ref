@@ -171,49 +171,6 @@ def student_restorekey():
 
     return render()
 
-@refbp.route('/student/edit/<int:user_id>', methods=('GET', 'POST'))
-@admin_required
-def student_edit(user_id):
-    """
-    List all students currently registered.
-    """
-    form = EditUserForm(request.form)
-    user: User = User.query.filter(User.id == user_id).first()
-    if not user:
-        flash.error(f'Unknown user ID {user_id}')
-        return render_template('400.html'), 400
-
-    if form.submit.data and form.validate():
-        if form.password.data != '':
-            if form.password.data != form.password_rep.data:
-                form.password.errors += ['Passwords do not match']
-                return render_template('user_edit.html', form=form)
-            else:
-                user.set_password(form.password.data)
-        user.mat_num = form.mat_num.data
-        user.course_of_studies = CourseOfStudies(form.course.data)
-        user.first_name = form.firstname.data
-        user.surname = form.surname.data
-        user.is_admin = form.is_admin.data
-        current_app.db.session.add(user)
-        current_app.db.session.commit()
-        flash.success('Updated!')
-        return render_template('user_edit.html', form=form)
-    else:
-        form.id.data = user.id
-        form.mat_num.data = user.mat_num
-        form.course.data = user.course_of_studies.value
-        form.firstname.data = user.first_name
-        form.surname.data = user.surname
-        form.is_admin.data = user.is_admin
-        #Leave password empty
-        form.password.data = ''
-        form.password_rep.data = ''
-
-
-    return render_template('user_edit.html', form=form)
-
-
 @refbp.route('/student/view', methods=('GET', 'POST'))
 @admin_required
 def student_view_all():
@@ -236,7 +193,6 @@ def student_view_single(user_id):
 
     return render_template('student_view_single.html', user=user)
 
-<<<<<<< HEAD
 @refbp.route('/student/edit/<int:user_id>', methods=('GET', 'POST'))
 @admin_required
 def student_edit(user_id):
