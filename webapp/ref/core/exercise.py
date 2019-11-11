@@ -373,21 +373,21 @@ class ExerciseInstanceManager():
 
 
     def _stop_networks(self):
-        network = self.dc.network(self.instance.network_id)
-        if not network:
-            return
-        network.reload()
-        for c in network.containers:
-            network.disconnect(c)
-        network.remove()
+        if self.instance.network_id:
+            network = self.dc.network(self.instance.network_id)
+            if not network:
+                return
+            network.reload()
+            for c in network.containers:
+                network.disconnect(c)
+            network.remove()
 
     def _stop_containers(self):
         entry_container = self.instance.entry_service.container_id
-        if not entry_container:
-            return
-        entry_container = self.dc.container(entry_container)
         if entry_container:
-            entry_container.kill()
+            entry_container = self.dc.container(entry_container)
+            if entry_container and entry_container.status == 'running':
+                entry_container.kill()
 
     def _remove_container(self):
         entry_container = self.instance.entry_service.container_id
@@ -399,8 +399,12 @@ class ExerciseInstanceManager():
     def stop(self):
         """
         Stops the given instance. The state is persisted, thus the instance can later be
-        started again by calling start().
+        started again by calling start(). It is safe to call this function on an already
+        stopped instance.
         """
+        if not any([self.instance.network_id, self.instance.entry_service.container_id]):
+            #Already stopped
+            return
 
         #Stop the containers, thus the user gets disconnected
         self._stop_containers()
@@ -410,6 +414,7 @@ class ExerciseInstanceManager():
         except Exception as e:
             #FIXME: If a network contains an already removed container, stopping it fails.
             #For now, we just ignore this, since this seems to be a known docker issue.
+            e = traceback.format_exc()
             current_app.logger.info(f'Failed to stop networking: {e}')
 
         #umount entry service persistance

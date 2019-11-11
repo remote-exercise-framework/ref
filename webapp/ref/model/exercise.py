@@ -96,7 +96,6 @@ class ExerciseEntryService(db.Model):
     """
     Each Exercise must have exactly one ExerciseEntryService that represtens the service
     that serves as entry point for an exercise.
-
     """
     __tablename__ = 'exercise_entry_service'
     id = db.Column(db.Integer, primary_key=True)

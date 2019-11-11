@@ -50,7 +50,6 @@ def instance_update(instance_id):
 
     current_app.db.session.commit()
     return redirect(url_for('ref.instances_view_all'))
-    #Check if build
 
 
 @refbp.route('/instances/view/<int:instance_id>')

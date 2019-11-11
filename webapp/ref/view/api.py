@@ -83,41 +83,46 @@ def api_provision():
         if len(Exercise.query.filter(Exercise.short_name == exercise_name).all()) == 0:
             return error_response('No such task')
 
-        #First check if the user already has an instance.
-        #If yes and it is the current default, just return it.
+        #Get the default exercise for the requested exercise name
+        default_exercise = Exercise.query.filter(Exercise.short_name == exercise_name).filter(Exercise.is_default == True).first()
+        linfo(f'Default exercise for {exercise_name} is {default_exercise}')
+
+        #Get the user instance of requested exercise name (if any)
         user_instances = user.exercise_instances
-        user_instances = [i for i in user_instances if i.exercise.short_name == exercise_name and i.exercise.is_default]
+        user_instances = [i for i in user_instances if i.exercise.short_name == exercise_name]
+        if len(user_instances) > 1:
+            lerr(f'User {user} has more then one instance of the same exercise')
+            return error_response('Internal error, please notify the system administrator')
+
+        user_instance = None
         if len(user_instances):
-            assert len(user_instances) == 1, 'There should be at most one active default'
-            instance = user_instances[0]
-            linfo(f'User has an instance of the requested exercise that is marked as default ({instance})')
-            return start_and_return_instance(instance)
+            user_instance = user_instances[0]
 
-        #If we are here, the user has no instance of the requested exercise that is marked as default.
+        #If the user has an instance and there is no default for the requested exercise or
+        #the instance is an "instance" of the default exercise, return it.
+        if user_instance and (not default_exercise or user_instance.exercise == default_exercise or user_instance.exercise.version > default_exercise.version):
+            linfo(f'User has an instance of the requested exercise ({user_instance})')
+            return start_and_return_instance(user_instance)
 
-        #Check if there is a default for the requested exercise
-        exercises = Exercise.query.filter(Exercise.short_name == exercise_name).all()
-        exercises = list(filter(lambda e: e.is_default, exercises))
-        assert len(exercises) <= 1, 'To many default exercises'
-        if len(exercises) == 0:
-            return error_response('There is no active default for the given exercise')
+        #If we are here, the user has no instance of the requested exercise.
+        if not default_exercise:
+            return error_response('There is no active default for the requested exercise')
 
         #The exercise that is the current default.
         #If an exercise is marked as default, it is guaranteed that there are no instances
         #of a more recent version of the exercise. Hence, if the user has another instance
         #of the requested exercise, it must be older.
-        exercise = exercises[0]
 
-        if not ExerciseImageManager(exercise).is_build():
-            lerr(f'Exercise {exercise} is marked as default, but is not build! Possibly someone delete the docker image?')
-            return error_response('Inconsistent build state, please notify the system administrator')
+        if not ExerciseImageManager(default_exercise).is_build():
+            lerr(f'Exercise {default_exercise} is marked as default, but is not build! Possibly someone deleted the docker image?')
+            return error_response('Internal error, please notify the system administrator')
 
         #Now we need to check if the user has an older version of the requested exercise that we need
         #to update.
         user_instances = user.exercise_instances
-        user_instances = [i for i in user_instances if i.exercise.short_name == exercise.short_name]
+        user_instances = [i for i in user_instances if i.exercise.short_name == default_exercise.short_name]
         if len(user_instances) > 1:
-            lerr(f'User {user} has more than 1 instance of exercise {exercise.short_name}')
+            lerr(f'User {user} has more than 1 instance of exercise {default_exercise.short_name}')
             return error_response('Internal error, please notify the system administrator')
 
         new_instance = None
@@ -126,12 +131,12 @@ def api_provision():
             old_instance = user_instances[0]
             linfo(f'Found an upgradeable instance ({old_instance})')
             mgr = ExerciseInstanceManager(old_instance)
-            new_instance = mgr.update_instance(exercise)
+            new_instance = mgr.update_instance(default_exercise)
             db.session.commit()
         else:
             #The user has no older version of the exercise, create a new one
-            linfo(f'User has no instance of exercise {exercise}, creating one...')
-            new_instance = ExerciseInstanceManager.create_instance(user, exercise)
+            linfo(f'User has no instance of exercise {default_exercise}, creating one...')
+            new_instance = ExerciseInstanceManager.create_instance(user, default_exercise)
             db.session.add(new_instance)
             db.session.commit()
 
