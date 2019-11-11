@@ -32,10 +32,6 @@ Students
             <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.student_view_single', user_id=student.id) }}">View</a>
             <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.student_edit', user_id=student.id) }}">Edit</a>
             <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.student_delete', user_id=student.id) }}">Delete</a>
-
-            <!-- {% call modal.yes_no('delete_modal', 'Delete', 'Are you sure?', url_for('ref.student_delete', user_id=student.id)) %}
-                You are about to delete the user {{ student.id }}
-            {% endcall %} -->
         </div>
         </td>
     </tr>
