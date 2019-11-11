@@ -193,7 +193,7 @@ def exercise_view_all():
                 #Do not import exercises of same type with version <= the currently imported versions.
                 continue
 
-            if newest_exercise.entry_service.readonly != bool(exercise.entry_service.readonly):
+            if bool(newest_exercise.entry_service.readonly) != bool(exercise.entry_service.readonly):
                 exercise.errors += [f'{exercise.template_import_path}: Changing the readonly flag between versions cause loss of data during instance upgrade']
 
         importable.append(exercise)
