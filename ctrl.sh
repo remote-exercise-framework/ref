@@ -17,6 +17,7 @@ Commands:
             --debug
             Enables debug mode. This causes exception to be printed
             on the webinterface. Use this only for development.
+            --maintenance
     - down
     - logs#
 
@@ -76,6 +77,9 @@ function up {
             '--debug')
                 debug=true
             ;;
+            '--maintenance')
+                maintenance=true
+            ;;
             *)
                 echo "Invalid arg $1"
                 usage
@@ -86,6 +90,10 @@ function up {
 
     if [[ "$debug" == 'true' ]]; then
         export DEBUG=1
+    fi
+
+    if [[ "$maintenance" == 'true' ]]; then
+        export MAINTENANCE_ENABLED=1
     fi
 
     docker-compose up $@

@@ -3,6 +3,7 @@ services:
    sshserver:
       environment:
          - DEBUG=${DEBUG}
+         - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED}
       build:
          ./ssh-wrapper
       #volumes:
@@ -19,6 +20,7 @@ services:
          #Folder used for persistent data
          - BASEDIR=/data
          - DEBUG=${DEBUG}
+         - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED}
          - REDIS_URL=redis://redis
       cap_add:
          - SYS_ADMIN

@@ -60,6 +60,7 @@ def api_provision():
     This API endpoint is used by the local ssh-server the students connect to.
     The request should contain the public-key used for authentication and the
     """
+
     if request.method == 'POST':
         #content = request.json
         #Params: username, public key
@@ -79,6 +80,11 @@ def api_provision():
             return error_response('Unknown public-key')
 
         linfo(f'User found {user}')
+
+        if current_app.config['MAINTENANCE_ENABLED'] and not user.is_admin:
+            linfo('Rejecting connection, since maintenance mode is enabled')
+            return error_response('-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------')
+
 
         if len(Exercise.query.filter(Exercise.short_name == exercise_name).all()) == 0:
             return error_response('No such task')
