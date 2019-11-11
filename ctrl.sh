@@ -112,9 +112,14 @@ function stop {
     docker-compose stop
 }
 
+function restart {
+    docker-compose restart $@
+}
+
 function ps {
     docker-compose ps
 }
+
 
 cmd="$1"
 shift
@@ -134,6 +139,9 @@ case "$cmd" in
     ;;
     stop)
         stop $@
+    ;;
+    restart)
+        restart $@
     ;;
     ps)
         ps $@
