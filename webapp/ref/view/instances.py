@@ -62,9 +62,12 @@ def instances_view_details(instance_id):
 
     return render_template('instance_view_details.html', instance=instance)
 
-@refbp.route('/instances/view/by-exercise/<string:exercise_name>')
+
+
+@refbp.route('/instances/view/by-exercise/<string:exercise_name>/', defaults={'exercise_version': None})
+@refbp.route('/instances/view/by-exercise/<string:exercise_name>/<int:exercise_version>')
 @admin_required
-def instances_view_by_exercise(exercise_name):
+def instances_view_by_exercise(exercise_name, exercise_version):
     try:
         exercise_name = urllib.parse.unquote_plus(exercise_name)
     except Exception as e:
@@ -73,6 +76,8 @@ def instances_view_by_exercise(exercise_name):
 
     instances = Instance.query.all()
     instances = [i for i in instances if i.exercise.short_name == exercise_name]
+    if exercise_version:
+        instances = [i for i in instances if i.exercise.version == exercise_version]
 
     for i in instances:
         running = ExerciseInstanceManager(i).is_running()
@@ -81,7 +86,10 @@ def instances_view_by_exercise(exercise_name):
         new_exercise = get_newest_exercise_version(i.exercise)
         setattr(i, 'new_exercise', new_exercise)
 
-    return render_template('instances_view_list.html', title=f'Instances of exercise {exercise_name}', instances=instances)
+    title=f'Instances of exercise {exercise_name}'
+    if exercise_version:
+        title += f" v{exercise_version}"
+    return render_template('instances_view_list.html', title=title, instances=instances)
 
 @refbp.route('/instances/view')
 @admin_required
