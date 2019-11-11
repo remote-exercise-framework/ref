@@ -76,16 +76,17 @@ function up {
         case $1 in
             '--debug')
                 debug=true
+                shift
             ;;
             '--maintenance')
                 maintenance=true
+                shift
             ;;
             *)
-                echo "Invalid arg $1"
-                usage
+            #Pass unknown flags to docker-compose
+            break
             ;;
         esac
-        shift
     done
 
     if [[ "$debug" == 'true' ]]; then
