@@ -7,6 +7,7 @@ from collections import namedtuple
 from pathlib import Path
 
 import docker
+import urllib
 import redis
 import rq
 import yaml
@@ -51,7 +52,6 @@ def instance_update(instance_id):
     current_app.db.session.commit()
     return redirect(url_for('ref.instances_view_all'))
 
-
 @refbp.route('/instances/view/<int:instance_id>')
 @admin_required
 def instances_view_details(instance_id):
@@ -61,6 +61,27 @@ def instances_view_details(instance_id):
         return render_template('400.html'), 400
 
     return render_template('instance_view_details.html', instance=instance)
+
+@refbp.route('/instances/view/by-exercise/<string:exercise_name>')
+@admin_required
+def instances_view_by_exercise(exercise_name):
+    try:
+        exercise_name = urllib.parse.unquote_plus(exercise_name)
+    except Exception as e:
+        flash.error(f'Invalid exercise name')
+        return render_template('400.html'), 400
+
+    instances = Instance.query.all()
+    instances = [i for i in instances if i.exercise.short_name == exercise_name]
+
+    for i in instances:
+        running = ExerciseInstanceManager(i).is_running()
+        setattr(i, 'running', running)
+
+        new_exercise = get_newest_exercise_version(i.exercise)
+        setattr(i, 'new_exercise', new_exercise)
+
+    return render_template('instances_view_list.html', title=f'Instances of exercise {exercise_name}', instances=instances)
 
 @refbp.route('/instances/view')
 @admin_required

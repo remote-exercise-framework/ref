@@ -1,7 +1,13 @@
 {% extends "admin_base.html" %}
 
 {% block title %}
+
+{% if title %}
+{{ title }}
+{% else %}
 Instances
+{% endif %}
+
 {% endblock %}
 
 {% block content %}
@@ -19,7 +25,7 @@ Instances
     </thead>
     <tbody>
 {% for i in instances %}
-    <tr>
+    <tr id="{{ i.id }}" {{ "updateable" if i.new_exercise }}>
         <td>{{ i.id }}</td>
         <td>{{ i.exercise.short_name }}</td>
         <td>{{ i.exercise.version }}

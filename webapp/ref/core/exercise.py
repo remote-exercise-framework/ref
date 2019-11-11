@@ -260,6 +260,8 @@ class ExerciseInstanceManager():
             cmd = f'sudo cp -arT {self.instance.entry_service.overlay_upper()} {new_instance.entry_service.overlay_merged()}'
             subprocess.check_call(cmd, shell=True)
 
+        #FIXME: If we fail during stoping, we have two instances :-(
+
         #Stop the old instance
         self.stop()
         #Remove old instance and all persisted data
@@ -473,7 +475,7 @@ class ExerciseInstanceManager():
     def remove(self):
         """
         Kill the instance and remove all associated persisted data.
-        After calling this function, the given instance is deleted from the DB.
+        NOTE: After callin this function, the instance must be removed from the DB.
         """
         self.stop()
 
