@@ -246,6 +246,10 @@ def exercise_delete(exercise_id):
         flash.error("Exercise has associated instances, unable to delete!")
         return redirect(url_for('ref.exercise_view_all'))
 
+    if exercise.build_job_status == ExerciseBuildStatus.BUILDING:
+        flash.error('Unable to delete exercise during building')
+        return redirect(url_for('ref.exercise_view_all'))
+
     mgr = ExerciseImageManager(exercise)
     mgr.remove()
 

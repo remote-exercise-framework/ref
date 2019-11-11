@@ -136,7 +136,11 @@ class ExerciseImageManager():
 
         except Exception as e:
             with app.app_context():
-                if isinstance(e, docker.errors.ContainerError):
+                if isinstance(e, docker.errors.BuildError):
+                    for l in list(e.build_log):
+                        if 'stream' in l:
+                            log += l['stream']
+                elif isinstance(e, docker.errors.ContainerError):
                     if e.stderr:
                         log = e.stderr.decode()
                 log += traceback.format_exc()
