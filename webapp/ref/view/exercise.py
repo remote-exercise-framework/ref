@@ -267,6 +267,14 @@ def exercise_toggle_default(exercise_id):
         return render_template('400.html'), 400
 
     other_exercises = list(Exercise.query.filter(Exercise.short_name == exercise.short_name))
+    if not exercise.is_default:
+        #Only allow to set default in case there is no newer version of the exercise with active instances.
+        for e in other_exercises:
+            if e.version > exercise.version and len(e.instances) > 0:
+                flash.error(f'Unable to mark exercise as default as long there is a more recent version with active instances.')
+                return redirect(url_for('ref.exercise_view_all'))
+
+
     other_exercises.remove(exercise)
     if exercise.is_default:
         exercise.is_default = False

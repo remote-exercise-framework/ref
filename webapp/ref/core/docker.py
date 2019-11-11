@@ -111,7 +111,7 @@ class DockerClient():
                 return v['IPv4Address']
         return None
 
-    def create_container(self, image_name, name=None, auto_remove=True, network_mode='none', volumes=None, cap_add=[], security_opt=[], cpu_period=None, cpu_quota=None, mem_limit=None, read_only=False):
+    def create_container(self, image_name, name=None, auto_remove=False, network_mode='none', volumes=None, cap_add=[], security_opt=[], cpu_period=None, cpu_quota=None, mem_limit=None, read_only=False):
         if not name:
             name = 'ref-' + ''.join(random.choices(string.ascii_uppercase, k=10))
         return self.client.containers.run(

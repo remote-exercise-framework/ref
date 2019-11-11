@@ -25,8 +25,6 @@ class ConfigParsingError(Exception):
 class ParsingError(Exception):
     pass
 
-#Upgrade -> stop old container -> start new container with new overlay
-
 class InstanceEntryService(db.Model):
     """
     Container that represents the entrypoint for a specific task instance.
@@ -43,27 +41,27 @@ class InstanceEntryService(db.Model):
 
     def overlay_upper(self):
         """
-        Path to the directory that contains the persisted user data if this service.
+        Path to the directory that contains the persisted user data.
         This directory is used as the 'upper' directory for overlayfs.
         """
-        return f'{self.instance.persistance_path()}/entry-upper'
+        return f'{self.instance.persistance_path}/entry-upper'
 
     def overlay_work(self):
         """
         Path to the working directory used by overlayfs for persistance.
         """
-        return f'{self.instance.persistance_path()}/entry-work'
+        return f'{self.instance.persistance_path}/entry-work'
 
     def overlay_merged(self):
         """
         Path to the directory that contains the merged content of the upper and lower directory.
         """
-        return f'{self.instance.persistance_path()}/entry-merged'
+        return f'{self.instance.persistance_path}/entry-merged'
 
 class Instance(db.Model):
     """
     An Instance represents a instance of an exercise.
-    Such a instance is bound to a single user.
+    Such an instance is bound to a single user.
     """
     __tablename__ = 'exercise_instance'
     id = db.Column(db.Integer, primary_key=True)
@@ -86,9 +84,10 @@ class Instance(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'),
         nullable=False)
 
+    @property
     def persistance_path(self):
         """
-        Path used to store all all data that belongs to this instance.
+        Path used to store all data that belongs to this instance.
         """
         return self.exercise.persistence_path + f'/instances/{self.user.id}'
 
@@ -122,7 +121,8 @@ class ExerciseEntryService(db.Model):
     @property
     def persistance_lower(self):
         """
-        
+        Path to the local directory that contains the data located at persistance_container_path
+        in the exercise image.
         """
         return self.exercise.persistence_path + f'/entry-server/lower'
 

@@ -215,8 +215,9 @@ class ExerciseInstanceManager():
         instance = Instance()
         instance.exercise = exercise
         instance.user = user
+        exercise.instances.append(instance)
 
-        persistance = Path(instance.persistance_path())
+        persistance = Path(instance.persistance_path)
         persistance.mkdir(parents=True, exist_ok=True)
 
         #Create the entry container
@@ -388,11 +389,22 @@ class ExerciseInstanceManager():
         if entry_container:
             entry_container.kill()
 
+    def _remove_container(self):
+        entry_container = self.instance.entry_service.container_id
+        if entry_container:
+            entry_container = self.dc.container(entry_container)
+            if entry_container:
+                entry_container.remove()
+
     def stop(self):
         """
         Stops the given instance. The state is persisted, thus the instance can later be
         started again by calling start().
         """
+
+        #Stop the containers, thus the user gets disconnected
+        self._stop_containers()
+
         try:
             self._stop_networks()
         except Exception as e:
@@ -400,12 +412,12 @@ class ExerciseInstanceManager():
             #For now, we just ignore this, since this seems to be a known docker issue.
             current_app.logger.info(f'Failed to stop networking: {e}')
 
-        self._stop_containers()
-
         #umount entry service persistance
         if os.path.ismount(self.instance.entry_service.overlay_merged()):
             cmd = ['sudo', '/bin/umount', self.instance.entry_service.overlay_merged()]
             subprocess.check_call(cmd)
+
+        self._remove_container()
 
         #Sync state back to DB
         self.instance.entry_service.container_id = None
@@ -456,11 +468,8 @@ class ExerciseInstanceManager():
         """
         self.stop()
 
-        if os.path.ismount(self.instance.entry_service.overlay_merged()):
-            cmd = ['sudo', '/bin/umount', self.instance.entry_service.overlay_merged()]
-            subprocess.check_call(cmd)
-        if os.path.exists(self.instance.persistance_path()):
-            subprocess.check_call(f'sudo rm -rf {self.instance.persistance_path()}', shell=True)
+        if os.path.exists(self.instance.persistance_path):
+            subprocess.check_call(f'sudo rm -rf {self.instance.persistance_path}', shell=True)
 
         current_app.db.session.delete(self.instance.entry_service)
         current_app.db.session.delete(self.instance)
@@ -518,6 +527,7 @@ class ExerciseManager():
         exercise.category = ExerciseManager._parse_attr(cfg, 'category', str)
 
         exercise.description = ExerciseManager._parse_attr(cfg, 'description', str, required=False, default="")
+
         exercise.version = ExerciseManager._parse_attr(cfg, 'version', int)
         exercise.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', bool, required=False, default=False)
         exercise.is_default = False
