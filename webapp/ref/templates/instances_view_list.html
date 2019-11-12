@@ -143,7 +143,7 @@ Instances
                 stopable.each(function() {
                     let target = stop_url.replace('123456789', this.id)
                     let id = this.id
-                    let promise = axios.get(target, {maxRedirects: 0})
+                    let promise = axios.get(target)
                     promises.push(promise)
 
                     promise
