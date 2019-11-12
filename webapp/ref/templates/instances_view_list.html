@@ -102,6 +102,9 @@ Instances
                 //$( "tr" ).filter("[updateable]").each(function() { console.log(this.id)} );
                 let promises = []
 
+                if (!confirm('Are you sure you want to update all instances?'))
+                    return false
+
                 displayToast('Updating', 'Updating ' + updateable.length + " instances...")
 
                 updateable.each(function() {
@@ -137,6 +140,9 @@ Instances
             stop_all_button.click(function(event) {
                 //$( "tr" ).filter("[updateable]").each(function() { console.log(this.id)} );
                 let promises = []
+
+                if (!confirm('Are you sure you want to stop all instances?'))
+                    return false
 
                 displayToast('Stopping', 'Stopping ' + stopable.length + " instances...")
 
