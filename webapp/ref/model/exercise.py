@@ -5,6 +5,8 @@ import threading
 import time
 from io import BytesIO
 
+from sqlalchemy import and_, or_
+
 import docker
 import yaml
 from flask import current_app
@@ -196,3 +198,21 @@ class Exercise(db.Model):
 
     #All running instances of this exercise
     instances = db.relationship('Instance', backref='exercise', lazy=True)
+
+    def predecessor(self):
+        exercise = Exercise.query.filter(
+            and_(
+                Exercise.short_name == self.short_name,
+                Exercise.version < self.version
+                )
+            ).order_by(Exercise.version.desc()).first()
+        return exercise
+
+    def successor(self):
+        exercise = Exercise.query.filter(
+            and_(
+                Exercise.short_name == self.short_name,
+                Exercise.version > self.version
+                )
+            ).order_by(Exercise.version).first()
+        return exercise

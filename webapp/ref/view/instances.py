@@ -6,9 +6,12 @@ import typing
 from collections import namedtuple
 from pathlib import Path
 
+
+from ref.core.util import redirect_to_next
 import docker
 import urllib
 import redis
+from werkzeug.urls import url_parse
 import rq
 import yaml
 from flask import (Blueprint, Flask, abort, current_app, redirect,
@@ -63,8 +66,19 @@ def instances_view_details(instance_id):
     return render_template('instance_view_details.html', instance=instance)
 
 
+def _instances_render_view(instances, title=None):
 
-@refbp.route('/instances/view/by-exercise/<string:exercise_name>/', defaults={'exercise_version': None})
+    #Set attributes used by the UI.
+    for i in instances:
+        running = ExerciseInstanceManager(i).is_running()
+        setattr(i, 'running', running)
+
+        new_exercise = get_newest_exercise_version(i.exercise)
+        setattr(i, 'new_exercise', new_exercise)
+
+    return render_template('instances_view_list.html', title=title, instances=instances)
+
+@refbp.route('/instances/view/by-exercise/<string:exercise_name>', defaults={'exercise_version': None})
 @refbp.route('/instances/view/by-exercise/<string:exercise_name>/<int:exercise_version>')
 @admin_required
 def instances_view_by_exercise(exercise_name, exercise_version):
@@ -79,31 +93,17 @@ def instances_view_by_exercise(exercise_name, exercise_version):
     if exercise_version:
         instances = [i for i in instances if i.exercise.version == exercise_version]
 
-    for i in instances:
-        running = ExerciseInstanceManager(i).is_running()
-        setattr(i, 'running', running)
-
-        new_exercise = get_newest_exercise_version(i.exercise)
-        setattr(i, 'new_exercise', new_exercise)
-
     title=f'Instances of exercise {exercise_name}'
     if exercise_version:
         title += f" v{exercise_version}"
-    return render_template('instances_view_list.html', title=title, instances=instances)
+
+    return _instances_render_view(instances, title=title)
 
 @refbp.route('/instances/view')
 @admin_required
 def instances_view_all():
     instances = Instance.query.all()
-
-    for i in instances:
-        running = ExerciseInstanceManager(i).is_running()
-        setattr(i, 'running', running)
-
-        new_exercise = get_newest_exercise_version(i.exercise)
-        setattr(i, 'new_exercise', new_exercise)
-
-    return render_template('instances_view_list.html', instances=instances)
+    return _instances_render_view(instances)
 
 @refbp.route('/instances/stop/<int:instance_id>')
 @admin_required
@@ -129,7 +129,7 @@ def instance_delete(instance_id):
     mgr = ExerciseInstanceManager(instance)
     mgr.remove()
 
-    return redirect(url_for('ref.instances_view_all'))
+    return redirect_to_next()
 
 
 

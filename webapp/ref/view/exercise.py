@@ -4,10 +4,15 @@ import shutil
 import tempfile
 import urllib
 import typing
+import subprocess
+import difflib
 from collections import namedtuple
 from pathlib import Path
 
+from sqlalchemy import and_, or_
+
 from collections import defaultdict
+from ref.core.util import redirect_to_next
 import docker
 import redis
 import rq
@@ -114,6 +119,57 @@ def exercise_build(exercise_id):
         mgr.build()
         return redirect(url_for('ref.exercise_view_all'))
 
+
+@refbp.route('/exercise/diff')
+@admin_required
+def exercise_diff():
+    """
+    Returns a modal that shows a diff of the exercise configs provided
+    via query args path_a, path_b. If path_b is not set, the path_a config
+    is compared with the most recent version of the same exercise.
+    """
+    path_a = request.args.get('path_a')
+    path_b = request.args.get('path_b')
+
+    if not path_a:
+        flash.error("path_a is required")
+        return render_template('400.html'), 400
+
+    exercise_a = ExerciseManager.from_template(path_a)
+    exercise_b = None
+
+    #If path_b is not provided, we compare exercise path_a with the most recent version
+    #of the same exercise.
+    if not path_b:
+        exercise_b = exercise_a.predecessor()
+
+    if not exercise_b:
+        flash.error("Nothing to compare with")
+        return render_template('400.html'), 400
+
+    linfo(f'Comparing {exercise_a.short_name} version {exercise_a.version} vs. {exercise_b.version}')
+
+    #template_path is only set if the exercise was already imported
+    if exercise_a.template_path:
+        path_a = exercise_a.template_path
+    else:
+        path_a = exercise_a.template_import_path
+
+    if exercise_b.template_path:
+        path_b = exercise_b.template_path
+    else:
+        path_b = exercise_b.template_import_path
+
+    #Dockerfile-entry is generated during build, thus we ignore it
+    p = subprocess.run(f'diff -N -r -u --exclude=Dockerfile-entry -U 5 {path_b} {path_a}', shell=True, stdout=subprocess.PIPE)
+    if p.returncode == 2:
+        return render_template('400.html'), 400
+    diff = p.stdout.decode()
+
+    title = f'{exercise_a.short_name} - v{exercise_b.version} vs. v{exercise_a.version}'
+
+    return render_template('exercise_config_diff.html', title=title, diff=diff)
+
 @refbp.route('/exercise/import/<string:cfg_path>')
 @admin_required
 def exercise_do_import(cfg_path):
@@ -183,15 +239,18 @@ def exercise_view_all():
     for exercise in import_candidates:
         newest_exercise = None
         exercise.errors = []
+        exercise.is_update = False
 
         same_exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
+
         if same_exercises:
             newest_exercise = max(same_exercises, key=lambda e: e.version)
-
-        if newest_exercise:
             if newest_exercise.version >= exercise.version:
                 #Do not import exercises of same type with version <= the currently imported versions.
                 continue
+
+            if newest_exercise:
+                exercise.is_update = True
 
             if bool(newest_exercise.entry_service.readonly) != bool(exercise.entry_service.readonly):
                 exercise.errors += [f'{exercise.template_import_path}: Changing the readonly flag between versions cause loss of data during instance upgrade']

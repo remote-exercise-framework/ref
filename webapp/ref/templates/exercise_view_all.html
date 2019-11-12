@@ -24,22 +24,32 @@ Exercises
         <tbody>
     {% for exercise in importable %}
         <tr>
-                <td>{{ exercise.short_name }}</td>
-                <td>{{ exercise.version }}</td>
+                <td>{{ exercise.short_name }}
+                </td>
+                <td>{{ exercise.version }}
+                        {% if exercise.is_update %}
+                        <span class="badge badge-secondary">Update</span>
+                        {% else %}
+                        <span class="badge badge-secondary">New</span>
+                        {% endif %}
+                </td>
                 <td>{{ exercise.category }}</td>
                 <td>
                     <div class="btn-group">
+                        {% if exercise.is_update %}
+                            <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_diff', path_a=exercise.template_import_path) }}" data-toggle="tooltip" data-placement="top" title="Tooltip on top">Diff</a>
+                        {% endif %}
                         <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_do_import', cfg_path=exercise.template_import_path|quote_plus) }}">Import</a>
                     </div>
                 </td>
         {% if exercise.errors %}
-        {% for message in exercise.errors  %}
-        <tr>
-            <div class="alert alert-warning" role="alert">
-                    {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
+            {% for message in exercise.errors  %}
+            <tr>
+                <div class="alert alert-warning" role="alert">
+                        {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
     {% endfor %}
     </tbody>
     </table>
@@ -73,7 +83,9 @@ Exercises
                             <td>{{ e.short_name }}</td>
                             <td>{{ e.version }}</td>
                             <td>{{ e.build_job_status.value }}</td>
-                            <td>{{ e.instances|length }}</td>
+                            <td>
+                                {{ e.instances|length }}
+                            </td>
                             <td>
                                 <div class="btn-group">
                                         {% if e.build_job_status.value == 'FINISHED' %}
@@ -86,7 +98,7 @@ Exercises
                                         {% if e.instances|length %}
                                             <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instances_view_by_exercise', exercise_name=e.short_name|quote_plus, exercise_version=e.version) }}">Instances</a>
                                         {% endif %}
-                                        <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}">View</a>
+                                        <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}" data-toggle="tooltip" data-placement="top" title="Tooltip on top">View</a>
                                         {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
                                         <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id) }}">Build</a>
                                         {% endif %}
