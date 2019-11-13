@@ -46,9 +46,6 @@ class ReleaseConfig(object):
     #If True, only admin are allowed to use the API
     MAINTENANCE_ENABLED = (os.environ.get('MAINTENANCE_ENABLED') and os.environ.get('MAINTENANCE_ENABLED') != '') or False
 
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        "timeout": 60,
-    }
 
 class DebugConfig(ReleaseConfig):
     debug = True
