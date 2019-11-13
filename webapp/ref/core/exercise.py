@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import time
 import traceback
+import re
 import typing
 from dataclasses import dataclass
 from io import BytesIO
@@ -535,6 +536,10 @@ class ExerciseManager():
 
         #General metadata describing the exercise
         exercise.short_name = ExerciseManager._parse_attr(cfg, 'short-name', str)
+        short_name_regex = r'([a-zA-Z0-9._])*'
+        if not re.fullmatch(short_name_regex, exercise.short_name):
+            raise ExerciseConfigError(f'short-name "{exercise.short_name}" is invalid ({short_name_regex})')
+
         exercise.category = ExerciseManager._parse_attr(cfg, 'category', str)
 
         exercise.description = ExerciseManager._parse_attr(cfg, 'description', str, required=False, default="")
