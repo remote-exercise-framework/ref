@@ -4,4 +4,3 @@ from .api import api_provision
 from .instances import instances_view_all, instance_delete, instance_stop, instances_view_details, instances_view_by_exercise, instances_by_user_id
 from .login import login
 from .graph import graph
-from .system import system_consistency
