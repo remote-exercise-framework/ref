@@ -3,8 +3,9 @@ from ref.model.enums import CourseOfStudies
 from flask_bcrypt import generate_password_hash, check_password_hash
 from ref import db
 from flask_login import UserMixin
+from .util import CommonDbOpsMixin
 
-class User(UserMixin, db.Model):
+class User(CommonDbOpsMixin, UserMixin, db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.Text(), nullable=False)
@@ -32,3 +33,7 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
+
+    @property
+    def full_name(self):
+        return f'{self.first_name} {self.surname}'

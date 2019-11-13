@@ -65,7 +65,6 @@ def instances_view_details(instance_id):
 
     return render_template('instance_view_details.html', instance=instance)
 
-
 def _instances_render_view(instances, title=None):
 
     #Set attributes used by the UI.
@@ -78,20 +77,36 @@ def _instances_render_view(instances, title=None):
 
     return render_template('instances_view_list.html', title=title, instances=instances)
 
-@refbp.route('/instances/view/by-exercise/<string:exercise_name>', defaults={'exercise_version': None})
-@refbp.route('/instances/view/by-exercise/<string:exercise_name>/<int:exercise_version>')
+@refbp.route('/instances/view/by-user/<int:user_id>')
 @admin_required
-def instances_view_by_exercise(exercise_name, exercise_version):
+def instances_by_user_id(user_id):
+    user = User.get(user_id)
+    if not user:
+        flash.error(f'Invalid user id')
+        return render_template('400.html'), 400
+
+    instances = Instance.get_by_user(user_id)
+
+    title=f'Instances of user {user.full_name} (#{user.id})'
+    return _instances_render_view(instances, title=title)
+
+
+@refbp.route('/instances/view/by-exercise/<string:exercise_name>')
+@admin_required
+def instances_view_by_exercise(exercise_name):
     try:
         exercise_name = urllib.parse.unquote_plus(exercise_name)
     except Exception as e:
         flash.error(f'Invalid exercise name')
         return render_template('400.html'), 400
 
-    instances = Instance.query.all()
-    instances = [i for i in instances if i.exercise.short_name == exercise_name]
-    if exercise_version:
-        instances = [i for i in instances if i.exercise.version == exercise_version]
+    try:
+        exercise_version = int(request.args.get('exercise_version'))
+    except ValueError:
+        flash.error(f'Invalid exercise version')
+        return render_template('400.html'), 400
+
+    instances = Instance.get_instances_by_exercise(exercise_name, exercise_version)
 
     title=f'Instances of exercise {exercise_name}'
     if exercise_version:

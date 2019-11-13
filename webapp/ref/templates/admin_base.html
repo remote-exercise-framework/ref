@@ -83,7 +83,17 @@
                     <a class="dropdown-item" href="{{ url_for('ref.graph') }}">Container and Networks</a>
                 </div>
             </li>
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    System
+                </a>
+                <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                    <a class="dropdown-item" href="{{ url_for('ref.system_consistency') }}">Consistency Check</a>
+                </div>
+            </li>
         </ul>
+
+        
 
         <li class="nav-item">
             {% if current_user.is_authenticated %}

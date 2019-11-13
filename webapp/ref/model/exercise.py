@@ -93,6 +93,27 @@ class Instance(db.Model):
         """
         return self.exercise.persistence_path + f'/instances/{self.user.id}'
 
+    @classmethod
+    def all(cls):
+        return cls.query.all()
+
+    @staticmethod
+    def get_instances_by_exercise(short_name, version=None):
+        instances = Instance.query.all()
+        ret = []
+        for i in instances:
+            if i.exercise.short_name == short_name and (version is None or i.exercise.version == version):
+                ret.append(i)
+        return ret
+
+    @staticmethod
+    def get_by_user(user_id):
+        ret = []
+        instances = Instance.all()
+        for i in instances:
+            if i.user.id == user_id:
+                ret.append(i)
+        return ret
 
 class ExerciseEntryService(db.Model):
     """
@@ -199,20 +220,52 @@ class Exercise(db.Model):
     #All running instances of this exercise
     instances = db.relationship('Instance', backref='exercise', lazy=True)
 
-    def predecessor(self):
-        exercise = Exercise.query.filter(
+    def predecessors(self):
+        exercises = Exercise.query.filter(
             and_(
                 Exercise.short_name == self.short_name,
                 Exercise.version < self.version
                 )
-            ).order_by(Exercise.version.desc()).first()
-        return exercise
+            ).order_by(Exercise.version.desc()).all()
+        return exercises
 
-    def successor(self):
-        exercise = Exercise.query.filter(
+    def predecessor(self):
+        predecessors = self.predecessors()
+        if len(predecessors):
+            return predecessors[0]
+        else:
+            return None
+
+    def successors(self):
+        exercises = Exercise.query.filter(
             and_(
                 Exercise.short_name == self.short_name,
                 Exercise.version > self.version
                 )
-            ).order_by(Exercise.version).first()
-        return exercise
+            ).order_by(Exercise.version).all()
+        return exercises
+
+    def successor(self):
+        successors = self.successors()
+        if len(successors):
+            return successors[0]
+        else:
+            return None
+
+    @staticmethod
+    def get_exercise(short_name, version):
+        exercise = Exercise.query.filter(
+            and_(
+                Exercise.short_name == short_name,
+                Exercise.version == version
+                )
+        )
+        return exercise.first()
+
+    @staticmethod
+    def get_exercises(short_name):
+        exercises = Exercise.query.filter(
+            Exercise.short_name == short_name
+        )
+        return exercises.all()
+

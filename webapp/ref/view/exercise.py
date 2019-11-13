@@ -13,6 +13,7 @@ from sqlalchemy import and_, or_
 
 from collections import defaultdict
 from ref.core.util import redirect_to_next
+from ref.core.security import sanitize_path_is_subdir
 import docker
 import redis
 import rq
@@ -135,13 +136,23 @@ def exercise_diff():
         flash.error("path_a is required")
         return render_template('400.html'), 400
 
+    exercises_path = current_app.config['EXERCISES_PATH']
+    if not sanitize_path_is_subdir(exercises_path, path_a):
+        flash.error("path_a is invalid")
+        return render_template('400.html'), 400
+
     exercise_a = ExerciseManager.from_template(path_a)
     exercise_b = None
 
     #If path_b is not provided, we compare exercise path_a with the most recent version
     #of the same exercise.
     if not path_b:
+        #We can trust the paths retrived from DB
         exercise_b = exercise_a.predecessor()
+    else:
+        if not sanitize_path_is_subdir(exercises_path, path_b):
+            flash.error("path_b is invalid")
+            return render_template('400.html'), 400
 
     if not exercise_b:
         flash.error("Nothing to compare with")
@@ -170,6 +181,30 @@ def exercise_diff():
 
     return render_template('exercise_config_diff.html', title=title, diff=diff)
 
+def _check_import(importable: Exercise):
+    """
+    This function must only be called with an importable that has no successors,
+    since importing an older version is not supported.
+    """
+    warnings = []
+    errors = []
+    predecessors = importable.predecessors()
+    successors = importable.successors()
+
+    assert len(successors) == 0
+
+    for e in predecessors:
+        is_readonly = False
+        if bool(e.entry_service.readonly) != bool(importable.entry_service.readonly):
+            warnings += [f'{importable.template_import_path}: Changeing the readonly flag between versions cause loss of data during instance upgrade']
+            is_readonly = True
+
+        if not is_readonly and importable.entry_service.persistance_container_path != e.entry_service.persistance_container_path:
+            errors += [f'{importable.template_import_path}: Persistance path changes are not allowed between versions']
+
+    return warnings, errors
+
+
 @refbp.route('/exercise/import/<string:cfg_path>')
 @admin_required
 def exercise_do_import(cfg_path):
@@ -181,30 +216,31 @@ def exercise_do_import(cfg_path):
         flash.error('Invalid config path')
         return render()
 
-    cfg_path = Path(cfg_path).resolve()
-    exercise_dir_path = Path(current_app.config['EXERCISES_PATH']).resolve()
-    if not cfg_path.as_posix().startswith(exercise_dir_path.as_posix()):
-        flash.error('Nope')
+    if not sanitize_path_is_subdir(current_app.config['EXERCISES_PATH'], cfg_path):
+        flash.error('Invalid cfg path')
         return render()
 
     linfo(f'Importing {cfg_path}')
 
-    exercise = ExerciseManager.from_template(cfg_path)
-    #Check if this is really a new version or a new task
+    #FIXME: There could be multiple versions
 
-    same_exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
-    if same_exercises:
-        newest_exercise = max(same_exercises, key=lambda e: e.version)
-        if newest_exercise.version >= exercise.version:
-            flash.warning('Unable to import older version of already existing task')
-            return render()
-        old_path = newest_exercise.entry_service.persistance_container_path
-        new_path = exercise.entry_service.persistance_container_path
-        #The persistance path is only allowed to change if the new version is
-        #readonly, i.e., there is no path to persist.
-        if old_path != new_path and not exercise.entry_service.readonly:
-            flash.error(f'{exercise.template_import_path}: Persistance path changes are not allowed between versions')
-            return render()
+    try:
+        exercise = ExerciseManager.from_template(cfg_path)
+    except ExerciseConfigError as err:
+        flash.error(f'Template at {cfg_path} contains errors: {err}')
+        return render()
+
+    #Check if this is really a new version or a new task
+    successor = exercise.successor()
+    if successor:
+        flash.warning('Unable to import older version of already existing exercise')
+        return render()
+
+    _, errors = _check_import(exercise)
+    if errors:
+        for e in errors:
+            flash.error(e)
+        return render()
 
     ExerciseManager.create(exercise)
     db.session.add_all([exercise.entry_service, exercise])
@@ -218,7 +254,7 @@ def exercise_view_all():
     #Exercises already added to the DB
     exercises = []
     categories = {}
-    #Exercises that might be imported by a user
+    #Exercises that might be imported by a user. These Exercise instances are not committed to the DB.
     importable = []
     render = lambda: render_template('exercise_view_all.html', exercises=exercises, categories=categories, importable=importable)
 
@@ -237,28 +273,27 @@ def exercise_view_all():
 
     #Check if there are new/updated exercises
     for exercise in import_candidates:
-        newest_exercise = None
         exercise.errors = []
+        exercise.warnings = []
         exercise.is_update = False
 
-        same_exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
+        predecessors = exercise.predecessors()
+        successors = exercise.successors()
+        same_version = exercise.get_exercise(exercise.short_name, exercise.version)
 
-        if same_exercises:
-            newest_exercise = max(same_exercises, key=lambda e: e.version)
-            if newest_exercise.version >= exercise.version:
-                #Do not import exercises of same type with version <= the currently imported versions.
-                continue
+        if len(successors) or same_version:
+            #Do not import exercises of same type with version <= the already imported versions.
+            continue
 
-            if newest_exercise:
-                exercise.is_update = True
+        #This is an update, check for compatibility
+        if len(predecessors):
+            exercise.is_update = True
 
-            if bool(newest_exercise.entry_service.readonly) != bool(exercise.entry_service.readonly):
-                exercise.errors += [f'{exercise.template_import_path}: Changing the readonly flag between versions cause loss of data during instance upgrade']
-
+        exercise.warnings, exercise.errors = _check_import(exercise)
         importable.append(exercise)
 
     exercises = Exercise.query.all()
-    #category might be none, since this attribute was introduced in a later release
+    #category might be None, since this attribute was introduced in a later release
     exercises = sorted(exercises, key=lambda e: e.category or "None")
 
     #Check whether our DB and the local docker repo are in sync
@@ -329,19 +364,12 @@ def exercise_toggle_default(exercise_id):
         flash.error('Unable to mark exercise that was not build as default')
         return render_template('400.html'), 400
 
-    other_exercises = list(Exercise.query.filter(Exercise.short_name == exercise.short_name))
-    if not exercise.is_default:
-        #Only allow to set default in case there is no newer version of the exercise with active instances.
-        for e in other_exercises:
-            if e.version > exercise.version and len(e.instances) > 0:
-                flash.error(f'Unable to mark exercise as default as long there is a more recent version with active instances.')
-                return redirect(url_for('ref.exercise_view_all'))
+    exercises_same_version = Exercise.get_exercises(exercise.short_name)
+    exercises_same_version.remove(exercise)
 
-
-    other_exercises.remove(exercise)
     if exercise.is_default:
         exercise.is_default = False
-    elif any([e.is_default for e in other_exercises]):
+    elif any([e.is_default for e in exercises_same_version]):
         flash.error(f'At most one exercise of {exercise.short_name} can be set to default')
     else:
         #No other task with same name is default
