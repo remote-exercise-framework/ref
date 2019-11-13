@@ -40,7 +40,7 @@ Exercises
                             <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_diff', path_a=exercise.template_import_path) }}" data-toggle="tooltip" data-placement="top" title="Tooltip on top">Diff</a>
                             {% endif %}
                             {% if not exercise.errors|length %}
-                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_do_import', cfg_path=exercise.template_import_path|quote_plus) }}">Import</a>
+                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_do_import', cfg_path=exercise.template_import_path|quote_plus, next=request.path) }}">Import</a>
                             {% endif %}
                         </div>
                 </td>
@@ -102,9 +102,9 @@ Exercises
                                 <div class="btn-group">
                                         {% if e.build_job_status.value == 'FINISHED' %}
                                             {% if e.is_default %}
-                                            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id) }}">Default</a>
+                                            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
                                             {% else %}
-                                            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id) }}">Default</a>
+                                            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
                                             {% endif %}
                                         {% endif %}
                                         {% if e.instances|length %}
@@ -112,10 +112,10 @@ Exercises
                                         {% endif %}
                                         <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}" data-toggle="tooltip" data-placement="top" title="Tooltip on top">View</a>
                                         {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
-                                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id) }}">Build</a>
+                                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id, next=request.path) }}">Build</a>
                                         {% endif %}
                                         {% if e.build_job_status.value not in ['BUILDING'] %}
-                                        <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_delete', exercise_id=e.id) }}">Delete</a>
+                                        <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_delete', exercise_id=e.id, next=request.path) }}">Delete</a>
                                         {% endif %}
                                     </div>
                             </td>

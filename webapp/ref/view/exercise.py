@@ -79,7 +79,7 @@ def exercise_build_rest(exercise_id):
     if mgr.is_build():
         linfo(f'Build for already build exercise {exercise} was requested.')
         flash.success('Container already build')
-        return redirect(url_for('ref.exercise_view_all'))
+        return redirect_to_next()
     else:
         #Start new build
         flash.info("Build started...")
@@ -89,7 +89,7 @@ def exercise_build_rest(exercise_id):
         db.session.add(exercise)
         db.session.commit()
         mgr.build()
-        return redirect(url_for('ref.exercise_view_all'))
+        return redirect_to_next()
 
 
 @refbp.route('/exercise/build/<int:exercise_id>')
@@ -108,7 +108,7 @@ def exercise_build(exercise_id):
     if mgr.is_build():
         linfo(f'Build for already build exercise {exercise} was requested.')
         flash.success('Container already build')
-        return redirect(url_for('ref.exercise_view_all'))
+        return redirect_to_next()
     else:
         #Start new build
         flash.info("Build started...")
@@ -118,7 +118,7 @@ def exercise_build(exercise_id):
         db.session.add(exercise)
         db.session.commit()
         mgr.build()
-        return redirect(url_for('ref.exercise_view_all'))
+        return redirect_to_next()
 
 
 @refbp.route('/exercise/diff')
@@ -208,7 +208,7 @@ def _check_import(importable: Exercise):
 @refbp.route('/exercise/import/<string:cfg_path>')
 @admin_required
 def exercise_do_import(cfg_path):
-    render = lambda: redirect(url_for('ref.exercise_view_all'))
+    render = lambda: redirect_to_next()
 
     try:
         cfg_path = urllib.parse.unquote_plus(cfg_path)
@@ -221,8 +221,6 @@ def exercise_do_import(cfg_path):
         return render()
 
     linfo(f'Importing {cfg_path}')
-
-    #FIXME: There could be multiple versions
 
     try:
         exercise = ExerciseManager.from_template(cfg_path)
@@ -334,15 +332,15 @@ def exercise_delete(exercise_id):
 
     if exercise.is_default:
         flash.error("Exercise marked as default can not be deleted")
-        return redirect(url_for('ref.exercise_view_all'))
+        return redirect_to_next()
 
     if len(exercise.instances) > 0:
         flash.error("Exercise has associated instances, unable to delete!")
-        return redirect(url_for('ref.exercise_view_all'))
+        return redirect_to_next()
 
     if exercise.build_job_status == ExerciseBuildStatus.BUILDING:
         flash.error('Unable to delete exercise during building')
-        return redirect(url_for('ref.exercise_view_all'))
+        return redirect_to_next()
 
     mgr = ExerciseImageManager(exercise)
     mgr.remove()
@@ -351,7 +349,7 @@ def exercise_delete(exercise_id):
     db.session.delete(exercise)
     db.session.commit()
 
-    return redirect(url_for('ref.exercise_view_all'))
+    return redirect_to_next()
 
 @refbp.route('/exercise/default/toggle/<int:exercise_id>')
 @admin_required
@@ -378,7 +376,7 @@ def exercise_toggle_default(exercise_id):
     db.session.add(exercise)
     db.session.commit()
 
-    return redirect(url_for('ref.exercise_view_all'))
+    return redirect_to_next()
 
 @refbp.route('/exercise/view/<int:exercise_id>')
 @admin_required
@@ -396,6 +394,6 @@ def admin_default_routes():
     """
     List all students currently registered.
     """
-    return redirect(url_for('ref.exercise_view_all'))
+    return redirect_to_next()
 
 

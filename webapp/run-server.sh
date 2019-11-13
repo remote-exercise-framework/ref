@@ -2,8 +2,6 @@
 
 set -e
 
-source upgrade_db.sh
-
 if [[ -z "$DEBUG" || "$DEBUG" == "0" ]]; then
     #Trust secure headers even if the proxy is not running on localhost.
     #Without this, X-FORWARDED-PROTO is not trusted and redirects are rewritten

@@ -95,7 +95,7 @@ Instances
 
         let update_all_button = $("#update-all-button")
         let updateable = $( "tr" ).filter("[updateable]")
-        let update_url = "{{ url_for('ref.instance_update', instance_id=123456789) }}"
+        let update_url = "{{ url_for('ref.instance_update', instance_id=123456789, next=request.path) }}"
         if (updateable.length > 0) {
             update_all_button.removeClass("disabled")
             update_all_button.click(function(event) {
@@ -134,7 +134,7 @@ Instances
 
         let stop_all_button = $("#stop-all-button")
         let stopable = $( "tr" ).filter("[stopable]")
-        let stop_url = "{{ url_for('ref.instance_stop', instance_id=123456789) }}"
+        let stop_url = "{{ url_for('ref.instance_stop', instance_id=123456789, next=request.path) }}"
         if (stopable.length > 0) {
             stop_all_button.removeClass("disabled")
             stop_all_button.click(function(event) {

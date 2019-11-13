@@ -2,6 +2,7 @@ from flask import Flask, render_template, Blueprint, redirect, url_for, request,
 from wtforms import Form, IntegerField, validators, SubmitField, RadioField, TextField, StringField, PasswordField, BooleanField
 from ref import refbp, db
 from ref.model import User
+from ref.core.util import redirect_to_next
 from ref.model.enums import CourseOfStudies
 import datetime
 from Crypto.PublicKey import RSA
@@ -249,7 +250,7 @@ def student_delete(user_id):
 
     if user.is_admin:
         flash.warning('Admin users can not be deleted')
-        return redirect(url_for('ref.student_view_all'))
+        return redirect_to_next()
 
     if len(user.exercise_instances) > 0:
         flash.error('User has active instances, please delete them first!')
@@ -258,11 +259,7 @@ def student_delete(user_id):
         current_app.db.session.commit()
         flash.success(f'User {user.id} deleted')
 
-    return redirect(url_for('ref.student_view_all'))
-
-
-
-
+    return redirect_to_next()
 
 @refbp.route('/student', methods=('GET', 'POST'))
 @refbp.route('/', methods=('GET', 'POST'))

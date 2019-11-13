@@ -20,6 +20,7 @@ Commands:
             --maintenance
     - down
     - logs#
+    - cmd
 
 EOF
 exit 1
@@ -120,6 +121,11 @@ function ps {
     docker-compose ps
 }
 
+function flask-cmd {
+    echo "FLASK_APP=ref python3 -m flask $@"
+    docker-compose exec web bash -c "FLASK_APP=ref python3 -m flask $*"
+}
+
 
 cmd="$1"
 shift
@@ -145,6 +151,9 @@ case "$cmd" in
     ;;
     ps)
         ps $@
+    ;;
+    flask-cmd)
+        flask-cmd $@
     ;;
     *)
         echo "$cmd is not a valid command"

@@ -53,7 +53,7 @@ def instance_update(instance_id):
     new_instance = mgr.update_instance(new_exercise)
 
     current_app.db.session.commit()
-    return redirect(url_for('ref.instances_view_all'))
+    return redirect_to_next()
 
 @refbp.route('/instances/view/<int:instance_id>')
 @admin_required
@@ -131,7 +131,9 @@ def instance_stop(instance_id):
     mgr = ExerciseInstanceManager(instance)
     mgr.stop()
 
-    return redirect(url_for('ref.instances_view_all'))
+    db.session.commit()
+
+    return redirect_to_next()
 
 @refbp.route('/instances/delete/<int:instance_id>')
 @admin_required
