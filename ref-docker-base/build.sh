@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker build -t remote-exercises-framework-exercise-base .
+docker build -t remote-exercises-framework-exercise-base $@ .

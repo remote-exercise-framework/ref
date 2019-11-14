@@ -1,7 +1,7 @@
 FROM python:3.7
 MAINTAINER Nils Bars <nils.bars@rub.de>
 
-RUN apt update && apt install -y sudo gcc git autoconf zlib1g-dev libssl-dev build-essential valgrind
+RUN apt update && apt install -y sudo gcc git autoconf zlib1g-dev libssl-dev build-essential valgrind netcat
 RUN mkdir -p /var/run/sshd
 
 RUN useradd -m -d /home/sshd -s /bin/bash sshd \

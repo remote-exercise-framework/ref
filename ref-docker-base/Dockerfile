@@ -14,7 +14,9 @@ RUN apt install -y \
     nano \
     vim \
     nasm \
-    gdb=8.1-0ubuntu3
+    gdb=8.1-0ubuntu3 \
+    libc6 libstdc++6 python-minimal ca-certificates tar
+
 
 #Current version of gdb is broken. Prevent update until a fix was released.
 #https://stackoverflow.com/questions/58225562/how-to-fix-hang-in-gdb-in-ld-linux-so-2-when-running-a-32-bit-executable-on-a-64
