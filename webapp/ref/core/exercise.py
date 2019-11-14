@@ -368,6 +368,11 @@ class ExerciseInstanceManager():
             )
         instance_entry_service.container_id = container.id
 
+        #Add users public key to authorized_keys
+        add_key_cmd = f'bash -c "echo {self.instance.user.pub_key_ssh} >> /home/user/.ssh/authorized_keys"'
+        success = container.exec_run(add_key_cmd)
+        current_app.logger.info(f'ret={success}')
+
         #Remove created container from 'none' network
         none_network = self.dc.network('none')
         none_network.disconnect(container)
