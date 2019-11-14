@@ -64,11 +64,11 @@ function build {
     (
         echo "=> Building docker base image"
         cd 'ref-docker-base'
-        ./build.sh
+        ./build.sh $@
     )
     (
         echo "=> Building container"
-        docker-compose build
+        docker-compose build $@
     )
 }
 
@@ -118,7 +118,7 @@ function restart {
 }
 
 function ps {
-    docker-compose ps
+    docker-compose ps $@
 }
 
 function flask-cmd {
@@ -126,6 +126,15 @@ function flask-cmd {
     docker-compose exec web bash -c "FLASK_APP=ref python3 -m flask $*"
 }
 
+function are_you_sure {
+    echo "Are you sure? [y/n]"
+    read yes_no
+    if [[ "$yes_no" == "y" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
 
 cmd="$1"
 shift
@@ -138,16 +147,23 @@ case "$cmd" in
         up $@
     ;;
     down)
+        are_you_sure || exit 0
         down $@
     ;;
     logs)
         log $@
     ;;
     stop)
+        are_you_sure || exit 0
         stop $@
     ;;
     restart)
+        are_you_sure || exit 0
         restart $@
+    ;;
+    restart-web)
+        are_you_sure || exit 0
+        restart web $@
     ;;
     ps)
         ps $@
