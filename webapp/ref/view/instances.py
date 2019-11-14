@@ -100,11 +100,13 @@ def instances_view_by_exercise(exercise_name):
         flash.error(f'Invalid exercise name')
         return render_template('400.html'), 400
 
-    try:
-        exercise_version = int(request.args.get('exercise_version'))
-    except ValueError:
-        flash.error(f'Invalid exercise version')
-        return render_template('400.html'), 400
+    exercise_version = request.args.get('exercise_version')
+    if exercise_version:
+        try:
+            exercise_version = int(exercise_version)
+        except (ValueError, TypeError):
+            flash.error(f'Invalid exercise version')
+            return render_template('400.html'), 400
 
     instances = Instance.get_instances_by_exercise(exercise_name, exercise_version)
 
