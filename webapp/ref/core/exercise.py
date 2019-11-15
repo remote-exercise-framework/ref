@@ -22,6 +22,7 @@ from ref.model.enums import ExerciseBuildStatus
 
 from .docker import DockerClient
 
+import itsdangerous
 
 class ExerciseConfigError(Exception):
     pass
@@ -371,7 +372,18 @@ class ExerciseInstanceManager():
         #Add users public key to authorized_keys
         add_key_cmd = f'bash -c "echo {self.instance.user.pub_key_ssh} >> /home/user/.ssh/authorized_keys"'
         success = container.exec_run(add_key_cmd)
-        current_app.logger.info(f'ret={success}')
+        current_app.logger.info(f'Add ssh key ret={success}')
+        #TODO: Handle errors
+
+        #Store token inside container that can be used to authenticate requests
+        #from the container to, e.g., web.
+        signer = itsdangerous.Serializer(current_app.config['SECRET_KEY'])
+        token = {'instance_id': self.instance.user.id, 'container_id': container.id}
+        signature = signer.dumps(token)
+
+        add_token_cmd = f'bash -c "echo {signature} > /etc/auth_token && chmod 400 /etc/auth_token"'
+        success = container.exec_run(add_token_cmd)
+        current_app.logger.info(f'Add token ret={success}')
 
         #Remove created container from 'none' network
         none_network = self.dc.network('none')
