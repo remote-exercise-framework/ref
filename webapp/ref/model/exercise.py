@@ -29,6 +29,15 @@ class ConfigParsingError(Exception):
 class ParsingError(Exception):
     pass
 
+class InstanceService(ModelToStringMixin, db.Model):
+
+    __to_str_fields__ = ['id']
+    __tablename__ = 'instance_service'
+    id = db.Column(db.Integer, primary_key=True)
+
+    instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id'))
+    container_id = db.Column(db.Text(), unique=True)
+
 class InstanceEntryService(ModelToStringMixin, db.Model):
     """
     Container that represents the entrypoint for a specific task instance.
@@ -74,14 +83,13 @@ class Instance(ModelToStringMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     entry_service = db.relationship("InstanceEntryService", uselist=False, backref="instance")
+    peripheral_services = db.relationship('InstanceService', backref='instance', lazy=True)
 
     #The network the entry service is connected to the ssh server by
     network_id = db.Column(db.Text(), unique=True)
 
-    #peripheral_services =  db.relationship("...", uselist=False, backref="instance")
-
     #Network the entry service is connected to the peripheral services
-    #services_network_id = db.Column(db.Text(), unique=True)
+    peripheral_services_network_id = db.Column(db.Text(), unique=True)
 
     #Exercise this instance belongs to (backref name is exercise)
     exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id'),
