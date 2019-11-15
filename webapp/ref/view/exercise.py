@@ -1,100 +1,41 @@
 import datetime
+import difflib
 import os
 import shutil
-import tempfile
-import urllib
-import typing
 import subprocess
-import difflib
-from collections import namedtuple
+import tempfile
+import typing
+import urllib
+from collections import defaultdict, namedtuple
 from pathlib import Path
 
-from sqlalchemy import and_, or_
-
-from collections import defaultdict
-from ref.core.util import redirect_to_next
-from ref.core.security import sanitize_path_is_subdir
 import docker
 import redis
 import rq
 import yaml
-from flask import (Blueprint, Flask, abort, current_app, redirect,
-                   render_template, request, url_for, jsonify)
+from flask import (Blueprint, Flask, abort, current_app, jsonify, redirect,
+                   render_template, request, url_for)
+from flask_login import login_required
+from sqlalchemy import and_, or_
+from werkzeug.local import LocalProxy
 from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
-from ref.core import (ExerciseConfigError,
-                      ExerciseImageManager, ExerciseManager, flash, admin_required)
+from ref.core import (ExerciseConfigError, ExerciseImageManager,
+                      ExerciseManager, admin_required, flash)
+from ref.core.security import sanitize_path_is_subdir
+from ref.core.util import redirect_to_next
 from ref.model import ConfigParsingError, Exercise, User
 from ref.model.enums import ExerciseBuildStatus
 
-from flask_login import login_required
-
-lerr = lambda msg: current_app.logger.error(msg)
-linfo = lambda msg: current_app.logger.info(msg)
-lwarn = lambda msg: current_app.logger.warning(msg)
-
-class ImportableExercise():
-    """
-    Represents a possible import candidate.
-    Passed to the rendered view.
-    """
-    def __init__(self, old_exercise: Exercise, new_exercise: Exercise):
-        assert new_exercise
-        self.old = old_exercise
-        self.new = new_exercise
-
-    def is_update(self):
-        return self.old and self.new and (self.old.version < self.new.version)
-
-    def is_new(self):
-        return not self.old and self.new
-
-    @property
-    def exercise(self):
-        return self.new
-
-@refbp.route('/exercises/<int:exercise_id>/build_status', methods=('GET',))
-@admin_required
-def testx(exercise_id):
-    exercise: Exercise = db.get(Exercise, id=exercise_id)
-    if exercise:
-        return jsonify({'build_status': exercise.build_job_status.value}), 200
-    else:
-        return jsonify({'error': 'Unknown exercise ID'}), 400
-
-@refbp.route('/exercises/<int:exercise_id>/build', methods=('PUT',))
-@admin_required
-def exercise_build_rest(exercise_id):
-    exercise: Exercise = db.get(Exercise, id=exercise_id)
-    if not exercise:
-        flash.error(f"Unknown exercise ID {exercise_id}")
-        return render_template('500.html'), 400
-
-    if exercise.build_job_status in [ ExerciseBuildStatus.BUILDING,  ExerciseBuildStatus.FINISHED]:
-        flash.error("Already build!")
-        return render_template('500.html'), 400
-
-    mgr = ExerciseImageManager(exercise)
-    if mgr.is_build():
-        linfo(f'Build for already build exercise {exercise} was requested.')
-        flash.success('Container already build')
-        return redirect_to_next()
-    else:
-        #Start new build
-        flash.info("Build started...")
-        current_app.logger.info(f"Starting build for exercise {exercise}. Setting state to  {ExerciseBuildStatus.BUILDING}")
-        exercise.build_job_status = ExerciseBuildStatus.BUILDING
-        exercise.build_job_result = None
-        db.session.add(exercise)
-        db.session.commit()
-        mgr.build()
-        return redirect_to_next()
-
+log = LocalProxy(lambda: current_app.logger)
 
 @refbp.route('/exercise/build/<int:exercise_id>')
 @admin_required
 def exercise_build(exercise_id):
+    """
+    Request to build exercise with ID exercise_id.
+    """
     exercise: Exercise = db.get(Exercise, id=exercise_id)
     if not exercise:
         flash.error(f"Unknown exercise ID {exercise_id}")
@@ -106,17 +47,17 @@ def exercise_build(exercise_id):
 
     mgr = ExerciseImageManager(exercise)
     if mgr.is_build():
-        linfo(f'Build for already build exercise {exercise} was requested.')
+        log.info(f'Build for already build exercise {exercise} was requested.')
         flash.success('Container already build')
         return redirect_to_next()
     else:
         #Start new build
-        flash.info("Build started...")
         current_app.logger.info(f"Starting build for exercise {exercise}. Setting state to  {ExerciseBuildStatus.BUILDING}")
         exercise.build_job_status = ExerciseBuildStatus.BUILDING
         exercise.build_job_result = None
         db.session.add(exercise)
         db.session.commit()
+        flash.info("Build started...")
         mgr.build()
         return redirect_to_next()
 
@@ -139,6 +80,7 @@ def exercise_diff():
     exercises_path = current_app.config['EXERCISES_PATH']
     if not sanitize_path_is_subdir(exercises_path, path_a):
         flash.error("path_a is invalid")
+        log.info(f'Failed to sanitize path {path_a}')
         return render_template('400.html'), 400
 
     exercise_a = ExerciseManager.from_template(path_a)
@@ -152,13 +94,15 @@ def exercise_diff():
     else:
         if not sanitize_path_is_subdir(exercises_path, path_b):
             flash.error("path_b is invalid")
+            log.info(f'Failed to sanitize path {path_b}')
             return render_template('400.html'), 400
 
     if not exercise_b:
+        log.info('Unable find any exercise to compare with')
         flash.error("Nothing to compare with")
         return render_template('400.html'), 400
 
-    linfo(f'Comparing {exercise_a.short_name} version {exercise_a.version} vs. {exercise_b.version}')
+    log.info(f'Comparing {exercise_a} with{exercise_b}')
 
     #template_path is only set if the exercise was already imported
     if exercise_a.template_path:
@@ -172,13 +116,15 @@ def exercise_diff():
         path_b = exercise_b.template_import_path
 
     #Dockerfile-entry is generated during build, thus we ignore it
-    p = subprocess.run(f'diff -N -r -u --exclude=Dockerfile-entry -U 5 {path_b} {path_a}', shell=True, stdout=subprocess.PIPE)
+    cmd = f'diff -N -r -u --exclude=Dockerfile-entry -U 5 {path_b} {path_a}'
+    log.info(f'Running cmd: {cmd}')
+    p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if p.returncode == 2:
-        return render_template('400.html'), 400
+        log.error(f'Failed to run. {p.stderr.decode()}')
+        return render_template('500.html'), 500
     diff = p.stdout.decode()
 
     title = f'{exercise_a.short_name} - v{exercise_b.version} vs. v{exercise_a.version}'
-
     return render_template('exercise_config_diff.html', title=title, diff=diff)
 
 def _check_import(importable: Exercise):
@@ -220,7 +166,7 @@ def exercise_do_import(cfg_path):
         flash.error('Invalid cfg path')
         return render()
 
-    linfo(f'Importing {cfg_path}')
+    log.info(f'Importing {cfg_path}')
 
     try:
         exercise = ExerciseManager.from_template(cfg_path)
@@ -395,5 +341,3 @@ def admin_default_routes():
     List all students currently registered.
     """
     return redirect_to_next()
-
-
