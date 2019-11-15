@@ -14,7 +14,7 @@ import traceback
 import sys
 sys.path.append('/usr/local/lib/python3.7/site-packages')
 import requests
-
+from itsdangerous import Serializer
 
 CONTAINER_STARTUP_TIMEOUT = 10
 
@@ -22,6 +22,9 @@ def get_user_info(pubkey):
     req = {
         'pubkey': pubkey
     }
+
+    #s = Serializer(SECRET_KEY)
+    #req = s.dumps(req)
 
     res = requests.post('http://web:8000/api/getuserinfo', json=req)
 

@@ -1,1 +1,2 @@
 requests
+itsdangerous==0.24

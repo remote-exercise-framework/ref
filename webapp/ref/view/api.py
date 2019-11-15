@@ -21,6 +21,8 @@ from ref.core import flash, ExerciseImageManager, ExerciseInstanceManager, Exerc
 from ref.model import ConfigParsingError, Exercise, Instance, User
 from ref.model.enums import ExerciseBuildStatus
 
+from itsdangerous import Serializer
+
 log = LocalProxy(lambda: current_app.logger)
 
 def error_response(msg, code=400):
@@ -159,9 +161,16 @@ def api_getkeys():
     """
     Returns all public-keys that are allowed to login into the SSH entry server.
     """
-    # content = request.get_json(force=True, silent=True)
-    # if not content:
-    #     return error_response('Missing JSON body in request')
+    content = request.get_json(force=True, silent=True)
+    if not content:
+        return error_response('Missing JSON body in request')
+
+    #Check for valid signature
+    s = Serializer(current_app.config['SECRET_KEY'])
+
+    if 'username' not in content:
+        log.warning('Missing username attribute')
+        return error_response('Invalid request')
 
     students = User.all()
     keys = []
@@ -184,6 +193,14 @@ def api_getuserinfo():
     if not content:
         log.warning('Missing JSON body')
         return error_response('Missing JSON body in request')
+
+    #Check for valid signature and unpack
+    # s = Serializer(current_app.config['SECRET_KEY'])
+    # try:
+    #     content = s.loads(content)
+    # except Exception as e:
+    #     log.warning(f'Invalid request {e}')
+    #     return error_response('Invalid request')
 
     if not 'pubkey' in content:
         log.warning('Got request without pubkey attribute')
