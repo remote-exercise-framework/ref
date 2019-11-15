@@ -3,9 +3,11 @@ from ref.model.enums import CourseOfStudies
 from flask_bcrypt import generate_password_hash, check_password_hash
 from ref import db
 from flask_login import UserMixin
-from .util import CommonDbOpsMixin
+from .util import CommonDbOpsMixin, ModelToStringMixin
 
-class User(CommonDbOpsMixin, UserMixin, db.Model):
+class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
+    __to_str_fields__ = ['id', 'is_admin', 'first_name', 'surname']
+
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.Text(), nullable=False)

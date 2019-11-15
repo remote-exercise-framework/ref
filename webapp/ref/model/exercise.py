@@ -17,6 +17,8 @@ from .enums import ExerciseBuildStatus, ExerciseServiceType
 from ref import db
 from sqlalchemy import Column, Integer, PickleType, create_engine
 
+from .util import ModelToStringMixin
+
 class ConfigParsingError(Exception):
 
     def __init__(self, msg, path=None):
@@ -27,11 +29,12 @@ class ConfigParsingError(Exception):
 class ParsingError(Exception):
     pass
 
-class InstanceEntryService(db.Model):
+class InstanceEntryService(ModelToStringMixin, db.Model):
     """
     Container that represents the entrypoint for a specific task instance.
     Such and InstanceEntryService is exposed via SSH and supports data persistance.
     """
+    __to_str_fields__ = ['id', 'instance_id', 'container_id']
     __tablename__ = 'exercise_instance_entry_service'
     id = db.Column(db.Integer, primary_key=True)
 
@@ -60,11 +63,12 @@ class InstanceEntryService(db.Model):
         """
         return f'{self.instance.persistance_path}/entry-merged'
 
-class Instance(db.Model):
+class Instance(ModelToStringMixin, db.Model):
     """
     An Instance represents a instance of an exercise.
     Such an instance is bound to a single user.
     """
+    __to_str_fields__ = ['id', 'exercise', 'entry_service', 'user', 'network_id']
     __tablename__ = 'exercise_instance'
     id = db.Column(db.Integer, primary_key=True)
 
@@ -115,11 +119,12 @@ class Instance(db.Model):
                 ret.append(i)
         return ret
 
-class ExerciseEntryService(db.Model):
+class ExerciseEntryService(ModelToStringMixin, db.Model):
     """
     Each Exercise must have exactly one ExerciseEntryService that represtens the service
     that serves as entry point for an exercise.
     """
+    __to_str_fields__ = ['id', 'exercise_id']
     __tablename__ = 'exercise_entry_service'
     id = db.Column(db.Integer, primary_key=True)
 
@@ -156,11 +161,13 @@ class ExerciseEntryService(db.Model):
         return f'remote-exercises-framework-{self.exercise.short_name}-entry:v{self.exercise.version}'
 
 
-class ExerciseService(db.Model):
+class ExerciseService(ModelToStringMixin, db.Model):
     """
     A ExerciseService descrives a service that is provided to the user.
 
     """
+    __to_str_fields__ = ['id', 'exercise_id']
+
     __tablename__ = 'exercise_service'
     id = db.Column(db.Integer, primary_key=True)
 
@@ -174,14 +181,16 @@ class ExerciseService(db.Model):
     bind_executable = db.Column(db.Text(), nullable=True)
 
 
-class Exercise(db.Model):
+class Exercise(ModelToStringMixin, db.Model):
     """
     An Exercise is a description of a task that can be deployed for the user.
     A single exercise consists of at least one ExerciseService.
     In order to make a exercise available to a student, an ExerciseInstance must be
     created.
     """
+    __to_str_fields__ = ['id', 'short_name', 'version', 'category', 'build_job_status']
     __tablename__ = 'exercise'
+
     id = db.Column(db.Integer, primary_key=True)
 
     #The services that defnies the entrypoint of this exercise
