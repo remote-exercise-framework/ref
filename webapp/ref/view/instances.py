@@ -31,10 +31,7 @@ lwarn = lambda msg: current_app.logger.warning(msg)
 def get_newest_exercise_version(exercise: Exercise):
     exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
     new_exercise = list(filter(lambda e: e.version > exercise.version, exercises))
-    if len(new_exercise):
-        return max(new_exercise, key=lambda e: e.version)
-    else:
-        return None
+    return max(new_exercise, key=lambda e: e.version, default=None)
 
 @refbp.route('/instances/update/<int:instance_id>')
 @admin_required

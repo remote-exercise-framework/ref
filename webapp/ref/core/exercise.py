@@ -568,7 +568,7 @@ class ExerciseManager():
 
         #Check for unknown attrs
         unparsed_keys = list(set(cfg.keys()) - set(['entry']))
-        if len(unparsed_keys):
+        if unparsed_keys:
             raise ExerciseConfigError(f'Unknown key(s) {unparsed_keys}')
 
         #Check if there is an entry service
@@ -607,7 +607,7 @@ class ExerciseManager():
 
         #Check for unknown attrs
         unparsed_keys = list(entry_cfg.keys())
-        if len(unparsed_keys):
+        if unparsed_keys:
             raise ExerciseConfigError(f'Unknown key(s) in entry service configuration {unparsed_keys}')
 
         return exercise

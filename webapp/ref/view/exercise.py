@@ -225,12 +225,12 @@ def exercise_view_all():
         successors = exercise.successors()
         same_version = exercise.get_exercise(exercise.short_name, exercise.version)
 
-        if len(successors) or same_version:
+        if successors or same_version:
             #Do not import exercises of same type with version <= the already imported versions.
             continue
 
         #This is an update, check for compatibility
-        if len(predecessors):
+        if predecessors:
             exercise.is_update = True
 
         exercise.warnings, exercise.errors = _check_import(exercise)
@@ -280,7 +280,7 @@ def exercise_delete(exercise_id):
         flash.error("Exercise marked as default can not be deleted")
         return redirect_to_next()
 
-    if len(exercise.instances) > 0:
+    if exercise.instances:
         flash.error("Exercise has associated instances, unable to delete!")
         return redirect_to_next()
 

@@ -96,7 +96,7 @@ def api_provision():
         log.info('Rejecting connection since maintenance mode is enabled and user is no admin')
         return error_response('-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------')
 
-    if len(Exercise.query.filter(Exercise.short_name == exercise_name).all()) == 0:
+    if not Exercise.query.filter(Exercise.short_name == exercise_name).all():
         log.info('Failed to find exercise with requested name')
         return error_response('No such task')
 
@@ -113,7 +113,7 @@ def api_provision():
         return error_response('Internal error, please notify the system administrator')
 
     user_instance = None
-    if len(user_instances):
+    if user_instances:
         user_instance = user_instances[0]
 
     """

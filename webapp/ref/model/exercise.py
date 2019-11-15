@@ -246,7 +246,7 @@ class Exercise(ModelToStringMixin, db.Model):
 
     def predecessor(self):
         predecessors = self.predecessors()
-        if len(predecessors):
+        if predecessors:
             return predecessors[0]
         else:
             return None
@@ -262,7 +262,7 @@ class Exercise(ModelToStringMixin, db.Model):
 
     def successor(self):
         successors = self.successors()
-        if len(successors):
+        if successors:
             return successors[0]
         else:
             return None
