@@ -229,6 +229,12 @@ class Exercise(ModelToStringMixin, db.Model):
     #All running instances of this exercise
     instances = db.relationship('Instance', backref='exercise', lazy=True)
 
+    def get_users_instance(self, user):
+        for instance in self.instances:
+            if instance.user == user:
+                return instance
+        return None
+
     def predecessors(self):
         exercises = Exercise.query.filter(
             and_(
@@ -260,6 +266,10 @@ class Exercise(ModelToStringMixin, db.Model):
             return successors[0]
         else:
             return None
+
+    @staticmethod
+    def get_default_exercise(short_name):
+        return Exercise.query.filter(Exercise.short_name == short_name).filter(Exercise.is_default == True).one_or_none()
 
     @staticmethod
     def get_exercise(short_name, version):
