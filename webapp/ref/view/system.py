@@ -8,18 +8,18 @@ from ref.core import DockerClient
 from ref.core.util import redirect_to_next
 
 @dataclass
-class DangelingNetwork():
+class danglingNetwork():
     id: str
     name: str
 
 @dataclass
-class DangelingContainer():
+class danglingContainer():
     id: str
     name: str
     status: str
 
-def _get_dangeling_networks():
-    dangeling_networks = []
+def _get_dangling_networks():
+    dangling_networks = []
 
     d = DockerClient()
     networks = d.networks()
@@ -32,10 +32,10 @@ def _get_dangeling_networks():
             #Containers connected, ignore it
             continue
 
-        dn = DangelingNetwork(network.id, network.name)
-        dangeling_networks.append(dn)
+        dn = danglingNetwork(network.id, network.name)
+        dangling_networks.append(dn)
 
-    return dangeling_networks
+    return dangling_networks
 
 def _is_connected_to_sshserver(container):
     d = DockerClient()
@@ -54,8 +54,8 @@ def _is_connected_to_sshserver(container):
     return ssh_container.id in containers
 
 
-def _get_dangeling_container():
-    dangeling_container = []
+def _get_dangling_container():
+    dangling_container = []
     d = DockerClient()
     containers = d.containers(include_stopped=True)
 
@@ -67,29 +67,36 @@ def _get_dangeling_container():
             #Check if it is connected to the ssh server
             continue
 
-        dc = DangelingContainer(container.id, container.name, container.status)
-        dangeling_container.append(dc)
+        dc = danglingContainer(container.id, container.name, container.status)
+        dangling_container.append(dc)
 
-    return dangeling_container
+    return dangling_container
 
-@refbp.route('/system/gc/delete_dangeling_networks', methods=('GET',))
+@refbp.route('/system/gc/delete_dangling_networks', methods=('GET',))
 @admin_required
-def sysmtem_gc_delete_dangeling_networks():
+def sysmtem_gc_delete_dangling_networks():
+    """
+    Delete all networks that were created by us, but do not have any container attached.
+    """
     d = DockerClient()
-    dangeling_networks = _get_dangeling_networks()
-    for network in dangeling_networks:
+    dangling_networks = _get_dangling_networks()
+    for network in dangling_networks:
         network = d.network(network.id)
         if network:
             network.remove()
 
     return redirect_to_next()
 
-@refbp.route('/system/gc/delete_dangeling_container', methods=('GET',))
+@refbp.route('/system/gc/delete_dangling_container', methods=('GET',))
 @admin_required
-def sysmtem_gc_delete_dangeling_container():
+def sysmtem_gc_delete_dangling_container():
+    """
+    Delete all container that were created by us, but are not connected to the
+    SSH entry server anymore.
+    """
     d = DockerClient()
-    dangeling_containers = _get_dangeling_container()
-    for c in dangeling_containers:
+    dangling_containers = _get_dangling_container()
+    for c in dangling_containers:
         c = d.container(c.id)
         c.remove(force=True)
 
@@ -98,7 +105,10 @@ def sysmtem_gc_delete_dangeling_container():
 @refbp.route('/system/gc', methods=('GET', 'POST'))
 @admin_required
 def system_gc():
-    dangeling_networks = _get_dangeling_networks()
-    dangeling_container = _get_dangeling_container()
+    """
+    Garbage collection service used to delete container and networks that are dangling.
+    """
+    dangling_networks = _get_dangling_networks()
+    dangling_container = _get_dangling_container()
 
-    return render_template('system_gc.html', dangeling_networks=dangeling_networks, dangeling_container=dangeling_container)
+    return render_template('system_gc.html', dangling_networks=dangling_networks, dangling_container=dangling_container)

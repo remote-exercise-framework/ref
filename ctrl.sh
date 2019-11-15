@@ -127,7 +127,7 @@ function flask-cmd {
 }
 
 function are_you_sure {
-    echo "Are you sure? [y/n]"
+    echo -n "Are you sure? [y/n]"
     read yes_no
     if [[ "$yes_no" == "y" ]]; then
         return 0
