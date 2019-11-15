@@ -157,45 +157,52 @@ def api_provision():
 @refbp.route('/api/getkeys', methods=('GET', 'POST'))
 def api_getkeys():
     """
-    Returns all public-keys that are allowed to login into the SSH server.
+    Returns all public-keys that are allowed to login into the SSH entry server.
     """
-    if request.method == 'POST':
-        content = request.json
-        students = User.query.all()
-        keys = []
-        for s in students:
-            keys.append(s.pub_key_ssh)
-        resp = {
-            'keys': keys
-        }
-        log.info(f'Returning {len(keys)} public-keys in total.')
-        return ok_response(resp)
+    # content = request.get_json(force=True, silent=True)
+    # if not content:
+    #     return error_response('Missing JSON body in request')
 
-    return error_response('POST expected')
+    students = User.all()
+    keys = []
+    for s in students:
+        keys.append(s.pub_key_ssh)
+
+    resp = {
+        'keys': keys
+    }
+    log.info(f'Returning {len(keys)} public-keys in total.')
+    return ok_response(resp)
+
 
 @refbp.route('/api/getuserinfo', methods=('GET', 'POST'))
 def api_getuserinfo():
     """
-    Returns userinfo based on a provided public-key.
+    Returns info of the user that is associated with the provided public-key.
     """
-    if request.method == 'POST':
-        content = request.json
-        pubkey = content['pubkey']
-        log.info(f'pubkey={pubkey[:32]}')
-        student = db.get(User, pub_key_ssh=pubkey)
-        if student:
-            resp = {
-                'name': student.first_name + " " + student.surname,
-                'mat_num': student.mat_num
-            }
-            return ok_response(resp)
-        else:
-            return error_response("Failed to find student with given pubkey")
+    content = request.get_json(force=True, silent=True)
+    if not content:
+        log.warning('Missing JSON body')
+        return error_response('Missing JSON body in request')
 
+    if not 'pubkey' in content:
+        log.warning('Got request without pubkey attribute')
+        return error_response('Invalid request')
+
+    pubkey = content['pubkey']
+    log.info(f'Got request for pubkey={pubkey[:32]}')
+    user = db.get(User, pub_key_ssh=pubkey)
+
+    if user:
+        log.info('Found matching user: {user}')
+        resp = {
+            'name': user.first_name + " " + user.surname,
+            'mat_num': user.mat_num
+        }
         return ok_response(resp)
-
-    return error_response('POST expected')
-
+    else:
+        log.info('User not found')
+        return error_response("Failed to find user with given pubkey")
 
 def api_request_restart():
     pass
