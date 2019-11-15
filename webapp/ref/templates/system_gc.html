@@ -1,0 +1,73 @@
+{% extends "admin_base.html" %}
+{% import "wtf_bootstrap_utils.html" as wtf_utils %}
+
+{% block head %}
+{% endblock %}
+
+{% block title %}
+System Garbage Collector
+{% endblock %}
+
+{% block content %}
+
+
+
+{% if dangeling_networks %}
+<div class="card">
+    <h5 class="card-header">Found {{ dangeling_networks|length }} dangeling networks <div class="float-right"><a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.sysmtem_gc_delete_dangeling_networks', next=request.path) }}">Delete</a> </div><br></h5>
+    <div class="card-body">
+      <h5 class="card-title">The following networks are not connected to any container</h5>
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th scope="col">#id</th>
+                <th scope="col">Name</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for network in dangeling_networks %}
+                <tr>
+                    <td>{{ network.id }}</td>
+                    <td>{{ network.name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+
+{% if dangeling_container %}
+<div class="card">
+    <h5 class="card-header">Found {{ dangeling_container|length }} dangeling container <div class="float-right"><a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.sysmtem_gc_delete_dangeling_container', next=request.path) }}">Delete</a> </div><br></h5>
+    <div class="card-body">
+      <h5 class="card-title">The following instance are not connected to the SSH entry server. </h5>
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th scope="col">#id</th>
+                <th scope="col">Name</th>
+                <th scope="col">Status</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for instance in dangeling_container %}
+                <tr>
+                    <td>{{ instance.id }}</td>
+                    <td>{{ instance.name }}</td>
+                    <td>{{ instance.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+
+{% if not dangeling_networks and not dangeling_container %}
+No issues found.
+{% endif %}
+
+{% endblock %}

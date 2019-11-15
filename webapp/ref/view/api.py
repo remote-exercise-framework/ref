@@ -213,7 +213,7 @@ def api_getuserinfo():
     user = db.get(User, pub_key_ssh=pubkey)
 
     if user:
-        log.info('Found matching user: {user}')
+        log.info(f'Found matching user: {user}')
         resp = {
             'name': user.first_name + " " + user.surname,
             'mat_num': user.mat_num
