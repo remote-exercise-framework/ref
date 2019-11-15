@@ -89,6 +89,61 @@ class DockerClient():
     def networks(self):
         return self.client.networks.list(greedy=True)
 
+    def get_connected_container(self, network):
+        """
+        Returns a list of ids of all connected containers. If no containers are connected,
+        an empty list is returned.
+        """
+        if isinstance(network, str):
+            network = self.network(network)
+        if not network:
+            return []
+
+        network.reload()
+        return network.attrs['Containers'].keys()
+
+    def get_connected_networks(self, container):
+        """
+        Returns a list of ids of all networks that are connected to the given container.
+        If the container is not connected to any network, an empty list is returned.
+        """
+        if isinstance(container, str):
+            container = self.container(container)
+        if not container:
+            return []
+
+        ret = []
+        networks = self.networks()
+        for network in networks:
+            if container.id in self.get_connected_container(network):
+                ret.append(network.id)
+
+        return ret
+
+    def __container_transitive_closure_get_containers(self, container, visited_containers):
+        visited_containers.add(container)
+        for n in self.get_connected_networks(container):
+            for c in self.get_connected_container(n):
+                if c not in visited_containers:
+                    self.__container_transitive_closure_get_containers(c, visited_containers)
+
+    def container_transitive_closure_get_containers(self, container, include_self=False):
+        """
+        Returns a set containing all ids of containers connected over a network
+        to the given container.
+        """
+        if isinstance(container, str):
+            container = self.container(container)
+        containers = set()
+        containers.add(container.id)
+
+        self.__container_transitive_closure_get_containers(container.id, containers)
+
+        if not include_self:
+            containers.remove(container.id)
+        return containers
+
+
     def container(self, name_or_id):
         """
         Get a container by its id or name. In case no container was
