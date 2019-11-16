@@ -290,7 +290,8 @@ class ExerciseInstanceManager():
         """
         Starts the given instance.
         """
-        assert not self.is_running()
+        #Make sure everything is cleaned up
+        self.stop()
 
         exercise: Exercise = self.instance.exercise
         exercise_entry_service = exercise.entry_service
@@ -426,10 +427,6 @@ class ExerciseInstanceManager():
         started again by calling start(). It is safe to call this function on an already
         stopped instance.
         """
-        if not any([self.instance.network_id, self.instance.entry_service.container_id]):
-            #Already stopped
-            return
-
         #Stop the containers, thus the user gets disconnected
         self._stop_containers()
 
