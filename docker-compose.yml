@@ -5,7 +5,9 @@ services:
          - DEBUG=${DEBUG}
          - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED}
       build:
-         ./ssh-wrapper
+         context: ./ssh-wrapper
+         args:
+             SSH_TO_WEB_KEY: ${SSH_TO_WEB_KEY}
       #volumes:
       ports:
          - "${SSH_HOST_PORT}:4444"
@@ -18,6 +20,7 @@ services:
          - apparmor:unconfined
       environment:
          #Folder used for persistent data
+         - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY}
          - BASEDIR=/data
          - DEBUG=${DEBUG}
          - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED}

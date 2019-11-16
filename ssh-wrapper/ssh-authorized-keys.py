@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.7
 
 """
-This script acts as a replacement of the .authorized_keys file.
+This script acts as a replacement for the .authorized_keys file.
 Hence, if a user tries to authenticate, this script is called and
 expected to return a list of accepted public keys.
 """
@@ -11,21 +11,27 @@ import sys
 #TODO: This path is not part of the default path, fix the container! :-(
 sys.path.append('/usr/local/lib/python3.7/site-packages')
 import requests
+from itsdangerous import Serializer
 
+with open('/etc/request_key', 'rb') as f:
+    SECRET_KEY = f.read()
 
 def get_public_keys(username):
     req = {
         'username': username
     }
 
+    s = Serializer(SECRET_KEY)
+    req = s.dumps(req)
+
     #Get a list of all allowed public keys
     res = requests.post('http://web:8000/api/getkeys', json=req)
     keys = res.json()
+
     return keys['keys']
 
 def main():
-    
-    keys = get_public_keys("")
+    keys = get_public_keys("NotUsed")
 
     for k in keys:
         print(k)

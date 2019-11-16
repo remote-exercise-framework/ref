@@ -1,12 +1,5 @@
 #!/usr/bin/env python3.7
 
-#ExposeAuthInfo
-#SSH_USER_AUTH
-#ForceCommand
-
-#/usr/bin/ssh -t -o StrictHostKeyChecking=no $USER@${1:-default}.fqdn $SSH_ORIGINAL_COMMAND
-
-#ForceCommand
 import os
 import time
 import socket
@@ -16,6 +9,9 @@ sys.path.append('/usr/local/lib/python3.7/site-packages')
 import requests
 from itsdangerous import Serializer
 
+with open('/etc/request_key', 'rb') as f:
+    SECRET_KEY = f.read()
+
 CONTAINER_STARTUP_TIMEOUT = 10
 
 def get_user_info(pubkey):
@@ -23,9 +19,8 @@ def get_user_info(pubkey):
         'pubkey': pubkey
     }
 
-    #s = Serializer(SECRET_KEY)
-    #req = s.dumps(req)
-
+    s = Serializer(SECRET_KEY)
+    req = s.dumps(req)
     res = requests.post('http://web:8000/api/getuserinfo', json=req)
 
     try:
@@ -42,6 +37,8 @@ def get_container(username, pubkey):
         'pubkey': pubkey
     }
 
+    s = Serializer(SECRET_KEY)
+    req = s.dumps(req)
     res = requests.post('http://web:8000/api/provision', json=req)
 
     try:
@@ -67,8 +64,6 @@ Time wasted debugging: 13h 43m 11s
 """
 
 def main():
-    #TODO: Drop privileges 
-
     #The username that was provided by the client as login name.
     real_user = os.environ['REAL_USER']
 

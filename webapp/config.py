@@ -46,6 +46,8 @@ class ReleaseConfig(object):
     #If True, only admin are allowed to use the API
     MAINTENANCE_ENABLED = (os.environ.get('MAINTENANCE_ENABLED') and os.environ.get('MAINTENANCE_ENABLED') != '') or False
 
+    SSH_TO_WEB_KEY = os.environ.get('SSH_TO_WEB_KEY')
+
 
 class DebugConfig(ReleaseConfig):
     debug = True

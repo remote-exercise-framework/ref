@@ -71,16 +71,30 @@ def api_provision():
         log.warning('Got provision request without JSON body')
         return error_response('Request is missing JSON body')
 
-    #Check for valid signature
-    s = Serializer(current_app.config['SECRET_KEY'])
+    #Check for valid signature and unpack
+    s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
+    try:
+        content = s.loads(content)
+    except Exception as e:
+        log.warning(f'Invalid request {e}')
+        return error_response('Invalid request')
 
-    #These are the arguments send by the SSH entry server
+    if not isinstance(content, dict):
+        log.warning(f'Unexpected data type {type(content)}')
+        return error_response('Invalid request')
+
 
     #The user name used for authentication
-    exercise_name = content['username']
+    exercise_name = content.get('username')
+    if not exercise_name:
+        log.warning('Missing username')
+        return error_response('Invalid request')
 
     #The public key the user used to authenticate
-    pubkey = content['pubkey']
+    pubkey = content.get('pubkey')
+    if not pubkey:
+        log.warning('Missing pubkey')
+        return error_response('Invalid request')
 
     log.info(f'Request for exercise {exercise_name} for user {pubkey:32} was requested')
 
@@ -167,10 +181,20 @@ def api_getkeys():
     if not content:
         return error_response('Missing JSON body in request')
 
-    #Check for valid signature
-    s = Serializer(current_app.config['SECRET_KEY'])
+    #Check for valid signature and unpack
+    s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
+    try:
+        content = s.loads(content)
+    except Exception as e:
+        log.warning(f'Invalid request {e}')
+        return error_response('Invalid request')
 
-    if 'username' not in content:
+    if not isinstance(content, dict):
+        log.warning(f'Unexpected data type {type(content)}')
+        return error_response('Invalid request')
+
+    username = content.get('username')
+    if not username:
         log.warning('Missing username attribute')
         return error_response('Invalid request')
 
@@ -197,18 +221,22 @@ def api_getuserinfo():
         return error_response('Missing JSON body in request')
 
     #Check for valid signature and unpack
-    # s = Serializer(current_app.config['SECRET_KEY'])
-    # try:
-    #     content = s.loads(content)
-    # except Exception as e:
-    #     log.warning(f'Invalid request {e}')
-    #     return error_response('Invalid request')
+    s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
+    try:
+        content = s.loads(content)
+    except Exception as e:
+        log.warning(f'Invalid request {e}')
+        return error_response('Invalid request')
 
-    if not 'pubkey' in content:
+    if not isinstance(content, dict):
+        log.warning(f'Unexpected data type {type(content)}')
+        return error_response('Invalid request')
+
+    pubkey = content.get('pubkey')
+    if not pubkey:
         log.warning('Got request without pubkey attribute')
         return error_response('Invalid request')
 
-    pubkey = content['pubkey']
     log.info(f'Got request for pubkey={pubkey[:32]}')
     user = db.get(User, pub_key_ssh=pubkey)
 

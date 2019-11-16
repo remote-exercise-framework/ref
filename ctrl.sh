@@ -58,6 +58,11 @@ if [[ -z "$HTTP_HOST_PORT" ]]; then
     exit 1
 fi
 
+if [[ -z "$SSH_TO_WEB_KEY" ]]; then
+    echo "Please set SSH_TO_WEB_KEY in .env to a random string"
+    exit 1
+fi
+
 
 function build {
     #Build the base image for all exercises
