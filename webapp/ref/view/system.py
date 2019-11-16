@@ -24,11 +24,15 @@ def _get_dangling_networks():
     d = DockerClient()
     networks = d.networks()
 
+    ssh_container = d.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
+
     for network in networks:
         if not network.name.startswith('ref-'):
             continue
 
-        if d.get_connected_container(network):
+        connected_containers = d.get_connected_container(network)
+
+        if connected_containers and set(connected_containers) != set(ssh_container.id):
             #Containers connected, ignore it
             continue
 
