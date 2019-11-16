@@ -180,6 +180,8 @@ class ExerciseService(ModelToStringMixin, db.Model):
     __tablename__ = 'exercise_service'
     id = db.Column(db.Integer, primary_key=True)
 
+    name = db.Column(db.Text(), nullable=False)
+
     #Backref is exercise
     exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id'), nullable=False)
 
@@ -187,7 +189,7 @@ class ExerciseService(ModelToStringMixin, db.Model):
     build_cmd = db.Column(db.PickleType(), nullable=True)
 
     disable_aslr = db.Column(db.Boolean(), nullable=False)
-    bind_executable = db.Column(db.Text(), nullable=True)
+    cmd = db.Column(db.Text(), nullable=False)
 
 
 class Exercise(ModelToStringMixin, db.Model):

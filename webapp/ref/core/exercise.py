@@ -18,8 +18,9 @@ import yaml
 from flask import current_app
 from werkzeug.local import LocalProxy
 
-from ref.model import (Exercise, ExerciseEntryService, ExerciseService,
-                       Instance, InstanceEntryService, User)
+from ref.model import (Exercise, ExerciseEntryService, Instance,
+                       InstanceEntryService, ExerciseService, User, ExerciseService)
+
 from ref.model.enums import ExerciseBuildStatus
 
 from .docker import DockerClient
@@ -606,8 +607,8 @@ class ExerciseManager():
         exercise.is_default = False
         exercise.build_job_status = ExerciseBuildStatus.NOT_BUILD
 
-        #Check for unknown attrs
-        unparsed_keys = list(set(cfg.keys()) - set(['entry']))
+        #Check for unknown attrs (ignore 'services' and 'entry')
+        unparsed_keys = list(set(cfg.keys()) - set(['entry', 'services']))
         if unparsed_keys:
             raise ExerciseConfigError(f'Unknown key(s) {unparsed_keys}')
 
@@ -649,6 +650,36 @@ class ExerciseManager():
         unparsed_keys = list(entry_cfg.keys())
         if unparsed_keys:
             raise ExerciseConfigError(f'Unknown key(s) in entry service configuration {unparsed_keys}')
+
+        #Parse peripheral services
+        peripheral_cfg = cfg.get('services')
+        if not peripheral_cfg:
+            return exercise
+
+        services = []
+        for service_name, service_values in peripheral_cfg.items():
+            service = ExerciseService()
+            service_name_regex = r'([a-zA-Z0-9_-])*'
+            if not re.fullmatch(service_name_regex, service_name):
+                raise ExerciseConfigError(f'Service name "{service_name}"" is invalid ({service_name_regex})')
+            service.name = service_name
+
+            service.disable_aslr = ExerciseManager._parse_attr(service_values, 'disable-aslr', bool, required=False, default=False)
+
+            service.files = ExerciseManager._parse_attr(service_values, 'files', list, required=False, default=None)
+            if entry.files:
+                for f in service.files:
+                    if not isinstance(f, str):
+                        raise ExerciseConfigError(f'Files must be a list of strings {service.files}')
+
+            service.build_cmd = ExerciseManager._parse_attr(service_values, 'build-cmd', list, required=False, default=None)
+            if service.build_cmd:
+                for line in service.build_cmd:
+                    if not isinstance(line, str):
+                        raise ExerciseConfigError(f"Command must be a list of strings: {cmd}")
+
+            service.cmd = ExerciseManager._parse_attr(service_values, 'cmd', str)
+            services.append(service)
 
         return exercise
 
