@@ -264,8 +264,6 @@ class ExerciseInstanceManager():
 
         #FIXME: If we fail during stoping, we have two instances :-(
 
-        #Stop the old instance
-        self.stop()
         #Remove old instance and all persisted data
         self.remove()
 
@@ -315,9 +313,9 @@ class ExerciseInstanceManager():
         if exercise_entry_service.persistance_container_path:
             assert not exercise_entry_service.readonly
             #Create overlay for the container persistance. All changes made by the student are recorded in the upper dir.
-            #In case a update of the container is necessary, we can replace the lower dir with a new one and reuse the upper
-            #dir. The directory used as mount target (overlay_merged) has shared mount propagation, i.e., the mount we are
-            #doing here is propageted to the host. This is needed, since we are mounting this merged directory into a container
+            #In case an update of the container is necessary, we can replace the lower dir with a new one and reuse the upper
+            #dir. The directory used as mount target (overlay_merged) has shared mount propagation, i.e., mounts done in this
+            #directory are propageted to the host. This is needed, since we are mounting this merged directory into a container
             #that is started by the host (see below for further details).
             cmd = [
                 'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
@@ -331,7 +329,7 @@ class ExerciseInstanceManager():
             subprocess.check_call(cmd, shell=True)
 
             #Since we are using the hosts docker deamon, the mount source must be a path that is mounted in the hosts tree,
-            #hence we need to translate the locale mount path to the host ones.
+            #hence we need to translate the locale mount path to a host path.
             mounts = {
                 self.dc.local_path_to_host(instance_entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
                 }
@@ -650,9 +648,3 @@ class ExerciseManager():
         """
         instances = Instance.query.filter(Instance.exercise == self.exercise).all()
         return instances
-
-    def remove(self, exercise: Exercise):
-        """
-        Removes all data associated to the given exercise. After calling this function,
-        the given exercise should be removed from the DB.
-        """

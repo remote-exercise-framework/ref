@@ -67,7 +67,7 @@ def _get_dangling_container():
         if not container.name.startswith('ref-'):
             continue
 
-        if _is_connected_to_sshserver(container):
+        if _is_connected_to_sshserver(container.id):
             #Check if it is connected to the ssh server
             continue
 

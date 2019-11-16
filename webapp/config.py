@@ -5,6 +5,9 @@ class ReleaseConfig(object):
     BASEDIR = BASEDIR
     DATADIR = os.path.join(BASEDIR, 'data')
     DBDIR = os.path.join(DATADIR, 'db')
+    LOGDIR = os.path.join(DATADIR, 'logs')
+    LOG_PATH = os.path.join(LOGDIR, 'web.log')
+
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'sqlite:///' + os.path.join(DBDIR, 'app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -52,4 +55,5 @@ class ReleaseConfig(object):
 class DebugConfig(ReleaseConfig):
     debug = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
+    LOG_PATH = None
     #LOGIN_DISABLED = False

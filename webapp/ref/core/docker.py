@@ -78,13 +78,13 @@ class DockerClient():
     def rmi(self, name, force=False) -> None:
         return self.client.images.remove(name, force=force)
 
-    def containers(self, include_stopped=False):
+    def containers(self, include_stopped=False, sparse=False):
         """
         Get a list of all running containers.
         Raises:
             - docker.errors.APIError
         """
-        return self.client.containers.list(all=include_stopped)
+        return self.client.containers.list(all=include_stopped, sparse=sparse)
 
     def networks(self):
         return self.client.networks.list(greedy=True)
