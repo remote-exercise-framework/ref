@@ -9,7 +9,8 @@ Students
 <table class="table table-hover">
     <thead>
         <tr>
-        <th scope="col">#</th>
+        <th scope="col">#id</th>
+        <th scope="col">#Mat.</th>
         <th scope="col">Course</th>
         <th scope="col">Name</th>
         <th scope="col">#Instances</th>
@@ -20,6 +21,7 @@ Students
     <tbody>
 {% for student in students %}
     <tr>
+        <th scope="row">{{student.id}}</th>
         <th scope="row">{{student.mat_num}}</th>
         <td>{{student.course_of_studies.value}}</td>
         <td>{{student.first_name}}, {{student.surname}}</td>
