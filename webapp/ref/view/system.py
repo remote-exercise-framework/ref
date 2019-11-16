@@ -110,5 +110,4 @@ def system_gc():
     """
     dangling_networks = _get_dangling_networks()
     dangling_container = _get_dangling_container()
-
     return render_template('system_gc.html', dangling_networks=dangling_networks, dangling_container=dangling_container)
