@@ -29,6 +29,8 @@ RUN apt install -y \
 
 RUN pip3 install ipython
 
+RUN apt install -y screen tmux
+
 RUN groupadd -g 9999 user && useradd -g 9999 -u 9999 -d /home/user -m -s /bin/bash user
 RUN groupadd -g 7799 admin && useradd -g 7799 -u 7799 -s /bin/false admin
 
