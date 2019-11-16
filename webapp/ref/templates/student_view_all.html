@@ -11,7 +11,6 @@ Students
         <tr>
         <th scope="col">#id</th>
         <th scope="col">#Mat.</th>
-        <th scope="col">Course</th>
         <th scope="col">Name</th>
         <th scope="col">#Instances</th>
         <th scope="col">Admin</th>
@@ -23,7 +22,6 @@ Students
     <tr>
         <th scope="row">{{student.id}}</th>
         <th scope="row">{{student.mat_num}}</th>
-        <td>{{student.course_of_studies.value}}</td>
         <td>{{student.first_name}}, {{student.surname}}</td>
         <td>
             {{ student.exercise_instances|length }}
