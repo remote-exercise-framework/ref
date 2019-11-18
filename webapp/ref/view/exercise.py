@@ -340,4 +340,4 @@ def admin_default_routes():
     """
     List all students currently registered.
     """
-    return redirect_to_next()
+    return redirect(url_for('ref.exercise_view_all'))
