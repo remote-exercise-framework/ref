@@ -8,28 +8,30 @@ class ReleaseConfig(object):
     LOGDIR = os.path.join(DATADIR, 'logs')
     LOG_PATH = os.path.join(LOGDIR, 'web.log')
 
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(DBDIR, 'app.db')
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(DBDIR, 'app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    REDIS_URL = os.environ.get('REDIS_URL') or 'redis://'
     EXERCISES_PATH = '/exercises'
     IMPORTED_EXERCISES_PATH = os.path.join(DATADIR, 'imported_exercises')
     PERSISTANCE_PATH =  os.path.join(DATADIR, 'persistance')
     SQLALCHEMY_MIGRATE_REPO = 'migrations' #os.path.join(BASEDIR, 'migrations')
+
+    REDIS_URL = os.environ.get('REDIS_URL') or 'redis://'
     IMAGE_BUILD_TIMEOUT = 120
     LOGIN_DISABLED = False
-
-    #Docker image that servers as base for all exercises
-    BASE_IMAGE_NAME = 'remote-exercises-framework-exercise-base:latest'
 
     #NOTE: This name must be adapated if the name of the ssh server is changed
     #or the parent directory of the docker-compose.yml file is renamed.
     SSHSERVER_CONTAINER_NAME = 'remote-exercises-framework_sshserver_1'
 
-    #Network the instances are connected to. The SSH server must be part of this
-    #network, thus it can forward incoming connections to a specific instance.
-    INSTANCES_NETWORK_NAME = os.environ.get('INSTANCES_NETWORK_NAME') or 'ref-instances'
     SECRET_KEY = 'cowhSpWKs26DQA7KloZ5SJmPP2BMdY'
+    SSH_TO_WEB_KEY = os.environ.get('SSH_TO_WEB_KEY')
+
+
+    #Docker image that servers as base for all exercises
+    BASE_IMAGE_NAME = 'remote-exercises-framework-exercise-base:latest'
+
+    #Prefix for container and network names created by REF
+    DOCKER_PREFIX = 'ref-'
 
     EXERCISE_CONTAINER_CPU_PERIOD = 100000
 
@@ -49,11 +51,12 @@ class ReleaseConfig(object):
     #If True, only admin are allowed to use the API
     MAINTENANCE_ENABLED = (os.environ.get('MAINTENANCE_ENABLED') and os.environ.get('MAINTENANCE_ENABLED') != '') or False
 
-    SSH_TO_WEB_KEY = os.environ.get('SSH_TO_WEB_KEY')
-
 
 class DebugConfig(ReleaseConfig):
     debug = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
     LOG_PATH = None
     #LOGIN_DISABLED = False
+
+class TestConfig(ReleaseConfig):
+    pass
