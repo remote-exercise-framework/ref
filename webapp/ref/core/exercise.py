@@ -217,28 +217,33 @@ class ExerciseInstanceManager():
         """
         Creates an instance of the given exercise for the given user.
         After creating an instance, .start() must be used to start it.
+        If the new instance was successfully created, it is added to the current
+        DB transaction.
         """
         instance = Instance()
         instance.exercise = exercise
         instance.user = user
         exercise.instances.append(instance)
 
-        persistance = Path(instance.persistance_path)
-        persistance.mkdir(parents=True, exist_ok=True)
-
         #Create the entry container
         entry_service = InstanceEntryService()
         entry_service.instance = instance
 
-        persistance = Path(entry_service.overlay_upper())
-        current_app.logger.info(f"creating {persistance}")
-        persistance.mkdir(parents=True, exist_ok=True)
+        try:
+            persistance = Path(instance.persistance_path)
+            persistance.mkdir(parents=True)
 
-        persistance = Path(entry_service.overlay_work())
-        persistance.mkdir(parents=True, exist_ok=True)
+            persistance = Path(entry_service.overlay_upper())
+            persistance.mkdir(parents=True)
 
-        persistance = Path(entry_service.overlay_merged())
-        persistance.mkdir(parents=True, exist_ok=True)
+            persistance = Path(entry_service.overlay_work())
+            persistance.mkdir(parents=True)
+
+            persistance = Path(entry_service.overlay_merged())
+            persistance.mkdir(parents=True)
+        except OSError as e:
+            #If a directory already exists, our system is inconsistent.
+            raise Exception(f'Failed to create directories for instance.') from e
 
         current_app.db.session.add(entry_service)
         current_app.db.session.add(instance)
@@ -246,29 +251,44 @@ class ExerciseInstanceManager():
         return instance
 
     def update_instance(self, new_exercise: Exercise) -> Instance:
+        """
+        Updates the instance to the new exercise version new_exercise.
+        The passed exercise must be a newer version of the exercise currently attached
+        to the instance.
+        Returns a new running instance.
+        On error and exception is raised and the current instance might be stopped.
+        """
+
         assert self.instance.exercise.short_name == new_exercise.short_name
         assert self.instance.exercise.version < new_exercise.version
 
         #Create new instance
         new_instance = ExerciseInstanceManager.create_instance(self.instance.user, new_exercise)
         new_mgr = ExerciseInstanceManager(new_instance)
-        new_mgr.start()
 
-        #Copy old persisted data. If the new exercise version is readonly, the persisted data is discarded.
-        if not new_exercise.entry_service.readonly and self.instance.exercise.entry_service.persistance_container_path:
-            #We are working directly on the merged directory, since changeing the upper dir itself causes issues:
-            #[328100.750176] overlayfs: failed to verify origin (entry-server/lower, ino=31214863, err=-116)
-            #[328100.750178] overlayfs: failed to verify upper root origin
-            cmd = f'sudo cp -arT {self.instance.entry_service.overlay_upper()} {new_instance.entry_service.overlay_merged()}'
-            subprocess.check_call(cmd, shell=True)
+        try:
+            new_mgr.start()
+        except:
+            new_mgr.remove()
+            raise
 
-        #FIXME: If we fail during stoping, we have two instances :-(
+        try:
+            #Make sure the updated instance is not running
+            self.stop()
+            #Copy old persisted data. If the new exercise version is readonly, the persisted data is discarded.
+            if not new_exercise.entry_service.readonly and self.instance.exercise.entry_service.persistance_container_path:
+                #We are working directly on the merged directory, since changeing the upper dir itself causes issues:
+                #[328100.750176] overlayfs: failed to verify origin (entry-server/lower, ino=31214863, err=-116)
+                #[328100.750178] overlayfs: failed to verify upper root origin
+                cmd = f'sudo cp -arT {self.instance.entry_service.overlay_upper()} {new_instance.entry_service.overlay_merged()}'
+                subprocess.check_call(cmd, shell=True)
+        except Exception as e:
+            #Stop and remove the new instance
+            new_mgr.remove()
+            raise Exception('Failed to copy data from old instance to new instance') from e
 
         #Remove old instance and all persisted data
         self.remove()
-
-        #Stop new instance
-        new_mgr.stop()
 
         return new_instance
 
@@ -424,6 +444,8 @@ class ExerciseInstanceManager():
         Stops the given instance. The state is persisted, thus the instance can later be
         started again by calling start(). It is safe to call this function on an already
         stopped instance.
+        On success the instance is stopped and the DB is updated to reflect the state
+        change.
         """
         #Stop the containers, thus the user gets disconnected
         self._stop_containers()
