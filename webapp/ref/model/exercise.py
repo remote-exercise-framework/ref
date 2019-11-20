@@ -70,6 +70,7 @@ class Instance(ModelToStringMixin, db.Model):
     """
     __to_str_fields__ = ['id', 'exercise', 'entry_service', 'user', 'network_id']
     __tablename__ = 'exercise_instance'
+
     id = db.Column(db.Integer, primary_key=True)
 
     entry_service = db.relationship("InstanceEntryService", uselist=False, backref="instance")

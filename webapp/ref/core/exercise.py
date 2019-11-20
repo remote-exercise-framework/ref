@@ -1,11 +1,11 @@
 import enum
 import os
 import random
+import re
 import shutil
 import subprocess
 import time
 import traceback
-import re
 import typing
 from dataclasses import dataclass
 from io import BytesIO
@@ -13,16 +13,18 @@ from pathlib import Path
 from threading import Thread
 
 import docker
+import itsdangerous
 import yaml
 from flask import current_app
+from werkzeug.local import LocalProxy
 
-from ref.model import (Exercise, ExerciseEntryService, Instance,
-                       InstanceEntryService, ExerciseService, User)
+from ref.model import (Exercise, ExerciseEntryService, ExerciseService,
+                       Instance, InstanceEntryService, User)
 from ref.model.enums import ExerciseBuildStatus
 
 from .docker import DockerClient
 
-import itsdangerous
+log = LocalProxy(lambda: current_app.logger)
 
 class ExerciseConfigError(Exception):
     pass
@@ -30,7 +32,7 @@ class ExerciseConfigError(Exception):
 
 class ExerciseImageManager():
     """
-    This class is used to manage the image that belong to a exercise.
+    This class is used to manage an image that belong to an exercise.
     """
 
     def __init__(self, exercise: Exercise):
@@ -39,22 +41,22 @@ class ExerciseImageManager():
 
     def is_build(self) -> bool:
         """
-        Check whether all services images where build.
+        Check whether all docker images that belong to the exercise where build.
         """
 
-        #Check the image of the entry service
+        #Check entry service docker image
         image_name = self.exercise.entry_service.image_name
         image = self.dc.image(image_name)
         if not image:
             return False
 
-        #TODO: Multiple serviceses not supported
-        assert len(self.exercise.services) == 0
-
         return True
 
     @staticmethod
     def __build_template(app, files, build_cmd, disable_aslr):
+        """
+        Returns a dynamically build docker file as string.
+        """
         with app.app_context():
             base = app.config['BASE_IMAGE_NAME']
         template = f'FROM {base}\n'
@@ -79,6 +81,10 @@ class ExerciseImageManager():
 
     @staticmethod
     def __docker_build(build_ctx_path, tag, dockerfile='Dockerfile'):
+        """
+        Builds a docker image using the dockerfile named 'dockerfile'
+        that is located at path 'build_ctx_path'.
+        """
         log = ""
         try:
             client = docker.from_env()
@@ -129,6 +135,9 @@ class ExerciseImageManager():
 
     @staticmethod
     def __run_build(app, exercise: Exercise):
+        """
+        Builds all docker images that are needed by the passed exercise.
+        """
         log = ""
         try:
             #Build entry service
@@ -163,11 +172,11 @@ class ExerciseImageManager():
                 app.db.session.add(exercise)
                 app.db.session.commit()
             except Exception as e:
-                current_app.logger.error(str(e))
+                log.error(str(e))
 
     def build(self):
         """
-        Builds an image from the given exercise. This process happens in
+        Builds all images required for the exercise. This process happens in
         a separate thread that updates the exercise after the build process
         finished. After the build process terminated, the exercises build_job_status
         is ExerciseBuildStatus.FAILED or ExerciseBuildStatus.FINISHED.
@@ -179,7 +188,7 @@ class ExerciseImageManager():
 
     def remove(self):
         """
-        Deletes the image associated to exercise.
+        Deletes all images associated to the exercise.
         """
 
         #Delete docker image of entry service
@@ -195,22 +204,14 @@ class ExerciseImageManager():
         if os.path.isdir(self.exercise.persistence_path):
             subprocess.check_call(f'sudo rm -rf {self.exercise.persistence_path}', shell=True)
 
-
-#What is about admins and containers?
-#Student -> User with is_admin flag?
-
 class ExerciseInstanceManager():
     """
-    Used to manage ExerciseInstance's.
+    Used to manage a ExerciseInstance.
     """
 
     def __init__(self, instance: Instance):
         self.dc = DockerClient()
         self.instance = instance
-
-    @staticmethod
-    def _create_entry_service_folder():
-        pass
 
     @staticmethod
     def create_instance(user: User, exercise: Exercise) -> Instance:
@@ -229,21 +230,21 @@ class ExerciseInstanceManager():
         entry_service = InstanceEntryService()
         entry_service.instance = instance
 
+        dirs = [
+            Path(instance.persistance_path),
+            Path(entry_service.overlay_upper()),
+            Path(entry_service.overlay_work()),
+            Path(entry_service.overlay_merged())
+        ]
         try:
-            persistance = Path(instance.persistance_path)
-            persistance.mkdir(parents=True)
-
-            persistance = Path(entry_service.overlay_upper())
-            persistance.mkdir(parents=True)
-
-            persistance = Path(entry_service.overlay_work())
-            persistance.mkdir(parents=True)
-
-            persistance = Path(entry_service.overlay_merged())
-            persistance.mkdir(parents=True)
-        except OSError as e:
+            for d in dirs:
+                d.mkdir(parents=True)
+        except:
             #If a directory already exists, our system is inconsistent.
-            raise Exception(f'Failed to create directories for instance.') from e
+            for d in dirs:
+                if d.exists():
+                    shutil.rmtree(d.as_posix())
+            raise
 
         current_app.db.session.add(entry_service)
         current_app.db.session.add(instance)
@@ -258,18 +259,23 @@ class ExerciseInstanceManager():
         Returns a new running instance.
         On error and exception is raised and the current instance might be stopped.
         """
-
         assert self.instance.exercise.short_name == new_exercise.short_name
         assert self.instance.exercise.version < new_exercise.version
 
-        #Create new instance
+        #Create new instance.
         new_instance = ExerciseInstanceManager.create_instance(self.instance.user, new_exercise)
         new_mgr = ExerciseInstanceManager(new_instance)
+
+        #NOTE: We need to take care of deleteing the new instance if anything down below fails.
 
         try:
             new_mgr.start()
         except:
-            new_mgr.remove()
+            try:
+                new_mgr.remove()
+            except:
+                #No way to resolve this, just log it and hope for the best.
+                log.error(f'Failed to remove newly created instance {new_instance} during update of {self.instance}', exc_info=True)
             raise
 
         try:
@@ -282,13 +288,23 @@ class ExerciseInstanceManager():
                 #[328100.750178] overlayfs: failed to verify upper root origin
                 cmd = f'sudo cp -arT {self.instance.entry_service.overlay_upper()} {new_instance.entry_service.overlay_merged()}'
                 subprocess.check_call(cmd, shell=True)
-        except Exception as e:
-            #Stop and remove the new instance
-            new_mgr.remove()
-            raise Exception('Failed to copy data from old instance to new instance') from e
+        except:
+            try:
+                #Stop and remove the new instance
+                new_mgr.remove()
+            except:
+                log.error(f'Failed to remove new instance {new_instance} during update of {self.instance}', exc_info=True)
+            raise
 
-        #Remove old instance and all persisted data
-        self.remove()
+        try:
+            #Remove old instance and all persisted data
+            self.remove()
+        except:
+            #If this fails, we have two instances for one user. How do we deal with this?
+            #We need to keep the new instance since it contains the persisted user data and
+            #the old instance might be corrupted.
+            log.error(f'Failed to remove old instance {self.instance}')
+            raise
 
         return new_instance
 
@@ -299,9 +315,9 @@ class ExerciseInstanceManager():
         """
         network = self.dc.network(self.instance.network_id)
         container = self.dc.container(self.instance.entry_service.container_id)
-        current_app.logger.info(f'Getting IP of container {self.instance.entry_service.container_id} on network {self.instance.network_id}')
+        log.info(f'Getting IP of container {self.instance.entry_service.container_id} on network {self.instance.network_id}')
         ip = self.dc.container_get_ip(container, network)
-        current_app.logger.info(f'IP is {ip}')
+        log.info(f'IP is {ip}')
         return ip.split('/')[0]
 
     def start(self):
@@ -324,7 +340,7 @@ class ExerciseInstanceManager():
         network = self.dc.create_network(name=network_name, internal=not self.instance.exercise.allow_internet)
 
         #Make the ssh server join the network
-        current_app.logger.info(f'connecting {ssh_container.id} to network')
+        log.info(f'connecting {ssh_container.id} to network')
         network.connect(ssh_container)
         self.instance.network_id = network.id
 
@@ -353,9 +369,9 @@ class ExerciseInstanceManager():
             mounts = {
                 self.dc.local_path_to_host(instance_entry_service.overlay_merged()): {'bind': '/home/user', 'mode': 'rw'}
                 }
-            current_app.logger.info(f'mounting persistance {mounts}')
+            log.info(f'mounting persistance {mounts}')
         else:
-            current_app.logger.info('Container is readonly')
+            log.info('Container is readonly')
 
 
         image_name = exercise.entry_service.image_name
@@ -391,7 +407,7 @@ class ExerciseInstanceManager():
         #Add users public key to authorized_keys
         add_key_cmd = f'bash -c "echo {self.instance.user.pub_key_ssh} >> /home/user/.ssh/authorized_keys"'
         success = container.exec_run(add_key_cmd)
-        current_app.logger.info(f'Add ssh key ret={success}')
+        log.info(f'Add ssh key ret={success}')
         #TODO: Handle errors
 
         #Store token inside container that can be used to authenticate requests
@@ -402,7 +418,7 @@ class ExerciseInstanceManager():
 
         add_token_cmd = f'bash -c "echo {signature} > /etc/auth_token && chmod 400 /etc/auth_token"'
         success = container.exec_run(add_token_cmd)
-        current_app.logger.info(f'Add token ret={success}')
+        log.info(f'Add token ret={success}')
 
         #Remove created container from 'none' network
         none_network = self.dc.network('none')
@@ -412,7 +428,6 @@ class ExerciseInstanceManager():
         network.connect(container)
 
         current_app.db.session.add(self.instance)
-        current_app.db.session.commit()
 
 
     def _stop_networks(self):
@@ -420,9 +435,13 @@ class ExerciseInstanceManager():
             network = self.dc.network(self.instance.network_id)
             if not network:
                 return
-            network.reload()
-            for c in network.containers:
-                network.disconnect(c)
+            containers = self.dc.get_connected_container(network)
+            for c in containers:
+                c = self.dc.container(c)
+                if c:
+                    network.disconnect(c)
+                else:
+                    log.warning(f'Network of instance {self.instance} contains dead containers')
             network.remove()
 
     def _stop_containers(self):
@@ -456,7 +475,7 @@ class ExerciseInstanceManager():
             #FIXME: If a network contains an already removed container, stopping it fails.
             #For now, we just ignore this, since this seems to be a known docker issue.
             e = traceback.format_exc()
-            current_app.logger.info(f'Failed to stop networking: {e}')
+            log.error(f'Failed to stop networking', exc_info=True)
 
         #umount entry service persistance
         if os.path.ismount(self.instance.entry_service.overlay_merged()):
@@ -469,7 +488,6 @@ class ExerciseInstanceManager():
         self.instance.entry_service.container_id = None
         self.instance.network_id = None
         current_app.db.session.add(self.instance)
-        current_app.db.session.commit()
 
 
     def is_running(self):
@@ -513,16 +531,21 @@ class ExerciseInstanceManager():
         NOTE: After callin this function, the instance must be removed from the DB.
         """
         self.stop()
-
-        if os.path.exists(self.instance.persistance_path):
-            subprocess.check_call(f'sudo rm -rf {self.instance.persistance_path}', shell=True)
+        try:
+            if os.path.exists(self.instance.persistance_path):
+                subprocess.check_call(f'sudo rm -rf {self.instance.persistance_path}', shell=True)
+        except:
+            log.error(f'Error during removal of if instance {self.instance}')
+            raise
 
         current_app.db.session.delete(self.instance.entry_service)
         current_app.db.session.delete(self.instance)
-        current_app.db.session.commit()
 
 
 class ExerciseManager():
+    """
+    Used to manage an Exercise.
+    """
 
     def __init__(self, exercise: Exercise):
         self.exercise = exercise
@@ -555,7 +578,7 @@ class ExerciseManager():
     @staticmethod
     def _from_yaml(path) -> Exercise:
         """
-        Parses the given yaml config of an exercise.
+        Parses the given yaml config of an exercise and returns an Exercise on success.
         Raises:
             - ExerciseConfigError if the given config could not be parsed.
         """
@@ -631,6 +654,11 @@ class ExerciseManager():
 
     @staticmethod
     def create(exercise: Exercise):
+        """
+        Copies all data that belong to the passed exercise to a local folder.
+        After calling this function, the exercise *must* be added to the DB and can be used
+        to create new instances.
+        """
         template_path = Path(current_app.config['IMPORTED_EXERCISES_PATH'])
         template_path = template_path.joinpath(f'{exercise.short_name}-{exercise.version}')
         assert not template_path.exists()
@@ -638,12 +666,19 @@ class ExerciseManager():
         persistence_path = Path(current_app.config['PERSISTANCE_PATH'])
         persistence_path = persistence_path.joinpath(f'{exercise.short_name}-{exercise.version}')
         assert not persistence_path.exists()
+
         persistence_path.mkdir(parents=True)
         exercise.persistence_path = persistence_path.as_posix()
 
-        template_path = template_path.as_posix()
-        #Copy data from import folder into an internal folder
-        shutil.copytree(exercise.template_import_path, template_path)
+        try:
+            #Copy data from import folder into an internal folder
+            shutil.copytree(exercise.template_import_path, template_path.as_posix())
+        except:
+            #Restore state as before create() was called.
+            if template_path.exists():
+                shutil.rmtree(template_path.as_posix())
+            shutil.rmtree(persistence_path.as_posix())
+
         exercise.template_path = template_path
         return ExerciseManager(exercise)
 
@@ -651,8 +686,8 @@ class ExerciseManager():
     def from_template(path: str) -> Exercise:
         """
         Parses the template in the given folder. This only returns a Exercise
-        without copying its data to the local storage. Before commiting it to the DB,
-        ExerciseManager.create(exercise) must be called.
+        without copying its data to the local storage nor adding it to the current transaction.
+        Before commiting it to the DB, ExerciseManager.create(exercise) must be called.
         Raises:
             - ExerciseConfigError if the template could not be parsed.
         """

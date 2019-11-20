@@ -44,8 +44,8 @@ def start_and_return_instance(instance: Instance):
     running = instance_manager.is_running()
     if not running:
         log.info(f'Instance ({instance}) is not running, starting...')
-        instance_manager.stop()
         instance_manager.start()
+        db.session.commit()
 
     ip = instance_manager.get_entry_ip()
     log.info(f'IP of user container is {ip}')
@@ -159,8 +159,15 @@ def api_provision():
         old_instance = user_instance
         log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {default_exercise}')
         mgr = ExerciseInstanceManager(old_instance)
-        new_instance = mgr.update_instance(default_exercise)
-        db.session.commit()
+        try:
+            new_instance = mgr.update_instance(default_exercise)
+        except:
+            #If update_instance() fails, it is guranteed that the current transaction
+            #is still valid, thus we commit it.
+            db.session.commit()
+            raise
+        else:
+            db.session.commit()
     else:
         #The user has no instance of the exercise, create a new one.
         log.info(f'User has no instance of exercise {default_exercise}, creating one...')

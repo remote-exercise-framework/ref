@@ -47,7 +47,11 @@ def instance_update(instance_id):
         return render_template('400.html'), 400
 
     mgr = ExerciseInstanceManager(instance)
-    new_instance = mgr.update_instance(new_exercise)
+    try:
+        new_instance = mgr.update_instance(new_exercise)
+    except:
+        current_app.db.session.commit()
+        raise
 
     current_app.db.session.commit()
     return redirect_to_next()
@@ -122,7 +126,7 @@ def instances_view_all():
 @refbp.route('/instances/stop/<int:instance_id>')
 @admin_required
 def instance_stop(instance_id):
-    instance =  Instance.query.filter(Instance.id == instance_id).first()
+    instance = Instance.query.filter(Instance.id == instance_id).first()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400
@@ -144,6 +148,8 @@ def instance_delete(instance_id):
 
     mgr = ExerciseInstanceManager(instance)
     mgr.remove()
+
+    db.session.commit()
 
     return redirect_to_next()
 
