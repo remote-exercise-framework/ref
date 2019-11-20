@@ -5,7 +5,7 @@
 #	- to this end, execute: echo 'alias reset-env="source /bin/reset-env"' >> /etc/profile
 
 # Description: This script unsets all current environment variables and sets a pre-defined environment
-
+#           After running this script and when using an absolute path to the program, no 'offset' between gdb and real run is visible
 
 
 # Unset all currently set environment variables

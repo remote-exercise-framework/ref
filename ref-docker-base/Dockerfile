@@ -67,4 +67,4 @@ RUN echo 'alias reset-env="source /bin/reset-env"' >> /etc/profile
 # Unset variables only set by GDB
 RUN echo "unset environment LINES" >> .gdbinit
 RUN echo "unset environment COLUMNS" >> .gdbinit
-
+RUN echo "unset environment _" >> .gdbinit
