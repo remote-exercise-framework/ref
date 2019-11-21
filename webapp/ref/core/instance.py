@@ -241,7 +241,7 @@ class InstanceManager():
             #Since we are using the hosts docker deamon, the mount source must be a path that is mounted in the hosts tree,
             #hence we need to translate the locale mount path to a host path.
             mounts = {
-                self.dc.local_path_to_host(instance_entry_service.overlay_merged: {'bind': '/home/user', 'mode': 'rw'}
+                self.dc.local_path_to_host(instance_entry_service.overlay_merged): {'bind': '/home/user', 'mode': 'rw'}
                 }
             log.info(f'mounting persistance {mounts}')
         else:
@@ -364,7 +364,7 @@ class InstanceManager():
             log.error(f'Failed to stop networking', exc_info=True)
 
         #umount entry service persistance
-        if os.path.ismount(self.instance.entry_service.overlay_merged:
+        if os.path.ismount(self.instance.entry_service.overlay_merged):
             cmd = ['sudo', '/bin/umount', self.instance.entry_service.overlay_merged]
             subprocess.check_call(cmd)
 

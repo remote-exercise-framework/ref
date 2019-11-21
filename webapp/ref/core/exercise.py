@@ -25,6 +25,8 @@ from ref.model.enums import ExerciseBuildStatus
 
 from .docker import DockerClient
 
+from .instance import InstanceManager
+
 log = LocalProxy(lambda: current_app.logger)
 
 class ExerciseConfigError(Exception):
