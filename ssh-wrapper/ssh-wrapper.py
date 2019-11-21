@@ -111,9 +111,14 @@ def main():
     cmd = ['/usr/bin/ssh', '-t', '-o', ' StrictHostKeyChecking=no', '-i', '/home/sshserver/.ssh/container-key', '-p', '13370', '-l', 'user', ip]
 
     ssh_cmd = os.environ.get("SSH_ORIGINAL_COMMAND")
-    bind_executable = resp['bind_executable']
-    if bind_executable:
-        cmd += [bind_executable]
+    default_cmd = resp['cmd']
+
+    #In previous versions cmd was a string, thus, convert it to a list.
+    if isinstance(default_cmd, str):
+        default_cmd = default_cmd.split(' ')
+
+    if default_cmd:
+        cmd += default_cmd
     elif ssh_cmd:
         cmd += [ssh_cmd]
 

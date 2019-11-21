@@ -1,12 +1,23 @@
+from flask import current_app
+
 class CommonDbOpsMixin():
 
     @classmethod
-    def get(cls, id_):
+    def get(cls, id_, lock=False):
+        if lock:
+            return cls.query.with_for_update().get(id_)
         return cls.query.get(id_)
 
     @classmethod
-    def all(cls):
+    def all(cls, lock=False):
+        if lock:
+            return cls.query.with_for_update().all()
         return cls.query.all()
+
+    def refresh(self, lock=False):
+        return self.__class__.get(self.id, lock=lock)
+
+
 
 class ModelToStringMixin():
 

@@ -67,7 +67,50 @@
                     <dt class="col-sm-3">Command</dt>
                     <dd class="col-sm-9">{{ exercise.entry_service.cmd }}</dd>
 
+                    <dt class="col-sm-3">Allow Internet</dt>
+                    <dd class="col-sm-9">{{ exercise.entry_service.allow_internet }}</dd>
                 </dl>
+
+                {% if exercise.services %}
+                <h4>Peripheral Services</h4>
+                {% endif %}
+
+                {% for service in exercise.services %}
+                <h5>{{ service.name }}</h5>
+                <dl class="row">
+                    <dt class="col-sm-3">Files</dt><dd class="col-sm-9"></dd>
+                    {% if service.files %}
+                        {% for l in service.files %}
+                            <dt class="col-sm-3"></dt><dd class="col-sm-9">- {{ l }}</dd>
+                        {% endfor %}
+                    {% else %}
+                        <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
+                    {% endif %}
+
+                    <dt class="col-sm-3">Build Command</dt><dd class="col-sm-9"></dd>
+                    {% if service.build_cmd %}
+                        {% for l in service.build_cmd %}
+                            <dt class="col-sm-3"></dt><dd class="col-sm-9">- {{ l }}</dd>
+                        {% endfor %}
+                    {% else %}
+                        <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
+                    {% endif %}
+
+
+                    <dt class="col-sm-3">ASLR Disabled</dt>
+                    <dd class="col-sm-9">{{ service.disable_aslr }}</dd>
+
+                    <dt class="col-sm-3">Readonly</dt>
+                    <dd class="col-sm-9">{{ service.readonly }}</dd>
+
+                    <dt class="col-sm-3">Allow Internet</dt>
+                    <dd class="col-sm-9">{{ service.allow_internet }}</dd>
+
+                    <dt class="col-sm-3">Command</dt>
+                    <dd class="col-sm-9">{{ service.cmd }}</dd>
+                </dl>
+                {% endfor %}
+
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>

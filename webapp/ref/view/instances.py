@@ -3,26 +3,26 @@ import os
 import shutil
 import tempfile
 import typing
+import urllib
 from collections import namedtuple
 from pathlib import Path
 
-
-from ref.core.util import redirect_to_next
 import docker
-import urllib
-import redis
-from werkzeug.urls import url_parse
-import rq
 import yaml
+
+import redis
+import rq
 from flask import (Blueprint, Flask, abort, current_app, redirect,
                    render_template, request, url_for)
-from wtforms import Form, IntegerField, SubmitField, validators
-
 from ref import db, refbp
-from ref.core import (ExerciseConfigError, admin_required,
-                      ExerciseImageManager, ExerciseManager, flash, InstanceManager)
-from ref.model import ConfigParsingError, Exercise, User, Instance, ExerciseEntryService
+from ref.core import (ExerciseConfigError, ExerciseImageManager,
+                      ExerciseManager, InstanceManager, admin_required, flash)
+from ref.core.util import redirect_to_next
+from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
+                       Instance, User)
 from ref.model.enums import ExerciseBuildStatus
+from werkzeug.urls import url_parse
+from wtforms import Form, IntegerField, SubmitField, validators
 
 lerr = lambda msg: current_app.logger.error(msg)
 linfo = lambda msg: current_app.logger.info(msg)
@@ -30,18 +30,22 @@ lwarn = lambda msg: current_app.logger.warning(msg)
 
 def get_newest_exercise_version(exercise: Exercise):
     exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
-    new_exercise = list(filter(lambda e: e.version > exercise.version, exercises))
+    new_exercise = list(filter(lambda e: e.version > exercise.version and e.build_job_status == ExerciseBuildStatus.FINISHED, exercises))
     return max(new_exercise, key=lambda e: e.version, default=None)
 
 @refbp.route('/instances/update/<int:instance_id>')
 @admin_required
 def instance_update(instance_id):
-    instance: Instance =  Instance.query.filter(Instance.id == instance_id).first()
+    #Lock the instance
+    instance: Instance =  Instance.query.filter(Instance.id == instance_id).with_for_update().first()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400
 
     new_exercise: Exercise = get_newest_exercise_version(instance.exercise)
+    #Lock the exercise
+    if new_exercise:
+        new_exercise = new_exercise.refresh(lock=True)
     if not new_exercise:
         flash.error(f'There is no new version for this exercise')
         return render_template('400.html'), 400
@@ -50,10 +54,10 @@ def instance_update(instance_id):
     try:
         new_instance = mgr.update_instance(new_exercise)
     except:
-        current_app.db.session.commit()
         raise
+    finally:
+        current_app.db.session.commit()
 
-    current_app.db.session.commit()
     return redirect_to_next()
 
 @refbp.route('/instances/view/<int:instance_id>')
@@ -70,6 +74,9 @@ def _instances_render_view(instances, title=None):
 
     #Set attributes used by the UI.
     for i in instances:
+        i = i.refresh(lock=True)
+        if not i:
+            continue
         running = InstanceManager(i).is_running()
         setattr(i, 'running', running)
 
@@ -126,32 +133,34 @@ def instances_view_all():
 @refbp.route('/instances/stop/<int:instance_id>')
 @admin_required
 def instance_stop(instance_id):
-    instance = Instance.query.filter(Instance.id == instance_id).first()
+    instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400
 
     mgr = InstanceManager(instance)
-    mgr.stop()
 
-    db.session.commit()
+    try:
+        mgr.stop()
+    finally:
+        db.session.commit()
+
 
     return redirect_to_next()
 
 @refbp.route('/instances/delete/<int:instance_id>')
 @admin_required
 def instance_delete(instance_id):
-    instance =  Instance.query.filter(Instance.id == instance_id).first()
+    instance =  Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400
 
     mgr = InstanceManager(instance)
-    mgr.remove()
 
-    db.session.commit()
+    try:
+        mgr.remove()
+    finally:
+        db.session.commit()
 
     return redirect_to_next()
-
-
-

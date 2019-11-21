@@ -17,7 +17,7 @@ from .enums import ExerciseBuildStatus, ExerciseServiceType
 from ref import db
 from sqlalchemy import Column, Integer, PickleType, create_engine
 
-from .util import ModelToStringMixin
+from .util import ModelToStringMixin, CommonDbOpsMixin
 
 class ConfigParsingError(Exception):
 
@@ -29,16 +29,19 @@ class ConfigParsingError(Exception):
 class ParsingError(Exception):
     pass
 
-class InstanceService(ModelToStringMixin, db.Model):
+class InstanceService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
-    __to_str_fields__ = ['id']
+    __to_str_fields__ = ['id', 'instance_id', 'exercise_service_id', 'container_id']
     __tablename__ = 'instance_service'
+    __table_args__ = (db.UniqueConstraint('id', 'instance_id'), db.UniqueConstraint('id', 'exercise_service_id'))
+
     id = db.Column(db.Integer, primary_key=True)
 
+    exercise_service_id = db.Column(db.Integer, db.ForeignKey('exercise_service.id'))
     instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id'))
     container_id = db.Column(db.Text(), unique=True)
 
-class InstanceEntryService(ModelToStringMixin, db.Model):
+class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     Container that represents the entrypoint for a specific task instance.
     Such and InstanceEntryService is exposed via SSH and supports data persistance.
@@ -75,12 +78,12 @@ class InstanceEntryService(ModelToStringMixin, db.Model):
         """
         return f'{self.instance.persistance_path}/entry-merged'
 
-class Instance(ModelToStringMixin, db.Model):
+class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     An Instance represents a instance of an exercise.
     Such an instance is bound to a single user.
     """
-    __to_str_fields__ = ['id', 'exercise', 'entry_service', 'user', 'network_id']
+    __to_str_fields__ = ['id', 'exercise', 'entry_service', 'user', 'network_id', 'peripheral_services_internet_network_id', 'peripheral_services_network_id']
     __tablename__ = 'exercise_instance'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -92,7 +95,8 @@ class Instance(ModelToStringMixin, db.Model):
     network_id = db.Column(db.Text(), unique=True)
 
     #Network the entry service is connected to the peripheral services
-    peripheral_services_network_id = db.Column(db.Text(), unique=True)
+    peripheral_services_internet_network_id = db.Column(db.Text(), nullable=True, unique=True)
+    peripheral_services_network_id = db.Column(db.Text(), nullable=True, unique=True)
 
     #Exercise this instance belongs to (backref name is exercise)
     exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'),
@@ -101,6 +105,10 @@ class Instance(ModelToStringMixin, db.Model):
     #Student this instance belongs to (backref name is user)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'),
         nullable=False)
+
+    @property
+    def long_name(self):
+        return f'{self.exercise.short_name}-v{self.exercise.version}'
 
     @property
     def persistance_path(self):
@@ -131,7 +139,7 @@ class Instance(ModelToStringMixin, db.Model):
                 ret.append(i)
         return ret
 
-class ExerciseEntryService(ModelToStringMixin, db.Model):
+class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     Each Exercise must have exactly one ExerciseEntryService that represtens the service
     that serves as entry point for an exercise.
@@ -144,16 +152,20 @@ class ExerciseEntryService(ModelToStringMixin, db.Model):
     exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'), nullable=False)
 
     #Path inside the container that is persistet
-    persistance_container_path = db.Column(db.Text())
+    persistance_container_path = db.Column(db.Text(), nullable=True)
 
     files = db.Column(PickleType(), nullable=True)
 
     build_cmd = db.Column(db.PickleType(), nullable=True)
 
     disable_aslr = db.Column(db.Boolean(), nullable=False)
-    cmd = db.Column(db.Text(), nullable=False)
+
+    #Command that is executed as soon a user connects (list)
+    cmd = db.Column(db.PickleType(), nullable=False)
 
     readonly = db.Column(db.Boolean(), nullable=False, default=False)
+
+    allow_internet = db.Column(db.Boolean(), nullable=False, default=False)
 
     @property
     def persistance_lower(self):
@@ -171,7 +183,7 @@ class ExerciseEntryService(ModelToStringMixin, db.Model):
         return f'remote-exercises-framework-{self.exercise.short_name}-entry:v{self.exercise.version}'
 
 
-class ExerciseService(ModelToStringMixin, db.Model):
+class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     A ExerciseService descrives a service that is provided to the user.
 
@@ -181,7 +193,7 @@ class ExerciseService(ModelToStringMixin, db.Model):
     __tablename__ = 'exercise_service'
     id = db.Column(db.Integer, primary_key=True)
 
-    name = db.Column(db.Text(), nullable=False)
+    name = db.Column(db.Text())
 
     #Backref is exercise
     exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'), nullable=False)
@@ -190,10 +202,22 @@ class ExerciseService(ModelToStringMixin, db.Model):
     build_cmd = db.Column(db.PickleType(), nullable=True)
 
     disable_aslr = db.Column(db.Boolean(), nullable=False)
-    cmd = db.Column(db.Text(), nullable=False)
+    cmd = db.Column(db.PickleType(), nullable=False)
 
+    readonly = db.Column(db.Boolean(), nullable=True, default=False)
 
-class Exercise(ModelToStringMixin, db.Model):
+    allow_internet = db.Column(db.Boolean(), nullable=True, default=False)
+
+    instances = db.relationship("InstanceService", backref="exercise_service", lazy=True)
+
+    @property
+    def image_name(self):
+        """
+        Name of the docker image that was build based on this configuration.
+        """
+        return f'remote-exercises-framework-{self.exercise.short_name}-{self.name}:v{self.exercise.version}'
+
+class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     An Exercise is a description of a task that can be deployed for the user.
     A single exercise consists of at least one ExerciseService.
@@ -215,27 +239,31 @@ class Exercise(ModelToStringMixin, db.Model):
     #Folder the template was initially imported from
     template_import_path = db.Column(db.Text(), nullable=False, unique=False)
 
-    #Folder where a copy of the template is stored during initial import
+    #Folder where a copy of the template is stored for persisting it after import
     template_path = db.Column(db.Text(), nullable=False, unique=True)
 
+    #Path to the folder that contains all persisted data of this exercise.
     persistence_path = db.Column(db.Text(), nullable=False, unique=True)
 
     #Name that identifies the exercise
     short_name = db.Column(db.Text(), nullable=False, unique=False)
 
+    #Version of the exercise used for updating mechanism.
+    version = db.Column(db.Integer(), nullable=False)
+
     #Used to group the exercises
     category = db.Column(db.Text(), nullable=True, unique=False)
 
     description = db.Column(db.Text(), nullable=False)
-    version = db.Column(db.Integer(), nullable=False)
 
     #Is this Exercise version deployed by default in case a instance is requested?
     #At most one exercise with same short_name can have this flag.
     is_default = db.Column(db.Boolean(), nullable=False)
 
-    allow_internet = db.Column(db.Boolean(), nullable=True, default=False)
-
+    #Log of the last build run
     build_job_result = db.Column(db.Text(), nullable=True)
+
+    #Build status of the docker images that belong to the exercise
     build_job_status: ExerciseBuildStatus = db.Column(db.Enum(ExerciseBuildStatus), nullable=False)
 
     #All running instances of this exercise
@@ -281,7 +309,10 @@ class Exercise(ModelToStringMixin, db.Model):
 
     @staticmethod
     def get_default_exercise(short_name):
-        return Exercise.query.filter(Exercise.short_name == short_name).filter(Exercise.is_default == True).one_or_none()
+        """
+        Returns and locks the default exercise for the given short_name.
+        """
+        return Exercise.query.filter(Exercise.short_name == short_name).filter(Exercise.is_default == True).with_for_update().one_or_none()
 
     @staticmethod
     def get_exercise(short_name, version):

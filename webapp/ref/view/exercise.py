@@ -236,14 +236,15 @@ def exercise_view_all():
         exercise.warnings, exercise.errors = _check_import(exercise)
         importable.append(exercise)
 
-    exercises = Exercise.query.all()
+    exercises = Exercise.query.with_for_update().all()
     #category might be None, since this attribute was introduced in a later release
     exercises = sorted(exercises, key=lambda e: e.category or "None")
 
     #Check whether our DB and the local docker repo are in sync
     for exercise in exercises:
         mgr = ExerciseManager(exercise)
-        is_build = mgr.image_manager().is_build()
+
+        is_build = ExerciseImageManager(exercise).is_build()
         if exercise.build_job_status != ExerciseBuildStatus.FINISHED and is_build:
             #Already build
             exercise.build_job_status = ExerciseBuildStatus.FINISHED
@@ -271,7 +272,7 @@ def exercise_view_all():
 @refbp.route('/exercise/<int:exercise_id>/delete')
 @admin_required
 def exercise_delete(exercise_id):
-    exercise =  Exercise.query.filter(Exercise.id == exercise_id).first()
+    exercise =  Exercise.query.filter(Exercise.id == exercise_id).with_for_update().first()
     if not exercise:
         flash.error(f'Unknown exercise ID {exercise_id}')
         return render_template('400.html'), 400
@@ -291,6 +292,9 @@ def exercise_delete(exercise_id):
     mgr = ExerciseImageManager(exercise)
     mgr.remove()
 
+    for service in exercise.services:
+        db.session.delete(service)
+
     db.session.delete(exercise.entry_service)
     db.session.delete(exercise)
     db.session.commit()
@@ -300,7 +304,7 @@ def exercise_delete(exercise_id):
 @refbp.route('/exercise/default/toggle/<int:exercise_id>')
 @admin_required
 def exercise_toggle_default(exercise_id):
-    exercise = db.get(Exercise, id=exercise_id)
+    exercise = Exercise.query.filter(Exercise.id == exercise_id).with_for_update().one_or_none()
     if not exercise:
         flash.error(f'Unknown exercises id={exercise_id}')
         return render_template('400.html'), 400
@@ -327,7 +331,7 @@ def exercise_toggle_default(exercise_id):
 @refbp.route('/exercise/view/<int:exercise_id>')
 @admin_required
 def exercise_view(exercise_id):
-    exercise =  Exercise.query.filter(Exercise.id == exercise_id).first()
+    exercise =  Exercise.query.filter(Exercise.id == exercise_id).one_or_none()
     if not exercise:
         flash.error(f'Unknown exercise ID {exercise_id}')
         return render_template('400.html'), 400

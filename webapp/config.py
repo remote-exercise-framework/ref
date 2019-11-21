@@ -60,6 +60,7 @@ class DebugConfig(ReleaseConfig):
     debug = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
     LOG_PATH = None
+    #SQLALCHEMY_ECHO = True
     #LOGIN_DISABLED = False
 
 class TestConfig(ReleaseConfig):

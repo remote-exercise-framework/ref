@@ -49,7 +49,7 @@ def student_download_pubkey(signed_mat):
     Returns the public key of the given matriculation number as
     text/plain.
     """
-    signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
     try:
         mat_num = signer.loads(signed_mat, max_age=60*10)
     except Exception as e:
@@ -73,7 +73,7 @@ def student_download_privkey(signed_mat):
     Returns the private key of the given matriculation number as
     text/plain.
     """
-    signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
     try:
         mat_num = signer.loads(signed_mat, max_age=60*10)
     except Exception as e:
@@ -131,7 +131,7 @@ def student_getkey():
             db.session.add(student)
             db.session.commit()
 
-            signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+            signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
             signed_mat = signer.dumps(str(student.mat_num))
 
             return render()
@@ -153,7 +153,7 @@ def student_restorekey():
     signed_mat = None
     render = lambda: render_template('student_restorekey.html', form=form, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat)
 
-    signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
 
     if form.submit.data and form.validate():
         student = User.query.filter(User.mat_num == form.mat_num.data).first()

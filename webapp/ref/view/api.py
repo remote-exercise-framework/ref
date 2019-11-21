@@ -52,7 +52,7 @@ def start_and_return_instance(instance: Instance):
 
     resp = {
         'ip': ip,
-        'bind_executable': instance.exercise.entry_service.bind_executable
+        'cmd': instance.exercise.entry_service.cmd
     }
 
     return ok_response(resp)
@@ -98,15 +98,16 @@ def api_provision():
 
     log.info(f'Request for exercise {exercise_name} for user {pubkey:32} was requested')
 
-    user: User = db.get(User, pub_key_ssh=pubkey)
-    if not user:
+    #Get the user account and lock it.
+    locked_user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
+    if not locked_user:
         log.warning('Unable to find user with provided publickey')
         return error_response('Unknown public-key')
 
-    log.info(f'Found matching user: {user}')
+    log.info(f'Found matching user: {locked_user}')
 
     #If we are in maintenance, reject connections from normal users.
-    if current_app.config['MAINTENANCE_ENABLED'] and not user.is_admin:
+    if current_app.config['MAINTENANCE_ENABLED'] and not locked_user.is_admin:
         log.info('Rejecting connection since maintenance mode is enabled and user is no admin')
         return error_response('-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------')
 
@@ -114,21 +115,23 @@ def api_provision():
         log.info('Failed to find exercise with requested name')
         return error_response('No such task')
 
-    #Get the default exercise for the requested exercise name
+    #Get the default exercise for the requested exercise name. The exercise is locked (if any).
     default_exercise = Exercise.get_default_exercise(exercise_name)
     log.info(f'Default exercise for {exercise_name} is {default_exercise}')
 
     #Consistency check
     #Get the user instance of requested exercise name (if any). This might have a different version then the
     #default.
-    user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name, user.exercise_instances))
+    user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name, locked_user.exercise_instances))
     if len(user_instances) > 1:
-        log.error(f'User {user} has more then one instance of the same exercise')
+        log.error(f'User {locked_user} has more then one instance of the same exercise')
         return error_response('Internal error, please notify the system administrator')
 
     user_instance = None
     if user_instances:
         user_instance = user_instances[0]
+        #Reload the user instance from DB and lock it.
+        user_instance = user_instance.refresh(lock=True)
 
     """
     If the user has an instance of the default verison of the exercise or one that is more recent
@@ -162,21 +165,27 @@ def api_provision():
         try:
             new_instance = mgr.update_instance(default_exercise)
         except:
-            #If update_instance() fails, it is guranteed that the current transaction
-            #is still valid, thus we commit it.
             db.session.commit()
             raise
-        else:
-            db.session.commit()
     else:
         #The user has no instance of the exercise, create a new one.
         log.info(f'User has no instance of exercise {default_exercise}, creating one...')
-        new_instance = InstanceManager.create_instance(user, default_exercise)
-        db.session.add(new_instance)
+        try:
+            new_instance = InstanceManager.create_instance(locked_user, default_exercise)
+            db.session.add(new_instance)
+        except:
+            #Nothing to commit here, since we did not created anything.
+            raise
+
+    try:
+        ret = start_and_return_instance(new_instance)
+    except:
+        #Commit the new instance and release locks.
         db.session.commit()
+        raise
 
-    return start_and_return_instance(new_instance)
-
+    log.info(f'returning {ret}')
+    return ret
 
 
 @refbp.route('/api/getkeys', methods=('GET', 'POST'))

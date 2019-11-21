@@ -3,6 +3,11 @@ import subprocess
 from docker import errors
 import random
 import string
+from flask import current_app
+
+from werkzeug.local import LocalProxy
+
+log = LocalProxy(lambda: current_app.logger)
 
 class DockerClient():
 
@@ -99,7 +104,6 @@ class DockerClient():
         if not network:
             return []
 
-        network.reload()
         return network.attrs['Containers'].keys()
 
     def get_connected_networks(self, container):
@@ -112,15 +116,12 @@ class DockerClient():
         if not container:
             return []
 
-        ret = []
-        networks = self.networks()
-        for network in networks:
-            if container.id in self.get_connected_container(network):
-                ret.append(network.id)
+        netwoks = container.attrs['NetworkSettings']['Networks'].values()
+        netwoks = [network['NetworkID'] for network in netwoks]
 
-        return ret
+        return netwoks
 
-    def __container_transitive_closure_get_containers(self, container, visited_containers):
+    def __container_transitive_closure_get_containers(self, container, visited_containers, visited_networks=set()):
         visited_containers.add(container)
         for n in self.get_connected_networks(container):
             for c in self.get_connected_container(n):
@@ -151,7 +152,9 @@ class DockerClient():
         Raises:
             - docker.errors.APIError
         """
-        assert name_or_id
+        if not name_or_id:
+            return None
+
         try:
             return self.client.containers.get(name_or_id)
         except errors.NotFound:
@@ -166,9 +169,14 @@ class DockerClient():
                 return v['IPv4Address']
         return None
 
-    def create_container(self, image_name, name=None, auto_remove=False, network_mode='none', volumes=None, cap_add=[], security_opt=[], cpu_period=None, cpu_quota=None, mem_limit=None, read_only=False):
+    def create_container(self, image_name, name=None, auto_remove=False, network_mode='none', volumes=None, cap_add=[], security_opt=[], cpu_period=None, cpu_quota=None, mem_limit=None, read_only=False, hostname=None):
         if not name:
             name = 'ref-' + ''.join(random.choices(string.ascii_uppercase, k=10))
+
+        kwargs = {}
+        if hostname:
+            kwargs['hostname'] = hostname
+
         return self.client.containers.run(
             image_name,
             detach=True,
@@ -182,7 +190,9 @@ class DockerClient():
             cpu_period=cpu_period,
             cpu_quota=cpu_quota,
             mem_limit=mem_limit,
-            read_only=read_only
+            read_only=read_only,
+            stdin_open=True,
+            **kwargs
             )
 
     def create_network(self, name=None, driver='bridge', internal=False):
@@ -195,8 +205,33 @@ class DockerClient():
         return self.client.networks.create(name, driver=driver, internal=internal)
 
     def network(self, network_id):
-        assert network_id
+        if not network_id:
+            return None
         try:
             return self.client.networks.get(network_id)
         except errors.NotFound:
             return None
+
+    def remove_network(self, network):
+        if isinstance(network, str):
+            network = self.network(network)
+        if not network:
+            return
+        log.info(f'Removing network {network.id}')
+
+        failed = False
+        containers = self.get_connected_container(network)
+        for cid in containers:
+            c = self.container(cid)
+            if c:
+                network.disconnect(c)
+            else:
+                failed = True
+                log.warning(f'Network {network.id} contains dead container {cid}, unable to remove network')
+
+        #Removal will only succeed if the network has no attached containers.
+        #In case a non-existing container is attached we can not disconnect it, but are
+        #also unable to remove the network. This is a known docker bug and can only be
+        #solved by restarting docker.
+        if not failed:
+            network.remove()

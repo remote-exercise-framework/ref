@@ -10,7 +10,7 @@ from flask_login import current_user, login_user, logout_user
 
 
 class LoginForm(Form):
-    username = StringField('Matriculation Number', validators=[validators.Required()])
+    username = IntegerField('Matriculation Number', validators=[validators.Required()])
     password = PasswordField('Password', validators=[validators.Required()])
     submit = SubmitField('Login')
 
@@ -33,9 +33,7 @@ def login():
     form = LoginForm(request.form)
     if form.submit.data and form.validate():
         #Right now we allow the mat. num. and the login_name as login
-        user = User.query.filter_by(login_name=form.username.data).first()
-        if user is None:
-            user = User.query.filter_by(mat_num=form.username.data).first()
+        user = User.query.filter_by(mat_num=form.username.data).first()
 
         if user is None or not user.check_password(form.password.data) or not user.is_admin:
             flash.error('Invalid username or password')

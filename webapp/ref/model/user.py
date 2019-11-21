@@ -21,7 +21,6 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     course_of_studies = db.Column(db.Enum(CourseOfStudies), nullable=True)
 
     is_admin = db.Column(db.Boolean(), nullable=False)
-    login_name = db.Column(db.Text(), nullable=True)
 
 
     #Exercise instances associated to the student

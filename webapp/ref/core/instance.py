@@ -5,6 +5,7 @@ from flask import current_app
 from werkzeug.local import LocalProxy
 import os
 import subprocess
+import shutil
 import itsdangerous
 from pathlib import Path
 
@@ -40,8 +41,6 @@ class InstanceManager():
             peripheral_service = InstanceService()
             peripheral_service.instance = instance
             peripheral_service.exercise_service = service
-            service.instances.append(peripheral_service)
-            instance.peripheral_services.append(peripheral_service)
 
         dirs = [
             Path(instance.persistance_path),
@@ -89,6 +88,7 @@ class InstanceManager():
             except:
                 #No way to resolve this, just log it and hope for the best.
                 log.error(f'Failed to remove newly created instance {new_instance} during update of {self.instance}', exc_info=True)
+                raise
             raise
 
         try:
@@ -171,6 +171,7 @@ class InstanceManager():
         #Create container for all services
         for service in services:
             container_name = f'ref-{self.instance.exercise.short_name}-v{self.instance.exercise.version}-{service.exercise_service.name}-{self.instance.id}'
+            log.info(f'Creating peripheral container {container_name}')
 
             container = self.dc.create_container(
                 service.exercise_service.image_name,
@@ -184,6 +185,8 @@ class InstanceManager():
                 read_only=service.exercise_service.readonly,
                 hostname=service.exercise_service.name
             )
+            log.info(f'Success, id is {container.id}')
+
             service.container_id = container.id
             none_network = self.dc.network('none')
             none_network.disconnect(container)

@@ -13,19 +13,22 @@ from pathlib import Path
 from threading import Thread
 
 import docker
-import itsdangerous
 import yaml
+
+import itsdangerous
 from flask import current_app
+from ref.model import (Exercise, ExerciseEntryService, ExerciseService,
+                       Instance, InstanceEntryService, InstanceService, User)
+from ref.model.enums import ExerciseBuildStatus
+from sqlalchemy.orm import joinedload
 from werkzeug.local import LocalProxy
 
-from ref.model import (Exercise, ExerciseEntryService, Instance,
-                       InstanceEntryService, ExerciseService, User, ExerciseService)
-
-from ref.model.enums import ExerciseBuildStatus
-
 from .docker import DockerClient
+from .instance import InstanceManager
 
 from .instance import InstanceManager
+
+from sqlalchemy.orm import raiseload
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -53,10 +56,14 @@ class ExerciseImageManager():
         if not image:
             return False
 
+        for service in self.exercise.services:
+            if not self.dc.image(service.image_name):
+                return False
+
         return True
 
     @staticmethod
-    def __build_template(app, files, build_cmd, disable_aslr):
+    def __build_template(app, files, build_cmd, disable_aslr, cmd=['/usr/sbin/sshd', '-D']):
         """
         Returns a dynamically build docker file as string.
         """
@@ -75,10 +82,16 @@ class ExerciseImageManager():
                 template += f'RUN {line}\n'
 
         if disable_aslr:
-            template += 'CMD ["/usr/bin/setarch", "x86_64", "-R", "/usr/sbin/sshd", "-D"]\n'
+            template += 'CMD ["/usr/bin/setarch", "x86_64", "-R"'
+            for w in cmd:
+                template += f', "{w}"'
         else:
-            template += 'CMD ["/usr/sbin/sshd", "-D"]\n'
+            template += f'CMD ['
+            for w in cmd:
+                template += f'"{w}", '
+            template.rstrip(' ,')
 
+        template += ']'
 
         return template
 
@@ -135,6 +148,45 @@ class ExerciseImageManager():
 
         return log
 
+    @staticmethod
+    def __run_build_peripheral_services(app, exercise: Exercise):
+        """
+        Builds the peripheral services of an exercise.
+        """
+        services = []
+        #Load objects completely from the database, since we can not lazy load them later
+        with app.app_context():
+            #joinedload causes eager loading of all attributes of the exercise
+            #raiseload raises an exception if there are still lazy attributes
+            exercise = Exercise.query.filter(Exercise.id == exercise.id).options(joinedload('*')).first()
+            for service in exercise.services:
+                services.append(ExerciseService.query.filter(ExerciseService.id == service.id).options(joinedload('*')).first())
+
+        if not services:
+            return "No peripheral services to build"
+
+        for service in services:
+            log = f' --- Building peripheral service {service.name} --- \n'
+            image_name = service.image_name
+
+            dockerfile = ExerciseImageManager.__build_template(
+                app,
+                service.files,
+                service.build_cmd,
+                service.disable_aslr,
+                cmd=service.cmd
+            )
+            build_ctx = exercise.template_path
+            try:
+                dockerfile_name = f'Dockerfile-{service.name}'
+                with open(f'{build_ctx}/{dockerfile_name}', 'w') as f:
+                    f.write(dockerfile)
+                log += ExerciseImageManager.__docker_build(build_ctx, image_name, dockerfile=dockerfile_name)
+            except Exception as e:
+                raise e
+
+        return log
+
 
     @staticmethod
     def __run_build(app, exercise: Exercise):
@@ -145,6 +197,7 @@ class ExerciseImageManager():
         try:
             #Build entry service
             log += ExerciseImageManager.__run_build_entry_service(app, exercise)
+            log += ExerciseImageManager.__run_build_peripheral_services(app, exercise)
 
             #TODO: Build other services
 
@@ -158,24 +211,18 @@ class ExerciseImageManager():
                     if e.stderr:
                         log = e.stderr.decode()
                 log += traceback.format_exc()
-                #Update instance since is might changed in the meantime
                 exercise: Exercise = app.db.get(Exercise, id=exercise.id)
                 exercise.build_job_result = log
                 exercise.build_job_status = ExerciseBuildStatus.FAILED
         else:
             with app.app_context():
-                e = traceback.format_exc()
-                #Update instance since is might changed in the meantime
                 exercise: Exercise = app.db.get(Exercise, id=exercise.id)
                 exercise.build_job_result = log
                 exercise.build_job_status = ExerciseBuildStatus.FINISHED
 
         with app.app_context():
-            try:
-                app.db.session.add(exercise)
-                app.db.session.commit()
-            except Exception as e:
-                log.error(str(e))
+            app.db.session.add(exercise)
+            app.db.session.commit()
 
     def build(self):
         """
@@ -198,6 +245,10 @@ class ExerciseImageManager():
         image_name = self.exercise.entry_service.image_name
         if self.dc.image(image_name):
             img = self.dc.rmi(image_name)
+
+        for service in self.exercise.services:
+            if self.dc.image(service.image_name):
+                self.dc.rmi(service.image_name)
 
         #Remove template
         if os.path.isdir(self.exercise.template_path):
@@ -264,10 +315,9 @@ class ExerciseManager():
 
         exercise.category = ExerciseManager._parse_attr(cfg, 'category', str)
 
-        exercise.description = ExerciseManager._parse_attr(cfg, 'description', str, required=False, default="")
+        exercise.description = ExerciseManager._parse_attr(cfg, 'description', str, required=False, default=None)
 
         exercise.version = ExerciseManager._parse_attr(cfg, 'version', int)
-        exercise.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', bool, required=False, default=False)
         exercise.is_default = False
         exercise.build_job_status = ExerciseBuildStatus.NOT_BUILD
 
@@ -302,10 +352,10 @@ class ExerciseManager():
                 entry.build_cmd += [f"{line}"]
 
         entry.disable_aslr = ExerciseManager._parse_attr(entry_cfg, 'disable-aslr', bool, required=False, default=False)
-        entry.cmd = ExerciseManager._parse_attr(entry_cfg, 'cmd', list, required=False, default='/bin/bash')
+        entry.cmd = ExerciseManager._parse_attr(entry_cfg, 'cmd', list, required=False, default=['/bin/bash'])
         entry.persistance_container_path = ExerciseManager._parse_attr(entry_cfg, 'persistance-path', str, required=False, default=None)
         entry.readonly = ExerciseManager._parse_attr(entry_cfg, 'read-only', bool, required=False, default=False)
-        entry.bind_executable = ExerciseManager._parse_attr(entry_cfg, 'bind-executable', str, required=False, default=None)
+        entry.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', bool, required=False, default=False)
 
         if entry.readonly and entry.persistance_container_path:
             raise ExerciseConfigError('persistance-path and readonly are mutually exclusive')
@@ -320,13 +370,17 @@ class ExerciseManager():
         if not peripheral_cfg:
             return exercise
 
-        services = []
+        services_names = set()
         for service_name, service_values in peripheral_cfg.items():
             service = ExerciseService()
             service_name_regex = r'([a-zA-Z0-9_-])*'
             if not re.fullmatch(service_name_regex, service_name):
                 raise ExerciseConfigError(f'Service name "{service_name}"" is invalid ({service_name_regex})')
             service.name = service_name
+
+            if service_name in services_names:
+                raise ExerciseConfigError(f'There is already a service with name {service_name}.')
+            services_names.add(service_name)
 
             service.disable_aslr = ExerciseManager._parse_attr(service_values, 'disable-aslr', bool, required=False, default=False)
 
@@ -342,8 +396,11 @@ class ExerciseManager():
                     if not isinstance(line, str):
                         raise ExerciseConfigError(f"Command must be a list of strings: {cmd}")
 
-            service.cmd = ExerciseManager._parse_attr(service_values, 'cmd', str)
-            services.append(service)
+            service.cmd = ExerciseManager._parse_attr(service_values, 'cmd', list)
+
+            service.readonly =  ExerciseManager._parse_attr(service_values, 'read-only', bool, required=False, default=False)
+
+            exercise.services.append(service)
 
         return exercise
 
