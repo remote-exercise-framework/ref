@@ -17,7 +17,7 @@ from wtforms import Form, IntegerField, SubmitField, validators
 from werkzeug.local import LocalProxy, Local
 
 from ref import db, refbp
-from ref.core import flash, ExerciseImageManager, ExerciseInstanceManager, ExerciseManager
+from ref.core import flash, ExerciseImageManager, InstanceManager, ExerciseManager
 from ref.model import ConfigParsingError, Exercise, Instance, User
 from ref.model.enums import ExerciseBuildStatus
 
@@ -39,7 +39,7 @@ def start_and_return_instance(instance: Instance):
         log.error(f'User {instance.user} has an instance ({instance}) of an exercise that is not build. Possibly someone deleted the docker image?')
         return error_response('Inconsistent build state, please notify the system administrator')
 
-    instance_manager = ExerciseInstanceManager(instance)
+    instance_manager = InstanceManager(instance)
     #Check if the instance is running
     running = instance_manager.is_running()
     if not running:
@@ -158,7 +158,7 @@ def api_provision():
         #The user has an older version of the exercise, upgrade it.
         old_instance = user_instance
         log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {default_exercise}')
-        mgr = ExerciseInstanceManager(old_instance)
+        mgr = InstanceManager(old_instance)
         try:
             new_instance = mgr.update_instance(default_exercise)
         except:
@@ -171,7 +171,7 @@ def api_provision():
     else:
         #The user has no instance of the exercise, create a new one.
         log.info(f'User has no instance of exercise {default_exercise}, creating one...')
-        new_instance = ExerciseInstanceManager.create_instance(user, default_exercise)
+        new_instance = InstanceManager.create_instance(user, default_exercise)
         db.session.add(new_instance)
         db.session.commit()
 

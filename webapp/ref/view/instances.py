@@ -20,7 +20,7 @@ from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, admin_required,
-                      ExerciseImageManager, ExerciseManager, flash, ExerciseInstanceManager)
+                      ExerciseImageManager, ExerciseManager, flash, InstanceManager)
 from ref.model import ConfigParsingError, Exercise, User, Instance, ExerciseEntryService
 from ref.model.enums import ExerciseBuildStatus
 
@@ -46,7 +46,7 @@ def instance_update(instance_id):
         flash.error(f'There is no new version for this exercise')
         return render_template('400.html'), 400
 
-    mgr = ExerciseInstanceManager(instance)
+    mgr = InstanceManager(instance)
     try:
         new_instance = mgr.update_instance(new_exercise)
     except:
@@ -70,7 +70,7 @@ def _instances_render_view(instances, title=None):
 
     #Set attributes used by the UI.
     for i in instances:
-        running = ExerciseInstanceManager(i).is_running()
+        running = InstanceManager(i).is_running()
         setattr(i, 'running', running)
 
         new_exercise = get_newest_exercise_version(i.exercise)
@@ -131,7 +131,7 @@ def instance_stop(instance_id):
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400
 
-    mgr = ExerciseInstanceManager(instance)
+    mgr = InstanceManager(instance)
     mgr.stop()
 
     db.session.commit()
@@ -146,7 +146,7 @@ def instance_delete(instance_id):
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400
 
-    mgr = ExerciseInstanceManager(instance)
+    mgr = InstanceManager(instance)
     mgr.remove()
 
     db.session.commit()

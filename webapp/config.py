@@ -8,8 +8,12 @@ class ReleaseConfig(object):
     LOGDIR = os.path.join(DATADIR, 'logs')
     LOG_PATH = os.path.join(LOGDIR, 'web.log')
 
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(DBDIR, 'app.db')
+    POSTGRES_USER = os.environ.get('POSTGRES_USER')
+    POSTGRES_DB = os.environ.get('POSTGRES_DB')
+    POSTGRES_PASSWORD = os.environ.get('POSTGRES_PASSWORD')
+    SQLALCHEMY_DATABASE_URI = f'postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@db/{POSTGRES_DB}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
     EXERCISES_PATH = '/exercises'
     IMPORTED_EXERCISES_PATH = os.path.join(DATADIR, 'imported_exercises')
     PERSISTANCE_PATH =  os.path.join(DATADIR, 'persistance')

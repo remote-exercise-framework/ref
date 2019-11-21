@@ -74,6 +74,7 @@ function build {
     (
         echo "=> Building container"
         docker-compose build $@
+        docker-compose pull
     )
 }
 

@@ -14,17 +14,41 @@ services:
       networks:
          - ssh-and-host
          - web-and-ssh
+
+   pgadmin:
+      image: dpage/pgadmin4
+      environment:
+         - PGADMIN_DEFAULT_EMAIL=admin@admin.de
+         - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+      ports:
+         - ${PGADMIN_HTTP_PORT}:80
+      networks:
+         - db-and-pgadmin
+   db:
+      image: postgres
+      restart: always
+      volumes:
+         - ./data/postgresql-db:/var/lib/postgresql/data
+      environment:
+         - POSTGRES_USER=ref
+         - POSTGRES_DB=ref
+         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      networks:
+         - web-and-db
+         - db-and-pgadmin
    web:
       security_opt:
          #Needed for mounting overlay inside containers
          - apparmor:unconfined
       environment:
-         #Folder used for persistent data
          - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY}
          - BASEDIR=/data
          - DEBUG=${DEBUG}
          - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED}
          - REDIS_URL=redis://redis
+         - POSTGRES_USER=ref
+         - POSTGRES_DB=ref
+         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       cap_add:
          - SYS_ADMIN
       build:
@@ -52,6 +76,7 @@ services:
       networks:
          - web-host
          - web-and-ssh
+         - web-and-db
    # redis:
    #    image: 'bitnami/redis:5.0'
    #    environment:
@@ -96,3 +121,12 @@ networks:
       driver: bridge
       driver_opts:
          com.docker.network.bridge.name: "br-ref-sshhost"
+   web-and-db:
+      driver: bridge
+      internal: true
+      driver_opts:
+         com.docker.network.bridge.name: "br-ref-webtodb"
+   db-and-pgadmin:
+      driver: bridge
+      driver_opts:
+         com.docker.network.bridge.name: "br-ref-dbtopg"

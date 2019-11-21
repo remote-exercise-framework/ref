@@ -48,11 +48,12 @@ class InstanceEntryService(ModelToStringMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     #The instance this entry service belongs to
-    instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id'))
+    instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
 
     #ID of the container
     container_id = db.Column(db.Text(), unique=True)
 
+    @property
     def overlay_upper(self):
         """
         Path to the directory that contains the persisted user data.
@@ -60,12 +61,14 @@ class InstanceEntryService(ModelToStringMixin, db.Model):
         """
         return f'{self.instance.persistance_path}/entry-upper'
 
+    @property
     def overlay_work(self):
         """
         Path to the working directory used by overlayfs for persistance.
         """
         return f'{self.instance.persistance_path}/entry-work'
 
+    @property
     def overlay_merged(self):
         """
         Path to the directory that contains the merged content of the upper and lower directory.
@@ -92,11 +95,11 @@ class Instance(ModelToStringMixin, db.Model):
     peripheral_services_network_id = db.Column(db.Text(), unique=True)
 
     #Exercise this instance belongs to (backref name is exercise)
-    exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id'),
+    exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'),
         nullable=False)
 
     #Student this instance belongs to (backref name is user)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'),
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'),
         nullable=False)
 
     @property
@@ -138,21 +141,19 @@ class ExerciseEntryService(ModelToStringMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     #The exercise this entry service belongs to
-    exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id'), nullable=False)
+    exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'), nullable=False)
 
     #Path inside the container that is persistet
     persistance_container_path = db.Column(db.Text())
 
-    files = db.Column(PickleType())
+    files = db.Column(PickleType(), nullable=True)
 
     build_cmd = db.Column(db.PickleType(), nullable=True)
 
     disable_aslr = db.Column(db.Boolean(), nullable=False)
-    cmd = db.Column(db.Text(), nullable=True)
+    cmd = db.Column(db.Text(), nullable=False)
 
-    bind_executable = db.Column(db.Text(), nullable=True)
-
-    readonly = db.Column(db.Boolean(), default=False)
+    readonly = db.Column(db.Boolean(), nullable=False, default=False)
 
     @property
     def persistance_lower(self):
@@ -183,9 +184,9 @@ class ExerciseService(ModelToStringMixin, db.Model):
     name = db.Column(db.Text(), nullable=False)
 
     #Backref is exercise
-    exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id'), nullable=False)
+    exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'), nullable=False)
 
-    files = db.Column(PickleType())
+    files = db.Column(PickleType(), nullable=True)
     build_cmd = db.Column(db.PickleType(), nullable=True)
 
     disable_aslr = db.Column(db.Boolean(), nullable=False)

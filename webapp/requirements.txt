@@ -23,3 +23,4 @@ Flask-DebugToolbar==0.10.1
 redis==3.3.11
 rq==1.1.0
 python-telegram-handler
+psycopg2
