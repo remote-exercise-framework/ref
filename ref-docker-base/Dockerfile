@@ -61,3 +61,10 @@ RUN gcc /tmp/my-shell.c -o /bin/sh && rm /tmp/my-shell.c
 
 CMD ["/usr/sbin/sshd", "-D"]
 
+# Install and provide command to source reset-env script resetting the environment
+COPY reset-env /bin/
+RUN echo 'alias reset-env="source /bin/reset-env"' >> /etc/profile
+# Unset variables only set by GDB
+RUN echo "unset environment LINES" >> .gdbinit
+RUN echo "unset environment COLUMNS" >> .gdbinit
+RUN echo "unset environment _" >> .gdbinit
