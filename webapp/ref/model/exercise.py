@@ -106,6 +106,8 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'),
         nullable=False)
 
+    creation_ts = db.Column(db.DateTime(), nullable=True)
+
     @property
     def long_name(self):
         return f'{self.exercise.short_name}-v{self.exercise.version}'
@@ -167,6 +169,13 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     allow_internet = db.Column(db.Boolean(), nullable=False, default=False)
 
+    #flag config option
+    flag_path = db.Column(db.Text(), nullable=True)
+    flag_value = db.Column(db.Text(), nullable=True)
+    flag_user = db.Column(db.Text(), nullable=True)
+    flag_group = db.Column(db.Text(), nullable=True)
+    flag_permission = db.Column(db.Text(), nullable=True)
+
     @property
     def persistance_lower(self):
         """
@@ -209,6 +218,12 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     allow_internet = db.Column(db.Boolean(), nullable=True, default=False)
 
     instances = db.relationship("InstanceService", backref="exercise_service", lazy=True)
+
+    flag_path = db.Column(db.Text(), nullable=True)
+    flag_value = db.Column(db.Text(), nullable=True)
+    flag_user = db.Column(db.Text(), nullable=True)
+    flag_group = db.Column(db.Text(), nullable=True)
+    flag_permission = db.Column(db.Text(), nullable=True)
 
     @property
     def image_name(self):
@@ -254,7 +269,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     #Used to group the exercises
     category = db.Column(db.Text(), nullable=True, unique=False)
 
-    description = db.Column(db.Text(), nullable=False)
+    description = db.Column(db.Text(), nullable=True)
 
     #Is this Exercise version deployed by default in case a instance is requested?
     #At most one exercise with same short_name can have this flag.

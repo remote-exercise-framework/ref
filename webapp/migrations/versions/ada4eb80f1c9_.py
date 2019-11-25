@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 4207d689b420
+Revision ID: ada4eb80f1c9
 Revises: 
-Create Date: 2019-11-21 15:24:45.794597
+Create Date: 2019-11-25 19:43:04.607411
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '4207d689b420'
+revision = 'ada4eb80f1c9'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -26,7 +26,7 @@ def upgrade():
     sa.Column('short_name', sa.Text(), nullable=False),
     sa.Column('version', sa.Integer(), nullable=False),
     sa.Column('category', sa.Text(), nullable=True),
-    sa.Column('description', sa.Text(), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
     sa.Column('is_default', sa.Boolean(), nullable=False),
     sa.Column('build_job_result', sa.Text(), nullable=True),
     sa.Column('build_job_status', sa.Enum('NOT_BUILD', 'BUILDING', 'FINISHED', 'FAILED', name='exercisebuildstatus'), nullable=False),
@@ -46,7 +46,6 @@ def upgrade():
     sa.Column('priv_key', sa.Text(), nullable=False),
     sa.Column('course_of_studies', sa.Enum('MASTER_ITS_NS', 'MASTER_ITS_IS', 'MASTER_AI', 'OTHER', name='courseofstudies'), nullable=True),
     sa.Column('is_admin', sa.Boolean(), nullable=False),
-    sa.Column('login_name', sa.Text(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('mat_num')
     )
@@ -60,6 +59,11 @@ def upgrade():
     sa.Column('cmd', sa.PickleType(), nullable=False),
     sa.Column('readonly', sa.Boolean(), nullable=False),
     sa.Column('allow_internet', sa.Boolean(), nullable=False),
+    sa.Column('flag_path', sa.Text(), nullable=True),
+    sa.Column('flag_value', sa.Text(), nullable=True),
+    sa.Column('flag_user', sa.Text(), nullable=True),
+    sa.Column('flag_group', sa.Text(), nullable=True),
+    sa.Column('flag_permission', sa.Text(), nullable=True),
     sa.ForeignKeyConstraint(['exercise_id'], ['exercise.id'], ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -70,6 +74,7 @@ def upgrade():
     sa.Column('peripheral_services_network_id', sa.Text(), nullable=True),
     sa.Column('exercise_id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('creation_ts', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['exercise_id'], ['exercise.id'], ondelete='RESTRICT'),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('id'),
@@ -87,6 +92,11 @@ def upgrade():
     sa.Column('cmd', sa.PickleType(), nullable=False),
     sa.Column('readonly', sa.Boolean(), nullable=True),
     sa.Column('allow_internet', sa.Boolean(), nullable=True),
+    sa.Column('flag_path', sa.Text(), nullable=True),
+    sa.Column('flag_value', sa.Text(), nullable=True),
+    sa.Column('flag_user', sa.Text(), nullable=True),
+    sa.Column('flag_group', sa.Text(), nullable=True),
+    sa.Column('flag_permission', sa.Text(), nullable=True),
     sa.ForeignKeyConstraint(['exercise_id'], ['exercise.id'], ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -106,7 +116,9 @@ def upgrade():
     sa.ForeignKeyConstraint(['exercise_service_id'], ['exercise_service.id'], ),
     sa.ForeignKeyConstraint(['instance_id'], ['exercise_instance.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('container_id')
+    sa.UniqueConstraint('container_id'),
+    sa.UniqueConstraint('id', 'exercise_service_id'),
+    sa.UniqueConstraint('id', 'instance_id')
     )
     # ### end Alembic commands ###
 

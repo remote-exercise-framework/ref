@@ -63,7 +63,7 @@ class ExerciseImageManager():
         return True
 
     @staticmethod
-    def __build_template(app, files, build_cmd, disable_aslr, cmd=['/usr/sbin/sshd', '-D']):
+    def __build_template(app, files, build_cmd, disable_aslr, injected_cmds=[], cmd=['/usr/sbin/sshd', '-D']):
         """
         Returns a dynamically build docker file as string.
         """
@@ -81,6 +81,9 @@ class ExerciseImageManager():
             for line in build_cmd:
                 template += f'RUN {line}\n'
 
+        for c in injected_cmds:
+            template += f'{c}\n'
+
         if disable_aslr:
             template += 'CMD ["/usr/bin/setarch", "x86_64", "-R"'
             for w in cmd:
@@ -94,6 +97,17 @@ class ExerciseImageManager():
         template += ']'
 
         return template
+
+    @staticmethod
+    def __build_flag_docker_cmd(exercise_service):
+        es = exercise_service
+        cmd = []
+        if es.flag_path:
+            cmd += [f'RUN echo "{es.flag_value}" > {es.flag_path}']
+            cmd += [f'RUN chown {es.flag_user}:{es.flag_group} "{es.flag_path}"']
+            cmd += [f'RUN chmod {es.flag_permission} "{es.flag_path}"']
+
+        return cmd
 
     @staticmethod
     def __docker_build(build_ctx_path, tag, dockerfile='Dockerfile'):
@@ -123,12 +137,16 @@ class ExerciseImageManager():
         log = ' --- Building entry service --- \n'
         image_name = exercise.entry_service.image_name
 
+        flag_cmds = ExerciseImageManager.__build_flag_docker_cmd(exercise.entry_service)
+
         dockerfile = ExerciseImageManager.__build_template(
             app,
             exercise.entry_service.files,
             exercise.entry_service.build_cmd,
-            exercise.entry_service.disable_aslr
+            exercise.entry_service.disable_aslr,
+            injected_cmds=flag_cmds
         )
+
         build_ctx = exercise.template_path
         try:
             with open(f'{build_ctx}/Dockerfile-entry', 'w') as f:
@@ -169,11 +187,14 @@ class ExerciseImageManager():
             log = f' --- Building peripheral service {service.name} --- \n'
             image_name = service.image_name
 
+            flag_cmds = ExerciseImageManager.__build_flag_docker_cmd(service)
+
             dockerfile = ExerciseImageManager.__build_template(
                 app,
                 service.files,
                 service.build_cmd,
                 service.disable_aslr,
+                injected_cmds=flag_cmds,
                 cmd=service.cmd
             )
             build_ctx = exercise.template_path
@@ -357,14 +378,14 @@ class ExerciseManager():
         entry.readonly = ExerciseManager._parse_attr(entry_cfg, 'read-only', bool, required=False, default=False)
         entry.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', bool, required=False, default=False)
 
-        flag_config = entry.get('flag')
+        flag_config = entry_cfg.get('flag')
         if flag_config:
-            location = ExerciseManager._parse_attr(cfg, 'location', str, required=True)
-            value = ExerciseManager._parse_attr(cfg, 'value', str, required=True)
-            user = ExerciseManager._parse_attr(cfg, 'user', str, required=False, default='admin')
-            group = ExerciseManager._parse_attr(cfg, 'group', str, required=False, default='admin')
-            permission = ExerciseManager._parse_attr(cfg, 'permission', int, required=False, default='400')
-            del entry['flag']
+            entry.flag_path = ExerciseManager._parse_attr(flag_config, 'location', str, required=True)
+            entry.flag_value = ExerciseManager._parse_attr(flag_config, 'value', str, required=True)
+            entry.flag_user = ExerciseManager._parse_attr(flag_config, 'user', str, required=False, default='admin')
+            entry.flag_group = ExerciseManager._parse_attr(flag_config, 'group', str, required=False, default='admin')
+            entry.flag_permission = ExerciseManager._parse_attr(flag_config, 'permission', int, required=False, default='400')
+            del entry_cfg['flag']
 
         if entry.readonly and entry.persistance_container_path:
             raise ExerciseConfigError('persistance-path and readonly are mutually exclusive')
@@ -408,6 +429,15 @@ class ExerciseManager():
             service.cmd = ExerciseManager._parse_attr(service_values, 'cmd', list)
 
             service.readonly =  ExerciseManager._parse_attr(service_values, 'read-only', bool, required=False, default=False)
+
+            flag_config = service_values.get('flag')
+            if flag_config:
+                service.flag_path = ExerciseManager._parse_attr(flag_config, 'location', str, required=True)
+                service.flag_value = ExerciseManager._parse_attr(flag_config, 'value', str, required=True)
+                service.flag_user = ExerciseManager._parse_attr(flag_config, 'user', str, required=False, default='admin')
+                service.flag_group = ExerciseManager._parse_attr(flag_config, 'group', str, required=False, default='admin')
+                service.flag_permission = ExerciseManager._parse_attr(flag_config, 'permission', int, required=False, default='400')
+                del service_values['flag']
 
             exercise.services.append(service)
 

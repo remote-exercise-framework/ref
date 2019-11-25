@@ -6,6 +6,7 @@ from werkzeug.local import LocalProxy
 import os
 import subprocess
 import shutil
+import datetime
 import itsdangerous
 from pathlib import Path
 
@@ -29,6 +30,7 @@ class InstanceManager():
         DB transaction.
         """
         instance = Instance()
+        instance.creation_ts = datetime.datetime.utcnow()
         instance.exercise = exercise
         instance.user = user
         exercise.instances.append(instance)
