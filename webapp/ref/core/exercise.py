@@ -679,7 +679,7 @@ class ExerciseManager():
                 shutil.rmtree(template_path.as_posix())
             shutil.rmtree(persistence_path.as_posix())
 
-        exercise.template_path = template_path
+        exercise.template_path = template_path.as_posix()
         return ExerciseManager(exercise)
 
     @staticmethod
