@@ -661,10 +661,12 @@ class ExerciseManager():
         """
         template_path = Path(current_app.config['IMPORTED_EXERCISES_PATH'])
         template_path = template_path.joinpath(f'{exercise.short_name}-{exercise.version}')
+        log.info(f'Creating {template_path}')
         assert not template_path.exists()
 
         persistence_path = Path(current_app.config['PERSISTANCE_PATH'])
         persistence_path = persistence_path.joinpath(f'{exercise.short_name}-{exercise.version}')
+        log.info(f'Creating {persistence_path}')
         assert not persistence_path.exists()
 
         persistence_path.mkdir(parents=True)
