@@ -53,4 +53,8 @@ def internal_error(e):
         raise e
 
     text = f'Internal Server Error: If the problem persists, please contact the server administrator and provide the following error code {code}'
-    return render_error_template(text, InternalServerError.code)
+    is_json = False
+    if hasattr(e, 'is_json_api'):
+        is_json = True
+
+    return render_error_template(text, InternalServerError.code, is_json)

@@ -266,6 +266,3 @@ def api_getuserinfo():
     else:
         log.info('User not found')
         return error_response("Failed to find user with given pubkey")
-
-def api_request_restart():
-    pass

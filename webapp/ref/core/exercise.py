@@ -357,6 +357,15 @@ class ExerciseManager():
         entry.readonly = ExerciseManager._parse_attr(entry_cfg, 'read-only', bool, required=False, default=False)
         entry.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', bool, required=False, default=False)
 
+        flag_config = entry.get('flag')
+        if flag_config:
+            location = ExerciseManager._parse_attr(cfg, 'location', str, required=True)
+            value = ExerciseManager._parse_attr(cfg, 'value', str, required=True)
+            user = ExerciseManager._parse_attr(cfg, 'user', str, required=False, default='admin')
+            group = ExerciseManager._parse_attr(cfg, 'group', str, required=False, default='admin')
+            permission = ExerciseManager._parse_attr(cfg, 'permission', int, required=False, default='400')
+            del entry['flag']
+
         if entry.readonly and entry.persistance_container_path:
             raise ExerciseConfigError('persistance-path and readonly are mutually exclusive')
 
