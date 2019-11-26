@@ -376,7 +376,7 @@ class ExerciseManager():
         entry.cmd = ExerciseManager._parse_attr(entry_cfg, 'cmd', list, required=False, default=['/bin/bash'])
         entry.persistance_container_path = ExerciseManager._parse_attr(entry_cfg, 'persistance-path', str, required=False, default=None)
         entry.readonly = ExerciseManager._parse_attr(entry_cfg, 'read-only', bool, required=False, default=False)
-        entry.allow_internet = ExerciseManager._parse_attr(cfg, 'allow-internet', bool, required=False, default=False)
+        entry.allow_internet = ExerciseManager._parse_attr(entry_cfg, 'allow-internet', bool, required=False, default=False)
 
         flag_config = entry_cfg.get('flag')
         if flag_config:
@@ -429,6 +429,8 @@ class ExerciseManager():
             service.cmd = ExerciseManager._parse_attr(service_values, 'cmd', list)
 
             service.readonly =  ExerciseManager._parse_attr(service_values, 'read-only', bool, required=False, default=False)
+
+            service.allow_internet = ExerciseManager._parse_attr(service_values, 'allow-internet', bool, required=False, default=False)
 
             flag_config = service_values.get('flag')
             if flag_config:
