@@ -7,10 +7,13 @@ from Crypto.PublicKey import RSA
 from itsdangerous import URLSafeTimedSerializer
 from ref.core import flash
 from flask_login import current_user, login_user, logout_user
+from ref.core.util import redirect_to_next
+from werkzeug.local import LocalProxy
 
+log = LocalProxy(lambda: current_app.logger)
 
 class LoginForm(Form):
-    username = IntegerField('Matriculation Number', validators=[validators.Required()])
+    username = StringField('Matriculation Number', validators=[validators.Required(), validators.Regexp(r'[0-9]+')], default='')
     password = PasswordField('Password', validators=[validators.Required()])
     submit = SubmitField('Login')
 
@@ -32,6 +35,7 @@ def login():
 
     form = LoginForm(request.form)
     if form.submit.data and form.validate():
+        log.info(f'Got login request for user {form.username.data}')
         #Right now we allow the mat. num. and the login_name as login
         user = User.query.filter_by(mat_num=form.username.data).first()
 
@@ -39,6 +43,6 @@ def login():
             flash.error('Invalid username or password')
             return render_template('login.html', form=form)
         login_user(user)
-        return redirect(url_for('ref.login'))
+        return redirect_to_next()
 
     return render_template('login.html', form=form)
