@@ -290,7 +290,7 @@ class InstanceManager():
             cpu_period=cpu_period,
             mem_limit=mem_limit,
             read_only=exercise.entry_service.readonly,
-            hostname=self.instance.short_name
+            hostname=self.instance.exercise.short_name
         )
         instance_entry_service.container_id = container.id
 
