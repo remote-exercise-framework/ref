@@ -391,6 +391,10 @@ class InstanceManager():
         self.instance.peripheral_services_network_id = None
         self.instance.peripheral_services_internet_network_id = None
         current_app.db.session.add(self.instance)
+        current_app.db.session.add(self.instance.entry_service)
+
+        for service in self.instance.peripheral_services:
+            current_app.db.session.add(service)
 
 
     def is_running(self):
