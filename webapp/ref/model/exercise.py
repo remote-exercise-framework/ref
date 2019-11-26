@@ -323,11 +323,14 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             return None
 
     @staticmethod
-    def get_default_exercise(short_name):
+    def get_default_exercise(short_name, for_update=False):
         """
         Returns and locks the default exercise for the given short_name.
         """
-        return Exercise.query.filter(Exercise.short_name == short_name).filter(Exercise.is_default == True).with_for_update().one_or_none()
+        q = Exercise.query.filter(Exercise.short_name == short_name).filter(Exercise.is_default == True)
+        if for_update:
+            q.with_for_update()
+        return q.one_or_none()
 
     @staticmethod
     def get_exercise(short_name, version):

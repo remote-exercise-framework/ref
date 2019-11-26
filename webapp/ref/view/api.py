@@ -16,6 +16,7 @@ from wtforms import Form, IntegerField, SubmitField, validators
 
 from werkzeug.local import LocalProxy, Local
 
+from ref.core import retry_on_deadlock
 from ref import db, refbp
 from ref.core import flash, ExerciseImageManager, InstanceManager, ExerciseManager
 from ref.model import ConfigParsingError, Exercise, Instance, User
@@ -40,14 +41,17 @@ def start_and_return_instance(instance: Instance):
         return error_response('Inconsistent build state, please notify the system administrator')
 
     instance_manager = InstanceManager(instance)
-    #Check if the instance is running
-    running = instance_manager.is_running()
-    if not running:
+    if not instance_manager.is_running():
         log.info(f'Instance ({instance}) is not running, starting...')
         instance_manager.start()
-        db.session.commit()
 
-    ip = instance_manager.get_entry_ip()
+    try:
+        ip = instance_manager.get_entry_ip()
+    except:
+        log.error('Failed to get IP of container, stopping new instance')
+        instance_manager.stop()
+        raise
+
     log.info(f'IP of user container is {ip}')
 
     resp = {
@@ -65,13 +69,19 @@ def api_provision():
     decide how an incoming connection should be redirected, .i.e.,
     getting the IP address of the container the belongs to the requesting
     user.
+    This functions locks the following database rows:
+        - The requesting user
+        - The default exercise (read?)
+    In case of an update, in addition:
+        - The old user instance
+        - 
     """
     content = request.get_json(force=True, silent=True)
     if not content:
         log.warning('Got provision request without JSON body')
         return error_response('Request is missing JSON body')
 
-    #Check for valid signature and unpack
+    #Check for valid signature and valid request type
     s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
     try:
         content = s.loads(content)
@@ -83,6 +93,7 @@ def api_provision():
         log.warning(f'Unexpected data type {type(content)}')
         return error_response('Invalid request')
 
+    #Parse request args
 
     #The user name used for authentication
     exercise_name = content.get('username')
@@ -98,55 +109,61 @@ def api_provision():
 
     log.info(f'Request for exercise {exercise_name} for user {pubkey:32} was requested')
 
-    #Get the user account and lock it.
-    locked_user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
-    if not locked_user:
-        log.warning('Unable to find user with provided publickey')
-        return error_response('Unknown public-key')
+    #Try to lock all DB rows we are going to work with
+    with retry_on_deadlock():
+        #Get the user account
+        user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
+        if not user:
+            log.warning('Unable to find user with provided publickey')
+            return error_response('Unknown public-key')
 
-    log.info(f'Found matching user: {locked_user}')
+        log.info(f'Found matching user: {user}')
 
-    #If we are in maintenance, reject connections from normal users.
-    if current_app.config['MAINTENANCE_ENABLED'] and not locked_user.is_admin:
-        log.info('Rejecting connection since maintenance mode is enabled and user is no admin')
-        return error_response('-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------')
+        #If we are in maintenance, reject connections from normal users.
+        if current_app.config['MAINTENANCE_ENABLED'] and not user.is_admin:
+            log.info('Rejecting connection since maintenance mode is enabled and user is no admin')
+            return error_response('-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------')
 
-    if not Exercise.query.filter(Exercise.short_name == exercise_name).all():
-        log.info('Failed to find exercise with requested name')
-        return error_response('No such task')
+        if not Exercise.query.filter(Exercise.short_name == exercise_name).all():
+            log.info('Failed to find exercise with requested name')
+            return error_response('No such task')
 
-    #Get the default exercise for the requested exercise name. The exercise is locked (if any).
-    default_exercise = Exercise.get_default_exercise(exercise_name)
-    log.info(f'Default exercise for {exercise_name} is {default_exercise}')
+        #Get the default exercise for the requested exercise name
+        default_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
+        log.info(f'Default exercise for {exercise_name} is {default_exercise}')
 
-    #Consistency check
-    #Get the user instance of requested exercise name (if any). This might have a different version then the
-    #default.
-    user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name, locked_user.exercise_instances))
-    if len(user_instances) > 1:
-        log.error(f'User {locked_user} has more then one instance of the same exercise')
-        return error_response('Internal error, please notify the system administrator')
+        #Consistency check
+        #Get the user instance of requested exercise name (if any). This might have a different version then the
+        #default.
+        user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name, user.exercise_instances))
+        if len(user_instances) > 1:
+            log.error(f'User {user} has more then one instance of the same exercise')
+            return error_response('Internal error, please notify the system administrator')
 
-    user_instance = None
-    if user_instances:
-        user_instance = user_instances[0]
-        #Reload the user instance from DB and lock it.
-        user_instance = user_instance.refresh(lock=True)
+        user_instance = None
+        if user_instances:
+            user_instance = user_instances[0]
+            user_instance = user_instance.refresh(lock=True)
 
     """
-    If the user has an instance of the default verison of the exercise or one that is more recent
+    If the user has an instance of the default version of the exercise or one that is more recent
     (i.e., has an high version number than the default) we return it. In case the instance has
     a lower version than the default, we fall through, since it needs to be updated. Furthermore,
     if the user has no instance, we also continue to create one.
     """
     if user_instance and (not default_exercise or user_instance.exercise == default_exercise or user_instance.exercise.version > default_exercise.version):
         log.info(f'User has an instance of the requested exercise: {user_instance}')
-        return start_and_return_instance(user_instance)
+        try:
+            ret = start_and_return_instance(user_instance)
+            db.session.commit()
+            return ret
+        except:
+            raise
 
     '''
     If we are here, one of the following statements is true:
-        1. The user has no instance of the requested exercise.
-        2. The user has an instance, but is is older then the current default version.
+        1. The user has no instance of the requested exercise or
+        2. The user has an instance, but it is older then the current default version.
     '''
 
     if not default_exercise:
@@ -165,24 +182,22 @@ def api_provision():
         try:
             new_instance = mgr.update_instance(default_exercise)
         except:
-            db.session.commit()
             raise
     else:
         #The user has no instance of the exercise, create a new one.
         log.info(f'User has no instance of exercise {default_exercise}, creating one...')
         try:
-            new_instance = InstanceManager.create_instance(locked_user, default_exercise)
-            db.session.add(new_instance)
+            new_instance = InstanceManager.create_instance(user, default_exercise)
         except:
-            #Nothing to commit here, since we did not created anything.
             raise
 
     try:
         ret = start_and_return_instance(new_instance)
     except:
-        #Commit the new instance and release locks.
-        db.session.commit()
         raise
+
+    #Release locks and commit
+    db.session.commit()
 
     log.info(f'returning {ret}')
     return ret

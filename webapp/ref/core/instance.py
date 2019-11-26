@@ -26,8 +26,13 @@ class InstanceManager():
         """
         Creates an instance of the given exercise for the given user.
         After creating an instance, .start() must be used to start it.
-        If the new instance was successfully created, it is added to the current
-        DB transaction.
+
+        On success a new Instance is returned and added to the DB.
+        On error all changes are rolled back and an exception is thrown.
+
+        The following arguments must be locked:
+            - user
+            - exercise
         """
         instance = Instance()
         instance.creation_ts = datetime.datetime.utcnow()
@@ -35,10 +40,11 @@ class InstanceManager():
         instance.user = user
         exercise.instances.append(instance)
 
-        #Create the entry container
+        #Create the entry service
         entry_service = InstanceEntryService()
         entry_service.instance = instance
 
+        #Create the peripheral services
         for service in exercise.services:
             peripheral_service = InstanceService()
             peripheral_service.instance = instance
@@ -54,7 +60,7 @@ class InstanceManager():
             for d in dirs:
                 d.mkdir(parents=True)
         except:
-            #If a directory already exists, our system is inconsistent.
+            #Revert changes
             for d in dirs:
                 if d.exists():
                     shutil.rmtree(d.as_posix())
@@ -198,10 +204,14 @@ class InstanceManager():
             if service.exercise_service.allow_internet:
                 internet_network.connect(container)
 
+            current_app.db.session.add(service)
+
 
     def start(self):
         """
         Starts the given instance.
+        On error an exception is raised. The caller is responsible to
+        call stop to revert partital changes done by start.
         """
         #Make sure everything is cleaned up
         self.stop()
@@ -217,11 +227,11 @@ class InstanceManager():
         #to the host (i.e., the host has no interface attached to it).
         entry_to_ssh_network_name = f'ref-{self.instance.exercise.short_name}-v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}'
         entry_to_ssh_network = self.dc.create_network(name=entry_to_ssh_network_name, internal=not self.instance.exercise.entry_service.allow_internet)
+        self.instance.network_id = entry_to_ssh_network.id
 
         #Make the ssh server join the network
-        log.info(f'connecting {ssh_container.id} to network')
+        log.info(f'connecting ssh server to network {self.instance.network_id}')
         entry_to_ssh_network.connect(ssh_container)
-        self.instance.network_id = entry_to_ssh_network.id
 
         #Mounts of the entry services
         mounts = None
@@ -288,7 +298,6 @@ class InstanceManager():
         add_key_cmd = f'bash -c "echo {self.instance.user.pub_key_ssh} >> /home/user/.ssh/authorized_keys"'
         success = container.exec_run(add_key_cmd)
         log.info(f'Add ssh key ret={success}')
-        #TODO: Handle errors
 
         #Store token inside container that can be used to authenticate requests
         #from the container to, e.g., web.
@@ -310,8 +319,9 @@ class InstanceManager():
         #Create network for peripheral services (if any) and connect entry container
         self.__start_peripheral_services(exercise, container)
 
-
         current_app.db.session.add(self.instance)
+        current_app.db.session.add(self.instance.entry_service)
+
 
 
     def _stop_networks(self):
