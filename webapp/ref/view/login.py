@@ -40,7 +40,7 @@ def login():
         user = User.query.filter_by(mat_num=form.username.data).first()
 
         if user is None or not user.check_password(form.password.data) or not user.is_admin:
-            flash.error('Invalid username or password')
+            form.password.errors += ['Invalid username or password']
             return render_template('login.html', form=form)
         login_user(user)
         return redirect_to_next()
