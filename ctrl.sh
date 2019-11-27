@@ -11,24 +11,42 @@ $0 <cmd>
 
 Commands:
     build:
-        Build all images.
+        Build and pull all images including the docker based image.
     up:
         Start all serviceses.
             --debug
             Enables debug mode. This causes exception to be printed
             on the webinterface. Use this only for development.
             --maintenance
-    - down
-    - logs#
-    - cmd
-
+    stop:
+    restart-web
+    restart
+    down
+    logs
+    cmd
+    flask-cmd
 EOF
 exit 1
+}
+
+function has_binary {
+    command -v $1 >/dev/null 2>&1
 }
 
 if [[ $# -lt 1 ]]; then
     usage
 fi
+
+if ! has_binary docker; then
+    echo "Please install docker!"
+    exit 1
+fi
+
+if ! has_binary docker-compose; then
+    echo "Please install docker-compose!"
+    exit 1
+fi
+
 
 #Check the .env files used to parametrize the docker-compose file.
 
@@ -58,11 +76,30 @@ if [[ -z "$HTTP_HOST_PORT" ]]; then
     exit 1
 fi
 
+if [[ -z "$SECRET_KEY" ]]; then
+    echo "Please set SECRET_KEY in .env to a random string"
+    exit 1
+fi
+
 if [[ -z "$SSH_TO_WEB_KEY" ]]; then
     echo "Please set SSH_TO_WEB_KEY in .env to a random string"
     exit 1
 fi
 
+if [[ -z "$POSTGRES_PASSWORD" ]]; then
+    echo "Please set POSTGRES_PASSWORD in .env to a random string"
+    exit 1
+fi
+
+if [[ -z "$PGADMIN_HTTP_PORT" ]]; then
+    echo "Please set PGADMIN_HTTP_PORT in .env to a port PGADMIN should be exposed on the host"
+    exit 1
+fi
+
+if [[ -z "$PGADMIN_DEFAULT_PASSWORD" ]]; then
+    echo "Please set PGADMIN_DEFAULT_PASSWORD in .env to a random string"
+    exit 1
+fi
 
 function build {
     #Build the base image for all exercises

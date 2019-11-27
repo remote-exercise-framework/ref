@@ -8,7 +8,6 @@ services:
          context: ./ssh-wrapper
          args:
              SSH_TO_WEB_KEY: ${SSH_TO_WEB_KEY}
-      #volumes:
       ports:
          - "${SSH_HOST_PORT}:4444"
       networks:
@@ -121,11 +120,13 @@ networks:
       driver: bridge
       driver_opts:
          com.docker.network.bridge.name: "br-ref-sshhost"
+   #Connect web to postgres
    web-and-db:
       driver: bridge
       internal: true
       driver_opts:
          com.docker.network.bridge.name: "br-ref-webtodb"
+   #connect pgadmin to postgres
    db-and-pgadmin:
       driver: bridge
       driver_opts:

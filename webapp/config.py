@@ -27,7 +27,7 @@ class ReleaseConfig(object):
     #or the parent directory of the docker-compose.yml file is renamed.
     SSHSERVER_CONTAINER_NAME = 'remote-exercises-framework_sshserver_1'
 
-    SECRET_KEY = 'cowhSpWKs26DQA7KloZ5SJmPP2BMdY'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or raise
     SSH_TO_WEB_KEY = os.environ.get('SSH_TO_WEB_KEY')
 
 
