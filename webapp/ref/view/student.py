@@ -178,7 +178,7 @@ def student_view_all():
     """
     List all students currently registered.
     """
-    students = User.query.all()
+    students = User.query.order_by(User.id).all()
     return render_template('student_view_all.html', students=students)
 
 @refbp.route('/student/view/<int:user_id>')

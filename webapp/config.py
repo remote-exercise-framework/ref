@@ -30,7 +30,6 @@ class ReleaseConfig(object):
     SECRET_KEY = os.environ.get('SECRET_KEY')
     SSH_TO_WEB_KEY = os.environ.get('SSH_TO_WEB_KEY')
 
-
     #Docker image that servers as base for all exercises
     BASE_IMAGE_NAME = 'remote-exercises-framework-exercise-base:latest'
 

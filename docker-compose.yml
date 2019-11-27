@@ -48,6 +48,7 @@ services:
          - POSTGRES_USER=ref
          - POSTGRES_DB=ref
          - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+         - SECRET_KEY=${SECRET_KEY}
       cap_add:
          - SYS_ADMIN
       build:
