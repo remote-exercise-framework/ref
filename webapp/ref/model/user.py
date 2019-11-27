@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from ref.model.enums import CourseOfStudies
 from flask_bcrypt import generate_password_hash, check_password_hash
 from ref import db
@@ -10,6 +11,8 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
 
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
+    login_token = db.Column(db.Text(), nullable=True)
+
     first_name = db.Column(db.Text(), nullable=False)
     surname = db.Column(db.Text(), nullable=False)
     password = db.Column(db.Binary(), nullable=False)
@@ -34,6 +37,19 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
+
+    def invalidate_session(self):
+        """
+        Change the login token, thus all current sessions are invalidated.
+        """
+        self.login_token = str(uuid.uuid4())
+
+    def get_id(self):
+        """
+        ID that is signed and handedt to the user in case of a
+        successfull login.
+        """
+        return  f'{self.id}:{self.login_token}'
 
     @property
     def full_name(self):

@@ -9,6 +9,7 @@ from ref.core import flash
 from flask_login import current_user, login_user, logout_user
 from ref.core.util import redirect_to_next
 from werkzeug.local import LocalProxy
+import uuid
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -38,6 +39,10 @@ def login():
         log.info(f'Got login request for user {form.username.data}')
         #Right now we allow the mat. num. and the login_name as login
         user = User.query.filter_by(mat_num=form.username.data).first()
+        if user.login_token is None:
+            user.login_token = str(uuid.uuid4())
+            current_app.db.session.add(user)
+            current_app.db.session.commit()
 
         if user is None or not user.check_password(form.password.data) or not user.is_admin:
             form.password.errors += ['Invalid username or password']

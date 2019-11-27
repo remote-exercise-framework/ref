@@ -5,8 +5,6 @@ class ReleaseConfig(object):
     BASEDIR = BASEDIR
     DATADIR = os.path.join(BASEDIR, 'data')
     DBDIR = os.path.join(DATADIR, 'db')
-    LOGDIR = os.path.join(DATADIR, 'logs')
-    LOG_PATH = os.path.join(LOGDIR, 'web.log')
 
     POSTGRES_USER = os.environ.get('POSTGRES_USER')
     POSTGRES_DB = os.environ.get('POSTGRES_DB')
@@ -34,7 +32,7 @@ class ReleaseConfig(object):
     BASE_IMAGE_NAME = 'remote-exercises-framework-exercise-base:latest'
 
     #Prefix for container and network names created by REF
-    DOCKER_PREFIX = 'ref-'
+    DOCKER_RESSOURCE_PREFIX = 'ref-'
 
     EXERCISE_CONTAINER_CPU_PERIOD = 100000
 
@@ -58,7 +56,7 @@ class ReleaseConfig(object):
 class DebugConfig(ReleaseConfig):
     debug = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
-    LOG_PATH = None
+
     #SQLALCHEMY_ECHO = True
     #LOGIN_DISABLED = False
 

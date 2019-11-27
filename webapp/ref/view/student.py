@@ -118,6 +118,7 @@ def student_getkey():
             pubkey = key.export_key(format='OpenSSH').decode()
             privkey = key.export_key().decode()
             student = User()
+            student.invalidate_session()
             student.mat_num = form.mat_num.data
             student.first_name = form.firstname.data
             student.surname = form.surname.data
@@ -213,10 +214,13 @@ def student_edit(user_id):
                 return render_template('user_edit.html', form=form)
             else:
                 user.set_password(form.password.data)
+                user.invalidate_session()
         user.mat_num = form.mat_num.data
         user.course_of_studies = CourseOfStudies(form.course.data)
         user.first_name = form.firstname.data
         user.surname = form.surname.data
+        if form.is_admin.data != user.is_admin:
+            user.invalidate_session()
         user.is_admin = form.is_admin.data
         current_app.db.session.add(user)
         current_app.db.session.commit()
