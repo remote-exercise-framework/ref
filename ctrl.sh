@@ -4,6 +4,26 @@ set -e
 
 mkdir -p data
 
+function txt_bold {
+  tput bold 2> /dev/null
+}
+
+function txt_reset {
+  tput sgr0 2> /dev/null
+}
+
+function txt_red {
+  tput setaf 1 2> /dev/null
+}
+
+function txt_green {
+  tput setaf 2 2> /dev/null
+}
+
+function txt_yellow {
+  tput setaf 3 2> /dev/null
+}
+
 function usage {
 cat <<EOF
 Usage:
@@ -31,6 +51,7 @@ exit 1
 
 function has_binary {
     command -v $1 >/dev/null 2>&1
+    return $?
 }
 
 if [[ $# -lt 1 ]]; then
@@ -47,6 +68,11 @@ if ! has_binary docker-compose; then
     exit 1
 fi
 
+if ! has_binary "kpatch" || !has_binary "kpatch-build"; then
+    echo "$(txt_bold)$(txt_yellow)kpatch or kpatch-build are not installed but are required for disabling"
+    echo "ASLR on a per exercise basis. See aslr-patch for further instructions.$(txt_reset)"
+    exit 1
+fi
 
 #Check the .env files used to parametrize the docker-compose file.
 
@@ -100,6 +126,9 @@ if [[ -z "$PGADMIN_DEFAULT_PASSWORD" ]]; then
     echo "Please set PGADMIN_DEFAULT_PASSWORD in .env to a random string"
     exit 1
 fi
+
+
+
 
 function build {
     #Build the base image for all exercises
