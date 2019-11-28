@@ -24,29 +24,66 @@ function txt_yellow {
   tput setaf 3 2> /dev/null
 }
 
+function info {
+    echo "$(txt_bold)$(txt_green)$1$(txt_reset)"
+}
+
+function error {
+    echo "$(txt_bold)$(txt_red)$1$(txt_reset)"
+}
+
+function warning {
+    echo "$(txt_bold)$(txt_yellow)$1$(txt_reset)"
+}
+
+
 function usage {
 cat <<EOF
 Usage:
-$0 <cmd>
+$0 <Command> [OPTIONS...]
 
 Commands:
-    build:
+    build
         Build and pull all images including the docker based image.
-    up:
+
+    up
         Start all serviceses.
             --debug
             Enables debug mode. This causes exception to be printed
             on the webinterface. Use this only for development.
             --maintenance
-    stop:
+            Only allow admin users to login.
+
+    stop
+        Stop all services without removing the associated containers.
+
     restart-web
+        Only restart the webinterface without the other services, thus
+        user get not disconnected since the SSH server is left untouched.
+        This command can be used to reload changes applied to the webinterface.
+
     restart
+        Restart all services. This will disconnect currently connected users.
+
     down
+        Stop and delete all services and networks. This operation disconnects all users
+        and orphans all currently running instances since the network connecting them
+        with the ssh entry server is deleted. Consequently, all instances must be recreated
+        on demand when a user first connects. In general this command is only needed if
+        changes where applied to the container composition itself.
+
     logs
-    cmd
+        Print the logs of all services on stdout.
+            -f
+            Follow to the log output and print incoming messages.
+
     flask-cmd
+        Run a flask CLI command like:
+            db init
+            db migrate
+            db upgrade
+            ...
 EOF
-exit 1
 }
 
 function has_binary {
@@ -55,84 +92,88 @@ function has_binary {
 }
 
 if [[ $# -lt 1 ]]; then
+    error "Not enough arguments"
     usage
+    exit 1
 fi
 
-if ! has_binary docker; then
-    echo "Please install docker!"
+if ! has_binary "docker"; then
+    error "Please install docker!"
     exit 1
 fi
 
 if ! has_binary docker-compose; then
-    echo "Please install docker-compose!"
+    error "Please install docker-compose!"
     exit 1
 fi
 
-if ! has_binary "kpatch" || !has_binary "kpatch-build"; then
-    echo "$(txt_bold)$(txt_yellow)kpatch or kpatch-build are not installed but are required for disabling"
-    echo "ASLR on a per exercise basis. See aslr-patch for further instructions.$(txt_reset)"
+if ! has_binary "kpatch" || ! has_binary "kpatch-build"; then
+    warning "kpatch or kpatch-build are not installed but are required for disabling"
+    warning "ASLR on a per exercise basis. See aslr-patch for further instructions."
     exit 1
 fi
 
-old_pwd="$pwd"
+old_pwd="$(pwd)"
 cd aslr-patch
+set +e
 ./enable.sh
 if [[ $? != 0 ]]; then
-    echo "$(txt_bold)$(txt_yellow)Failed to load ASLR patch."
-    echo "Disabling ASLR for setuid binaries will not work...$(txt_reset)"
+    warning "Failed to load ASLR patch."
+    warning "Disabling ASLR for setuid binaries will not work..."
 fi
+set -e
 cd "$old_pwd"
 
 #Check the .env files used to parametrize the docker-compose file.
 
 if [[ ! -f '.env' ]]; then
-    echo "Please copy template.env to .env and adapt the values"
+    error "Please copy template.env to .env and adapt the values"
     exit 1
 fi
 
 source .env
 if [[ -z "$DOCKER_GROUP_ID" ]]; then
-    echo "Please set DOCKER_GROUP_ID in .env to your docker group ID"
+    error "Please set DOCKER_GROUP_ID in .env to your docker group ID"
     exit 1
 fi
 
 if [[ "$(getent group docker | cut -d ':' -f 3)" != "$DOCKER_GROUP_ID" ]]; then
-    echo "DOCKER_GROUP_ID in .env does not match the local docker group ID"
+    error "DOCKER_GROUP_ID in .env does not match the local docker group ID"
     exit 1
 fi
 
 if [[ -z "$SSH_HOST_PORT" ]]; then
-    echo "Please set SSH_HOST_PORT in .env to the port the entry ssh server should be expose on the host"
+    error "Please set SSH_HOST_PORT in .env to the port the entry ssh server should be expose on the host"
     exit 1
 fi
 
 if [[ -z "$HTTP_HOST_PORT" ]]; then
-    echo "Please set HTTP_HOST_PORT in .env to the port the entry ssh server should be expose on the host"
+    error "Please set HTTP_HOST_PORT in .env to the port the entry ssh server should be expose on the host"
     exit 1
 fi
 
 if [[ -z "$SECRET_KEY" ]]; then
-    echo "Please set SECRET_KEY in .env to a random string"
+    error "Please set SECRET_KEY in .env to a random string"
     exit 1
 fi
 
 if [[ -z "$SSH_TO_WEB_KEY" ]]; then
-    echo "Please set SSH_TO_WEB_KEY in .env to a random string"
+    error "Please set SSH_TO_WEB_KEY in .env to a random string"
     exit 1
 fi
 
 if [[ -z "$POSTGRES_PASSWORD" ]]; then
-    echo "Please set POSTGRES_PASSWORD in .env to a random string"
+    error "Please set POSTGRES_PASSWORD in .env to a random string"
     exit 1
 fi
 
 if [[ -z "$PGADMIN_HTTP_PORT" ]]; then
-    echo "Please set PGADMIN_HTTP_PORT in .env to a port PGADMIN should be exposed on the host"
+    error "Please set PGADMIN_HTTP_PORT in .env to a port PGADMIN should be exposed on the host"
     exit 1
 fi
 
 if [[ -z "$PGADMIN_DEFAULT_PASSWORD" ]]; then
-    echo "Please set PGADMIN_DEFAULT_PASSWORD in .env to a random string"
+    error "Please set PGADMIN_DEFAULT_PASSWORD in .env to a random string"
     exit 1
 fi
 
@@ -142,12 +183,12 @@ fi
 function build {
     #Build the base image for all exercises
     (
-        echo "=> Building docker base image"
+        info "=> Building docker base image"
         cd 'ref-docker-base'
         ./build.sh $@
     )
     (
-        echo "=> Building container"
+        info "=> Building container"
         docker-compose build $@
         docker-compose pull
     )
@@ -203,12 +244,12 @@ function ps {
 }
 
 function flask-cmd {
-    echo "FLASK_APP=ref python3 -m flask $@"
+    info "FLASK_APP=ref python3 -m flask $@"
     docker-compose exec web bash -c "FLASK_APP=ref python3 -m flask $*"
 }
 
 function are_you_sure {
-    echo -n "Are you sure? [y/n]"
+    info "Are you sure? [y/n]"
     read yes_no
     if [[ "$yes_no" == "y" ]]; then
         return 0
@@ -252,8 +293,13 @@ case "$cmd" in
     flask-cmd)
         flask-cmd $@
     ;;
-    *)
-        echo "$cmd is not a valid command"
+    --help)
         usage
+        exit 0
+    ;;
+    *)
+        error "$cmd is not a valid command"
+        usage
+        exit 1
     ;;
 esac

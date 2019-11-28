@@ -72,6 +72,8 @@ def instances_view_details(instance_id):
 
 def _instances_render_view(instances, title=None):
 
+    instances = sorted(instances, key=lambda i: i.id)
+
     #Set attributes used by the UI.
     for i in instances:
         i = i.refresh(lock=True)
