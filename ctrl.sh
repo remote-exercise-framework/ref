@@ -74,6 +74,15 @@ if ! has_binary "kpatch" || !has_binary "kpatch-build"; then
     exit 1
 fi
 
+old_pwd="$pwd"
+cd aslr-patch
+./enable.sh
+if [[ $? != 0 ]]; then
+    echo "$(txt_bold)$(txt_yellow)Failed to load ASLR patch."
+    echo "Disabling ASLR for setuid binaries will not work...$(txt_reset)"
+fi
+cd "$old_pwd"
+
 #Check the .env files used to parametrize the docker-compose file.
 
 if [[ ! -f '.env' ]]; then

@@ -6,4 +6,4 @@ if [[ ! -f "$path" ]]; then
     exit 1
 fi
 
-kpatch load "$path"
+sudo kpatch load "$path"
