@@ -1,0 +1,11 @@
+diff --git a/include/uapi/linux/personality.h b/include/uapi/linux/personality.h
+index 49796b7756af..6dad8c18440e 100644
+--- a/include/uapi/linux/personality.h
++++ b/include/uapi/linux/personality.h
+@@ -29,7 +29,6 @@ enum {
+  * cleared upon setuid or setgid exec:
+  */
+ #define PER_CLEAR_ON_SETID (READ_IMPLIES_EXEC  | \
+-			    ADDR_NO_RANDOMIZE  | \
+ 			    ADDR_COMPAT_LAYOUT | \
+ 			    MMAP_PAGE_ZERO)
