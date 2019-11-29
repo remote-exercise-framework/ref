@@ -61,4 +61,4 @@ class DebugConfig(ReleaseConfig):
     #LOGIN_DISABLED = False
 
 class TestConfig(ReleaseConfig):
-    pass
+    TESTING = True

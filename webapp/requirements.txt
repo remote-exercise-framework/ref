@@ -24,3 +24,4 @@ redis==3.3.11
 rq==1.1.0
 python-telegram-handler
 psycopg2
+pytest

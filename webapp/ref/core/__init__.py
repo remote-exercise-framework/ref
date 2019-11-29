@@ -1,4 +1,5 @@
-from .exercise import ExerciseImageManager, ExerciseConfigError, ExerciseManager
+from .exercise import ExerciseConfigError, ExerciseManager
+from .image import ExerciseImageManager
 from .instance import InstanceManager
 from .docker import DockerClient
 from .security import admin_required
