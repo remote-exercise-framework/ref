@@ -117,11 +117,10 @@ def main():
     if isinstance(default_cmd, str):
         default_cmd = default_cmd.split(' ')
 
-    if default_cmd:
-        cmd += default_cmd
-    elif ssh_cmd:
+    if ssh_cmd:
         cmd += [ssh_cmd]
-
+    elif default_cmd:
+        cmd += default_cmd
 
     #Give the container some time to start
     start_ts = time.time()

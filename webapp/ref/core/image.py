@@ -10,6 +10,8 @@ from werkzeug.local import LocalProxy
 from .docker import DockerClient
 from .exercise import Exercise, ExerciseBuildStatus
 
+from sqlalchemy.orm import joinedload, raiseload
+
 log = LocalProxy(lambda: current_app.logger)
 
 class ExerciseImageManager():
