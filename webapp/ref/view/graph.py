@@ -68,7 +68,7 @@ def graph():
             #Indices for p ['UID', 'PID', 'PPID', 'C', 'STIME', 'TTY', 'TIME', 'CMD']
             n = Node(c.id + '_' + p[1], p[7] + f' ({p[1]})', 'process', 0.5)
             nodes.append(n)
-            l = Link('test', n.id, c.id)
+            l = Link(None, n.id, c.id)
             links.append(l)
 
     #Create node for each network
@@ -85,16 +85,16 @@ def graph():
         network.reload()
         for container_id in network.attrs['Containers']:
             if network.id in valid_ids and container_id in valid_ids:
-                l = Link('test', network.id, container_id)
+                l = Link(None, network.id, container_id)
                 links.append(l)
             elif network.id in valid_ids:
                 #Container does not exists anymore
                 n = Node(container_id, container_id + ' (dead)', 'container_dead', color='red')
-                l = Link('test', container_id, network.id)
+                l = Link(None, container_id, network.id)
                 nodes.append(n)
                 links.append(l)
         if network.id in valid_ids and not network.attrs['Internal']:
-            l = Link('test', network.id, external_node.id)
+            l = Link(None, network.id, external_node.id)
             links.append(l)
 
     return render_template('container_graph.html', nodes=nodes, links=links)

@@ -35,7 +35,9 @@ data = {
         {
             "source": "{{ e.source }}",
             "target": "{{ e.target }}",
+            {% if e.name %}
             "name": "{{ e.name }}",
+            {% endif %}
         },
         {% endfor %}
     ]
