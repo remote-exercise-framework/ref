@@ -1,8 +1,7 @@
 import os
-BASEDIR = os.environ.get('BASEDIR') or '/tmp/basedir'
 
 class ReleaseConfig(object):
-    BASEDIR = BASEDIR
+    BASEDIR = '/data'
     DATADIR = os.path.join(BASEDIR, 'data')
     DBDIR = os.path.join(DATADIR, 'db')
 
@@ -51,11 +50,12 @@ class ReleaseConfig(object):
     EXERCISE_CONTAINER_MEMORY_LIMIT = '256m'
 
     #If True, only admin are allowed to use the API
-    MAINTENANCE_ENABLED = (os.environ.get('MAINTENANCE_ENABLED') and os.environ.get('MAINTENANCE_ENABLED') != '') or False
+    MAINTENANCE_ENABLED = (os.environ.get('MAINTENANCE_ENABLED') and os.environ.get('MAINTENANCE_ENABLED') == '1') or False
 
 
 class DebugConfig(ReleaseConfig):
     debug = True
+    DEBUG = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
 
     #SQLALCHEMY_ECHO = True
