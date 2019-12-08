@@ -9,16 +9,16 @@ services:
          context: ./ssh-wrapper
          args:
              SSH_TO_WEB_KEY: ${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
-
+{% if not testing %}
       ports:
          - "${SSH_HOST_PORT:?SSH_HOST_PORT not set}:4444"
-
+{% endif %}
       networks:
          - ssh-and-host
          - web-and-ssh
          - ssh-and-redis
 
-
+{% if not testing %}
    pgadmin:
       image: dpage/pgadmin4
       environment:
@@ -28,7 +28,7 @@ services:
          - ${PGADMIN_HTTP_PORT:?PGADMIN_HTTP_PORT not set}:80
       networks:
          - db-and-pgadmin
-
+{% endif %}
 
    db:
       image: postgres
@@ -69,9 +69,11 @@ services:
          #The mounts need to be propageted, thus we can mount mounts created
          #in this container from the host into other containers
          - type: bind
-
+{% if not testing %}
            source: ./data
-
+{% else %}
+           source: ./data-testing
+{% endif %}
            target: /data
            bind:
              propagation: shared
@@ -81,10 +83,10 @@ services:
          - ./exercises/:/exercises:ro
          #Make docker availabe inside the container
          - /var/run/docker.sock:/var/run/docker.sock
-
+{% if not testing %}
       ports:
          - "${HTTP_HOST_PORT}:8000"
-
+{% endif %}
       networks:
          - web-host
          - web-and-ssh
@@ -111,7 +113,7 @@ networks:
    web-host:
       driver: bridge
       driver_opts:
-         com.docker.network.bridge.name: "brref-webhost"
+         com.docker.network.bridge.name: "brref-webhost{{ 't' if testing }}"
    #Webinterface between the SSH entry server and the webinterface.
    #This interface is used by the SSH server to retrive information
    #on how a incoming connection should be routed.
@@ -119,30 +121,30 @@ networks:
       driver: bridge
       internal: true
       driver_opts:
-         com.docker.network.bridge.name: "brref-webtossh"
+         com.docker.network.bridge.name: "brref-webtossh{{ 't' if testing }}"
    #This network connects the SSH entry server to the host.
    ssh-and-host:
       driver: bridge
       driver_opts:
-         com.docker.network.bridge.name: "brref-sshhost"
+         com.docker.network.bridge.name: "brref-sshhost{{ 't' if testing }}"
    #Connect web to postgres
    web-and-db:
       driver: bridge
       internal: true
       driver_opts:
-         com.docker.network.bridge.name: "brref-webtodb"
+         com.docker.network.bridge.name: "brref-webtodb{{ 't' if testing }}"
    #connect pgadmin to postgres
    db-and-pgadmin:
       driver: bridge
       driver_opts:
-         com.docker.network.bridge.name: "brref-dbtopg"
+         com.docker.network.bridge.name: "brref-dbtopg{{ 't' if testing }}"
    web-and-redis:
       driver: bridge
       internal: true
       driver_opts:
-         com.docker.network.bridge.name: "brref-webtor"
+         com.docker.network.bridge.name: "brref-webtor{{ 't' if testing }}"
    ssh-and-redis:
       driver: bridge
       internal: true
       driver_opts:
-         com.docker.network.bridge.name: "brref-sshtor"
+         com.docker.network.bridge.name: "brref-sshtor{{ 't' if testing }}"

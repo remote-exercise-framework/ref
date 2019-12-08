@@ -10,24 +10,11 @@ services:
          args:
              SSH_TO_WEB_KEY: ${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
 
-      ports:
-         - "${SSH_HOST_PORT:?SSH_HOST_PORT not set}:4444"
-
       networks:
          - ssh-and-host
          - web-and-ssh
          - ssh-and-redis
 
-
-   pgadmin:
-      image: dpage/pgadmin4
-      environment:
-         - PGADMIN_DEFAULT_EMAIL=admin@admin.de
-         - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:?PGADMIN_DEFAULT_PASSWORD not set}
-      ports:
-         - ${PGADMIN_HTTP_PORT:?PGADMIN_HTTP_PORT not set}:80
-      networks:
-         - db-and-pgadmin
 
 
    db:
@@ -70,7 +57,7 @@ services:
          #in this container from the host into other containers
          - type: bind
 
-           source: ./data
+           source: ./data-testing
 
            target: /data
            bind:
@@ -81,9 +68,6 @@ services:
          - ./exercises/:/exercises:ro
          #Make docker availabe inside the container
          - /var/run/docker.sock:/var/run/docker.sock
-
-      ports:
-         - "${HTTP_HOST_PORT}:8000"
 
       networks:
          - web-host
@@ -111,7 +95,7 @@ networks:
    web-host:
       driver: bridge
       driver_opts:
-         com.docker.network.bridge.name: "brref-webhost"
+         com.docker.network.bridge.name: "brref-webhostt"
    #Webinterface between the SSH entry server and the webinterface.
    #This interface is used by the SSH server to retrive information
    #on how a incoming connection should be routed.
@@ -119,30 +103,30 @@ networks:
       driver: bridge
       internal: true
       driver_opts:
-         com.docker.network.bridge.name: "brref-webtossh"
+         com.docker.network.bridge.name: "brref-webtossht"
    #This network connects the SSH entry server to the host.
    ssh-and-host:
       driver: bridge
       driver_opts:
-         com.docker.network.bridge.name: "brref-sshhost"
+         com.docker.network.bridge.name: "brref-sshhostt"
    #Connect web to postgres
    web-and-db:
       driver: bridge
       internal: true
       driver_opts:
-         com.docker.network.bridge.name: "brref-webtodb"
+         com.docker.network.bridge.name: "brref-webtodbt"
    #connect pgadmin to postgres
    db-and-pgadmin:
       driver: bridge
       driver_opts:
-         com.docker.network.bridge.name: "brref-dbtopg"
+         com.docker.network.bridge.name: "brref-dbtopgt"
    web-and-redis:
       driver: bridge
       internal: true
       driver_opts:
-         com.docker.network.bridge.name: "brref-webtor"
+         com.docker.network.bridge.name: "brref-webtort"
    ssh-and-redis:
       driver: bridge
       internal: true
       driver_opts:
-         com.docker.network.bridge.name: "brref-sshtor"
+         com.docker.network.bridge.name: "brref-sshtort"
