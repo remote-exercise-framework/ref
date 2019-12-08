@@ -23,7 +23,7 @@ class ReleaseConfig(object):
 
     #NOTE: This name must be adapated if the name of the ssh server is changed
     #or the parent directory of the docker-compose.yml file is renamed.
-    SSHSERVER_CONTAINER_NAME = 'remote-exercises-framework_sshserver_1'
+    SSHSERVER_CONTAINER_NAME = None # 'remote-exercises-framework_sshserver_1'
 
     SECRET_KEY = os.environ.get('SECRET_KEY')
     SSH_TO_WEB_KEY = os.environ.get('SSH_TO_WEB_KEY')
