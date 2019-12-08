@@ -7,7 +7,13 @@ set -e
 #to http.
 export FORWARDED_ALLOW_IPS="*"
 
-uwsgi --http :8000 --master --processes 4 --manage-script-name --mount "/=ref:create_app()"
+
+if [[ ! -z "$DEBUG" && "$DEBUG" == "1" ]]; then
+    #--py-autoreload=1 --- Check every second if any python file changed
+    uwsgi --http :8000 --master --py-autoreload=1 --processes 4 --manage-script-name --mount "/=ref:create_app()" $args
+else
+    uwsgi --http :8000 --master --processes 4 --manage-script-name --mount "/=ref:create_app()" $args
+fi
 
 # if [[ -z "$DEBUG" || "$DEBUG" == "0" ]]; then
 #     #gunicorn -w 4 -b :8000 'ref:create_app()' --log-level debug --reload
