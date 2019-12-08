@@ -14,8 +14,8 @@ import uuid
 log = LocalProxy(lambda: current_app.logger)
 
 class LoginForm(Form):
-    username = StringField('Matriculation Number', validators=[validators.Required(), validators.Regexp(r'[0-9]+')], default='')
-    password = PasswordField('Password', validators=[validators.Required()])
+    username = StringField('Matriculation Number', validators=[validators.DataRequired(), validators.Regexp(r'[0-9]+')], default='')
+    password = PasswordField('Password', validators=[validators.DataRequired()])
     submit = SubmitField('Login')
 
 

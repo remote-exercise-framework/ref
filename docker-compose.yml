@@ -33,8 +33,10 @@ services:
    db:
       image: postgres
       restart: always
+
       volumes:
          - ./data/postgresql-db:/var/lib/postgresql/data
+
       environment:
          - POSTGRES_USER=ref
          - POSTGRES_DB=ref
@@ -69,16 +71,14 @@ services:
          #The mounts need to be propageted, thus we can mount mounts created
          #in this container from the host into other containers
          - type: bind
-
            source: ./data
-
            target: /data
            bind:
              propagation: shared
          #The webinterface, only needed for live updating during development
-         - ./webapp/:/app:ro
+         - ./webapp/:/app
          #The exercise templates to import
-         - ./exercises/:/exercises:ro
+         - ./exercises/:/exercises
          #Make docker availabe inside the container
          - /var/run/docker.sock:/var/run/docker.sock
 
@@ -96,8 +96,10 @@ services:
       environment:
          - REDIS_PASSWORD=${REDIS_KEY:?REDIS_KEY not set}
          - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+
       volumes:
          - './data/redis-db:/bitnami/redis/data'
+
       networks:
          - web-and-redis
          - ssh-and-redis

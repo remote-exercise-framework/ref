@@ -10,17 +10,20 @@ from itsdangerous import URLSafeTimedSerializer
 from ref.core import flash, admin_required
 import re
 
-mat_regex = r"^1080[0-2][0-9][1-2][0-9]{5}$"
+#mat_regex = r"^1080[0-2][0-9][1-2][0-9]{5}$"
+mat_regex = r"^[0-9]+$"
+
 linfo = lambda msg: current_app.logger.info(msg)
 
 class EditUserForm(Form):
     id = IntegerField('ID')
     mat_num = StringField('Matriculation Number', validators=[
-        validators.Required()
+        validators.DataRequired(),
+        validators.Regexp(mat_regex)
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
-    firstname = TextField('Firstname', validators=[validators.Required()])
-    surname = TextField('Surname', validators=[validators.Required()])
+    firstname = TextField('Firstname', validators=[validators.DataRequired()])
+    surname = TextField('Surname', validators=[validators.DataRequired()])
     password = PasswordField('Password')
     password_rep = PasswordField('Password (Repeat)')
     is_admin = BooleanField('Is Admin?')
@@ -29,18 +32,22 @@ class EditUserForm(Form):
 
 class GetKeyForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
-        validators.Required()
+        validators.DataRequired(),
+        validators.Regexp(mat_regex)
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
-    firstname = TextField('Firstname', validators=[validators.Required()])
-    surname = TextField('Surname', validators=[validators.Required()])
-    password = PasswordField('Password', validators=[validators.Required()])
-    password_rep = PasswordField('Password (Repeat)', validators=[validators.Required()])
+    firstname = TextField('Firstname', validators=[validators.DataRequired()])
+    surname = TextField('Surname', validators=[validators.DataRequired()])
+    password = PasswordField('Password', validators=[validators.DataRequired()])
+    password_rep = PasswordField('Password (Repeat)', validators=[validators.DataRequired()])
     submit = SubmitField('Get Key')
 
 class RestoreKeyForm(Form):
-    mat_num = IntegerField('Matriculation Number', validators=[validators.Required()])
-    password = PasswordField('Password (The password used during first retrieval)', validators=[validators.Required()])
+    mat_num = StringField('Matriculation Number', validators=[
+        validators.DataRequired(),
+        validators.Regexp(mat_regex)
+        ])
+    password = PasswordField('Password (The password used during first retrieval)', validators=[validators.DataRequired()])
     submit = SubmitField('Restore')
 
 @refbp.route('/student/download/pubkey/<string:signed_mat>')

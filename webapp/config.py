@@ -63,3 +63,8 @@ class DebugConfig(ReleaseConfig):
 
 class TestConfig(ReleaseConfig):
     TESTING = True
+    debug = True
+    DEBUG = True
+    DEBUG_TB_INTERCEPT_REDIRECTS = False
+    WTF_CSRF_ENABLED = False
+    SERVER_NAME = 'ref.local'

@@ -26,3 +26,4 @@ python-telegram-handler
 psycopg2
 pytest
 uwsgi
+pytest-cov
