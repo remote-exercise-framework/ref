@@ -4,7 +4,7 @@ ARG DOCKER_GROUP_ID
 
 # Install dependencies
 WORKDIR /tmp/
-RUN apt-get update && apt-get install -y docker docker.io git python3 sudo
+RUN apt-get update && apt-get install -y docker docker.io git python3 sudo dnsutils
 
 COPY requirements.txt /tmp/
 RUN pip install -r requirements.txt && rm requirements.txt

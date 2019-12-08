@@ -14,6 +14,38 @@ class DockerClient():
     def __init__(self):
         self._client = None
 
+    @staticmethod
+    def container_name_by_hostname(hostname, raise_exc=False):
+        log.debug(f'Getting FQN of host {hostname}')
+        cmd = f'dig +short {hostname}'
+        ip = None
+        try:
+            ip = subprocess.check_output(cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            log.error(f'Failed to get IP of host "{hostname}"', exc_info=True)
+            if raise_exc:
+                raise e
+            return None
+
+        ip = ip.decode().rstrip()
+        log.debug(f'IP is {ip}')
+
+        cmd = f'nslookup {ip} | grep -o "name = .*$" | cut -d "=" -f 2 | xargs | cut -d "." -f 1'
+        full_hostname = None
+        try:
+            full_hostname = subprocess.check_output(cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            log.error(f'Failed to get hostname for IP {ip} of host {full_hostname}', exc_info=True)
+            if raise_exc:
+                raise e
+            return None
+
+        full_hostname = full_hostname.decode().rstrip()
+        log.debug(f'Full hostname is {full_hostname}')
+
+        return full_hostname
+
+
     @property
     def client(self):
         if not self._client:
