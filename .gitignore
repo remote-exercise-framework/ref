@@ -1,9 +1,7 @@
 docker-compose.env
 .env
-/data
 
 **/.vscode
-
 **/__pycache__
 **/*.py[cod]
 **/*$py.class
