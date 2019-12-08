@@ -5,3 +5,4 @@ from .docker import DockerClient
 from .security import admin_required
 from .instance import InstanceManager
 from .util import retry_on_deadlock
+from .dashboard import SystemMetricsUpdateService

@@ -177,8 +177,15 @@ if [[ -z "$PGADMIN_DEFAULT_PASSWORD" ]]; then
     exit 1
 fi
 
+if [[ -z "$REDIS_KEY" ]]; then
+    error "Please set REDIS_KEY in .env to a random string"
+    exit 1
+fi
 
-
+if [[ ! -d "./data/redis-db" || "$(stat -c '%u' './data/redis-db')" != "1001" ]]; then
+    sudo mkdir -p './data/redis-db'
+    sudo chown 1001:1001 -R './data/redis-db'
+fi
 
 function build {
     #Build the base image for all exercises

@@ -4,6 +4,7 @@ services:
       environment:
          - DEBUG=${DEBUG}
          - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED}
+         - REDIS_KEY=${REDIS_KEY}
       build:
          context: ./ssh-wrapper
          args:
@@ -13,6 +14,7 @@ services:
       networks:
          - ssh-and-host
          - web-and-ssh
+         - ssh-and-redis
 
    pgadmin:
       image: dpage/pgadmin4
@@ -49,6 +51,7 @@ services:
          - POSTGRES_DB=ref
          - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
          - SECRET_KEY=${SECRET_KEY}
+         - REDIS_KEY=${REDIS_KEY}
       cap_add:
          - SYS_ADMIN
       build:
@@ -77,26 +80,17 @@ services:
          - web-host
          - web-and-ssh
          - web-and-db
-   # redis:
-   #    image: 'bitnami/redis:5.0'
-   #    environment:
-   #       # ALLOW_EMPTY_PASSWORD is recommended only for development.
-   #       - ALLOW_EMPTY_PASSWORD=yes
-   #       - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
-   #    ports:
-   #       - '6379:6379'
-   #    volumes:
-   #       - 'redis_data:/bitnami/redis/data'
-   # rq-worker:
-   #    build:
-   #       context: ./rq-worker
-   #       args:
-   #          DOCKER_GROUP_ID: ${DOCKER_GROUP_ID}
-   #    links:
-   #       - redis:redis
-   #    volumes:
-   #       - ./webapp/:/app:ro
-   #       - /var/run/docker.sock:/var/run/docker.sock
+         - web-and-redis
+   redis:
+      image: 'bitnami/redis:5.0'
+      environment:
+         - REDIS_PASSWORD=${REDIS_KEY}
+         - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+      volumes:
+         - './data/redis-db:/bitnami/redis/data'
+      networks:
+         - web-and-redis
+         - ssh-and-redis
 
 volumes:
    redis_data:
@@ -132,3 +126,13 @@ networks:
       driver: bridge
       driver_opts:
          com.docker.network.bridge.name: "br-ref-dbtopg"
+   web-and-redis:
+      driver: bridge
+      internal: true
+      driver_opts:
+         com.docker.network.bridge.name: "br-ref-webtor"
+   ssh-and-redis:
+      driver: bridge
+      internal: true
+      driver_opts:
+         com.docker.network.bridge.name: "br-ref-sshtor"
