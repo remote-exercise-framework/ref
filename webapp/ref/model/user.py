@@ -15,7 +15,7 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
 
     first_name = db.Column(db.Text(), nullable=False)
     surname = db.Column(db.Text(), nullable=False)
-    password = db.Column(db.Binary(), nullable=False)
+    password = db.Column(db.LargeBinary(), nullable=False)
     mat_num = db.Column(db.BigInteger, nullable=False, unique=True)
     registered_date = db.Column(db.DateTime(), nullable=False)
     pub_key = db.Column(db.Text(), nullable=False)

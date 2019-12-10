@@ -9,11 +9,11 @@ def main():
 
     template = template_env.get_template(COMPOSE_TEMPLATE)
 
-    render_out = template.render(testing=False, data_path='./data')
+    render_out = template.render(testing=False, data_path='./data', exercises_path='./exercises')
     with open('docker-compose.yml', 'w') as f:
         f.write(render_out)
 
-    render_out = template.render(testing=True, data_path='./data-testing')
+    render_out = template.render(testing=True, data_path='./data-testing', exercises_path='./exercises-testing')
     with open('docker-compose-testing.yml', 'w') as f:
         f.write(render_out)
 

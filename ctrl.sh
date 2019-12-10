@@ -182,6 +182,12 @@ if [[ -z "$REDIS_KEY" ]]; then
     exit 1
 fi
 
+if [[ -z "$ADMIN_PASSWORD" ]]; then
+    error "Please set ADMIN_PASSWORD in .env to a random string"
+    exit 1
+fi
+
+
 if [[ ! -d "./data/redis-db" || "$(stat -c '%u' './data/redis-db')" != "1001" ]]; then
     sudo mkdir -p './data/redis-db'
     sudo chown 1001:1001 -R './data/redis-db'
@@ -195,9 +201,14 @@ function build {
         ./build.sh $@
     )
     (
-        info "=> Building container"
-        docker-compose build $@
-        docker-compose pull
+        info "=> Building release container"
+        docker-compose -p ref build $@
+        docker-compose -p ref pull
+    )
+    (
+        info "=> Building test container"
+        docker-compose -f docker-compose-testing.yml -p ref-testing build $@
+        docker-compose -f docker-compose-testing.yml -p ref-testing pull
     )
 }
 
@@ -265,6 +276,18 @@ function are_you_sure {
     fi
 }
 
+function up_testing {
+    docker-compose -f docker-compose-testing.yml -p ref-testing up $@
+}
+
+function down_testing {
+    docker-compose -f docker-compose-testing.yml -p ref-testing down $@
+}
+
+function run_tests {
+    docker exec -it ref-testing_web_1 /bin/bash -c 'pytest --cov=. --cov-report html -v --failed-first  ./test'
+}
+
 cmd="$1"
 shift
 
@@ -299,6 +322,15 @@ case "$cmd" in
     ;;
     flask-cmd)
         flask-cmd $@
+    ;;
+    run-tests)
+        run_tests $@
+    ;;
+    up-testing)
+        up_testing $@
+    ;;
+    down-testing)
+        down_testing $@
     ;;
     --help)
         usage

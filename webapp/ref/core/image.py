@@ -157,13 +157,13 @@ class ExerciseImageManager():
         Builds the peripheral services of an exercise.
         """
         services = []
+
         #Load objects completely from the database, since we can not lazy load them later
-        with app.app_context():
-            #joinedload causes eager loading of all attributes of the exercise
-            #raiseload raises an exception if there are still lazy attributes
-            exercise = Exercise.query.filter(Exercise.id == exercise.id).options(joinedload('*')).first()
-            for service in exercise.services:
-                services.append(ExerciseService.query.filter(ExerciseService.id == service.id).options(joinedload('*')).first())
+        #joinedload causes eager loading of all attributes of the exercise
+        #raiseload raises an exception if there are still lazy attributes
+        exercise = Exercise.query.filter(Exercise.id == exercise.id).options(joinedload('*')).first()
+        for service in exercise.services:
+            services.append(ExerciseService.query.filter(ExerciseService.id == service.id).options(joinedload('*')).first())
 
         if not services:
             return "No peripheral services to build"
@@ -202,10 +202,12 @@ class ExerciseImageManager():
         log = ""
         try:
             #Build entry service
-            log += ExerciseImageManager.__run_build_entry_service(app, exercise)
-            log += ExerciseImageManager.__run_build_peripheral_services(app, exercise)
+            with app.app_context():
+                log += ExerciseImageManager.__run_build_entry_service(app, exercise)
+                log += ExerciseImageManager.__run_build_peripheral_services(app, exercise)
         except Exception as e:
             with app.app_context():
+                app.logger.error(f'Error during build', exc_info=True)
                 if isinstance(e, docker.errors.BuildError):
                     for l in list(e.build_log):
                         if 'stream' in l:
@@ -239,6 +241,11 @@ class ExerciseImageManager():
         log.info(f'Starting build of exercise {self.exercise}')
         t = Thread(target=ExerciseImageManager.__run_build, args=(current_app._get_current_object(), self.exercise))
         t.start()
+        #FIXME: Temporary fix to solve issues during tests of the build function.
+        #This is likely caused by the flask test_client during that
+        #apparently does not work well with threads outside the requests context .
+        if current_app.config['TESTING']:
+            t.join()
 
     def remove(self):
         """

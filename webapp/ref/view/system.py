@@ -27,7 +27,7 @@ def _get_dangling_networks():
     ssh_container = d.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
 
     for network in networks:
-        if not network.name.startswith('ref-'):
+        if not network.name.startswith(current_app.config['DOCKER_RESSOURCE_PREFIX']):
             continue
 
         connected_containers = d.get_connected_container(network)
@@ -64,7 +64,7 @@ def _get_dangling_container():
     containers = d.containers(include_stopped=True)
 
     for container in containers:
-        if not container.name.startswith('ref-'):
+        if not container.name.startswith(current_app.config['DOCKER_RESSOURCE_PREFIX']):
             continue
 
         if _is_connected_to_sshserver(container.id):

@@ -153,11 +153,11 @@ class InstanceManager():
 
         internet_network = None
         if internet_services:
-            network_name = f'ref-{self.instance.exercise.short_name}-v{self.instance.exercise.version}-peripheral-internet-{self.instance.id}'
+            network_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-peripheral-internet-{self.instance.id}'
             internet_network = self.dc.create_network(name=network_name, internal=False)
             self.instance.peripheral_services_internet_network_id = internet_network.id
 
-        network_name = f'ref-{self.instance.exercise.short_name}-v{self.instance.exercise.version}-peripheral-to-entry-{self.instance.id}'
+        network_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-peripheral-to-entry-{self.instance.id}'
         to_entry_network = self.dc.create_network(name=network_name, internal=True)
         self.instance.peripheral_services_network_id = to_entry_network.id
 
@@ -178,7 +178,7 @@ class InstanceManager():
 
         #Create container for all services
         for service in services:
-            container_name = f'ref-{self.instance.exercise.short_name}-v{self.instance.exercise.version}-{service.exercise_service.name}-{self.instance.id}'
+            container_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-{service.exercise_service.name}-{self.instance.id}'
             log.info(f'Creating peripheral container {container_name}')
 
             container = self.dc.create_container(
@@ -225,7 +225,7 @@ class InstanceManager():
 
         #Create a network. The bridge of an internal network is not connected
         #to the host (i.e., the host has no interface attached to it).
-        entry_to_ssh_network_name = f'ref-{self.instance.exercise.short_name}-v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}'
+        entry_to_ssh_network_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}'
         entry_to_ssh_network = self.dc.create_network(name=entry_to_ssh_network_name, internal=not self.instance.exercise.entry_service.allow_internet)
         self.instance.network_id = entry_to_ssh_network.id
 
@@ -278,7 +278,7 @@ class InstanceManager():
         mem_limit = current_app.config['EXERCISE_CONTAINER_MEMORY_LIMIT']
 
         seccomp_profile = [f'seccomp={seccomp_profile}']
-        entry_container_name = f'ref-{self.instance.exercise.short_name}-v{self.instance.exercise.version}-entry-{self.instance.id}'
+        entry_container_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-entry-{self.instance.id}'
         container = self.dc.create_container(
             image_name,
             name=entry_container_name,

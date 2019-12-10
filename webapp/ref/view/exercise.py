@@ -38,12 +38,14 @@ def exercise_build(exercise_id):
     """
     exercise: Exercise = db.get(Exercise, id=exercise_id)
     if not exercise:
-        flash.error(f"Unknown exercise ID {exercise_id}")
-        return render_template('500.html'), 400
+        log.info(f'Unknown exercise ID {exercise_id}')
+        flash.warning(f"Unknown exercise ID {exercise_id}")
+        return render_template('400.html'), 400
 
     if exercise.build_job_status in [ ExerciseBuildStatus.BUILDING,  ExerciseBuildStatus.FINISHED]:
+        log.warning(f'Unable to start build for exercise {exercise} in state {exercise.build_job_status}')
         flash.error("Already build!")
-        return render_template('500.html'), 400
+        return render_template('400.html'), 400
 
     mgr = ExerciseImageManager(exercise)
     if mgr.is_build():
@@ -205,7 +207,7 @@ def exercise_view_all():
     #Parse all available configs
     import_candidates = []
     for path in Path(current_app.config['EXERCISES_PATH']).glob('*'):
-        if not path.is_dir():
+        if not path.is_dir() or not path.joinpath('settings.yml').exists():
             continue
         try:
             exercise = ExerciseManager.from_template(path)
@@ -306,9 +308,11 @@ def exercise_delete(exercise_id):
 def exercise_toggle_default(exercise_id):
     exercise = Exercise.query.filter(Exercise.id == exercise_id).with_for_update().one_or_none()
     if not exercise:
+        log.info(f'Tried to toggle unknown exercise id={exercise_id}')
         flash.error(f'Unknown exercises id={exercise_id}')
         return render_template('400.html'), 400
     if exercise.build_job_status != ExerciseBuildStatus.FINISHED:
+        log.info(f'Tried to toggle default for exercise {exercise} that is not build')
         flash.error('Unable to mark exercise that was not build as default')
         return render_template('400.html'), 400
 
@@ -318,6 +322,7 @@ def exercise_toggle_default(exercise_id):
     if exercise.is_default:
         exercise.is_default = False
     elif any([e.is_default for e in exercises_same_version]):
+        log.info(f'There is already another version of {exercise} marked as default')
         flash.error(f'At most one exercise of {exercise.short_name} can be set to default')
     else:
         #No other task with same name is default
