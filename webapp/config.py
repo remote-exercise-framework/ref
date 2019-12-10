@@ -5,34 +5,36 @@ class ReleaseConfig(object):
     DATADIR = os.path.join(BASEDIR, 'data')
     DBDIR = os.path.join(DATADIR, 'db')
 
-    POSTGRES_USER = os.environ.get('POSTGRES_USER')
-    POSTGRES_DB = os.environ.get('POSTGRES_DB')
-    POSTGRES_PASSWORD = os.environ.get('POSTGRES_PASSWORD')
+    POSTGRES_USER = os.environ['POSTGRES_USER']
+    POSTGRES_DB = os.environ['POSTGRES_DB']
+    POSTGRES_PASSWORD = os.environ['POSTGRES_PASSWORD']
     SQLALCHEMY_DATABASE_URI = f'postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@db/{POSTGRES_DB}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     EXERCISES_PATH = '/exercises'
     IMPORTED_EXERCISES_PATH = os.path.join(DATADIR, 'imported_exercises')
     PERSISTANCE_PATH =  os.path.join(DATADIR, 'persistance')
-    SQLALCHEMY_MIGRATE_REPO = 'migrations' #os.path.join(BASEDIR, 'migrations')
+    SQLALCHEMY_MIGRATE_REPO = 'migrations'
 
-    REDIS_KEY = os.environ.get('REDIS_KEY')
+    REDIS_KEY = os.environ['REDIS_KEY']
     REDIS_URL = f"redis://:{REDIS_KEY}@redis"
     IMAGE_BUILD_TIMEOUT = 120
     LOGIN_DISABLED = False
+
+    ADMIN_PASSWORD = os.environ['ADMIN_PASSWORD']
 
     #NOTE: This name must be adapated if the name of the ssh server is changed
     #or the parent directory of the docker-compose.yml file is renamed.
     SSHSERVER_CONTAINER_NAME = None # 'remote-exercises-framework_sshserver_1'
 
-    SECRET_KEY = os.environ.get('SECRET_KEY')
-    SSH_TO_WEB_KEY = os.environ.get('SSH_TO_WEB_KEY')
+    SECRET_KEY = os.environ['SECRET_KEY']
+    SSH_TO_WEB_KEY = os.environ['SSH_TO_WEB_KEY']
 
     #Docker image that servers as base for all exercises
     BASE_IMAGE_NAME = 'remote-exercises-framework-exercise-base:latest'
 
     #Prefix for container and network names created by REF
-    DOCKER_RESSOURCE_PREFIX = 'ref-'
+    DOCKER_RESSOURCE_PREFIX = 'ref-ressource'
 
     EXERCISE_CONTAINER_CPU_PERIOD = 100000
 
@@ -63,8 +65,10 @@ class DebugConfig(ReleaseConfig):
 
 class TestConfig(ReleaseConfig):
     TESTING = True
-    debug = True
-    DEBUG = True
+    debug = False
+    DEBUG = False
     DEBUG_TB_INTERCEPT_REDIRECTS = False
+    PRESERVE_CONTEXT_ON_EXCEPTION = False
     WTF_CSRF_ENABLED = False
     SERVER_NAME = 'ref.local'
+    DOCKER_RESSOURCE_PREFIX = 'ref-testing-ressource'

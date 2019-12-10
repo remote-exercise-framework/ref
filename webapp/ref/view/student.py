@@ -22,11 +22,12 @@ class EditUserForm(Form):
         validators.Regexp(mat_regex)
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
-    firstname = TextField('Firstname', validators=[validators.DataRequired()])
-    surname = TextField('Surname', validators=[validators.DataRequired()])
+    firstname = StringField('Firstname', validators=[validators.DataRequired()])
+    surname = StringField('Surname', validators=[validators.DataRequired()])
     password = PasswordField('Password')
     password_rep = PasswordField('Password (Repeat)')
     is_admin = BooleanField('Is Admin?')
+
 
     submit = SubmitField('Update')
 
@@ -36,8 +37,8 @@ class GetKeyForm(Form):
         validators.Regexp(mat_regex)
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
-    firstname = TextField('Firstname', validators=[validators.DataRequired()])
-    surname = TextField('Surname', validators=[validators.DataRequired()])
+    firstname = StringField('Firstname', validators=[validators.DataRequired()])
+    surname = StringField('Surname', validators=[validators.DataRequired()])
     password = PasswordField('Password', validators=[validators.DataRequired()])
     password_rep = PasswordField('Password (Repeat)', validators=[validators.DataRequired()])
     submit = SubmitField('Get Key')

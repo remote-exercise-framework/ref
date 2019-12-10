@@ -189,7 +189,7 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         Name of the docker image that was build based on this configuration.
         """
-        return f'remote-exercises-framework-{self.exercise.short_name}-entry:v{self.exercise.version}'
+        return f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}-{self.exercise.short_name}-entry:v{self.exercise.version}'
 
 
 class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
@@ -230,7 +230,7 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         Name of the docker image that was build based on this configuration.
         """
-        return f'remote-exercises-framework-{self.exercise.short_name}-{self.name}:v{self.exercise.version}'
+        return f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}-{self.exercise.short_name}-{self.name}:v{self.exercise.version}'
 
 class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """

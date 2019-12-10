@@ -203,7 +203,7 @@ class DockerClient():
 
     def create_container(self, image_name, name=None, auto_remove=False, network_mode='none', volumes=None, cap_add=[], security_opt=[], cpu_period=None, cpu_quota=None, mem_limit=None, read_only=False, hostname=None):
         if not name:
-            name = 'ref-' + ''.join(random.choices(string.ascii_uppercase, k=10))
+            name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}' + ''.join(random.choices(string.ascii_uppercase, k=10))
 
         kwargs = {}
         if hostname:
@@ -233,7 +233,7 @@ class DockerClient():
         with the prefix 'ref-' is chosen.
         """
         if not name:
-            name = 'ref-' + ''.join(random.choices(string.ascii_uppercase, k=10))
+            name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}' + ''.join(random.choices(string.ascii_uppercase, k=10))
         return self.client.networks.create(name, driver=driver, internal=internal)
 
     def network(self, network_id):

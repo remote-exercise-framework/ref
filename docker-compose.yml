@@ -50,6 +50,7 @@ services:
          #Needed for mounting overlay inside containers
          - apparmor:unconfined
       environment:
+         - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD not set}
          - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
          - DEBUG=${DEBUG:?DEBUG not set}
          - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
@@ -78,7 +79,7 @@ services:
          #The webinterface, only needed for live updating during development
          - ./webapp/:/app
          #The exercise templates to import
-         - ./exercises/:/exercises
+         - ./exercises:/exercises
          #Make docker availabe inside the container
          - /var/run/docker.sock:/var/run/docker.sock
 

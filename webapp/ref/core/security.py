@@ -3,6 +3,9 @@ from flask import current_app
 from functools import wraps
 from ref.core import flash
 from pathlib import Path
+from werkzeug.local import LocalProxy
+
+log = LocalProxy(lambda: current_app.logger)
 
 def admin_required(func):
     @wraps(func)
@@ -21,7 +24,11 @@ def sanitize_path_is_subdir(parent_path, child_path):
     if isinstance(child_path, str):
         child_path = Path(child_path)
 
-    parent_path = parent_path.resolve()
-    child_path = child_path.resolve()
+    try:
+        parent_path = parent_path.resolve()
+        child_path = child_path.resolve()
+    except ValueError:
+        log.warning(f'Failed to sanitize path', exc_info=True)
+        return False
 
     return child_path.as_posix().startswith(parent_path.as_posix())
