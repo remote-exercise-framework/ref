@@ -7,3 +7,5 @@ docker-compose.env
 **/*$py.class
 
 rq-worker
+
+data
