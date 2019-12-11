@@ -7,11 +7,10 @@ Exercises
 {% block admin_content %}
 
 {% if importable|length %}
-<div class="card">
-    <div class="card-header">
+<div class="card mb-5">
+    <h4 class="card-header">
         Importable
-    </div>
-    <div class="card-body">
+    </h4>
     <table class="table table-hover">
         <thead>
             <tr>
@@ -65,68 +64,62 @@ Exercises
     {% endfor %}
     </tbody>
     </table>
-    </div>
 </div>
-<br>
 {% endif %}
 
 
-
-    {% for category, tasks in categories.items() %}
-        <div class="card">
-            <div class="card-header">
-              {{ category }}
-            </div>
-            <div class="card-body">
-                <table class="table table-hover">
-                        <thead>
-                            <tr>
-                            <th scope="col">Short Name</th>
-                            <th scope="col">Version</th>
-                            <th scope="col">Status</th>
-                            <th scope="col">#Instances</th>
-                            <th scope="col"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                    <!-- Create a row for each exercise -->
-                    {% for e in tasks %}
-                        <tr>
-                            <td>{{ e.short_name }}</td>
-                            <td>{{ e.version }}</td>
-                            <td>{{ e.build_job_status.value }}</td>
-                            <td>
-                                {{ e.instances|length }}
-                            </td>
-                            <td>
-                                <div class="btn-group">
-                                        {% if e.build_job_status.value == 'FINISHED' %}
-                                            {% if e.is_default %}
-                                            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
-                                            {% else %}
-                                            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
-                                            {% endif %}
-                                        {% endif %}
-                                        {% if e.instances|length %}
-                                            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instances_view_by_exercise', exercise_name=e.short_name|quote_plus, exercise_version=e.version) }}">Instances</a>
-                                        {% endif %}
-                                        <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}" data-toggle="tooltip" data-placement="top" title="Tooltip on top">View</a>
-                                        {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
-                                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id, next=request.path) }}">Build</a>
-                                        {% endif %}
-                                        {% if e.build_job_status.value not in ['BUILDING'] %}
-                                        <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_delete', exercise_id=e.id, next=request.path) }}">Delete</a>
-                                        {% endif %}
-                                    </div>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <br>
-    {% endfor %}
+{% for category, tasks in categories.items() %}
+    <div class="card mb-5">
+        <h4 class="card-header">
+            {{ category }}
+        </h4>
+        <table class="table table-hover">
+                <thead>
+                    <tr>
+                    <th scope="col">Short Name</th>
+                    <th scope="col">Version</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">#Instances</th>
+                    <th scope="col"></th>
+                    </tr>
+                </thead>
+                <tbody>
+            <!-- Create a row for each exercise -->
+            {% for e in tasks %}
+                <tr>
+                    <td>{{ e.short_name }}</td>
+                    <td>{{ e.version }}</td>
+                    <td>{{ e.build_job_status.value }}</td>
+                    <td>
+                        {{ e.instances|length }}
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            {% if e.build_job_status.value == 'FINISHED' %}
+                                {% if e.is_default %}
+                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
+                                {% else %}
+                                <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
+                                {% endif %}
+                            {% endif %}
+                            {% if e.instances|length %}
+                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instances_view_by_exercise', exercise_name=e.short_name|quote_plus, exercise_version=e.version) }}">Instances</a>
+                            {% endif %}
+                            <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}" data-toggle="tooltip" data-placement="top" title="Tooltip on top">View</a>
+                            {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
+                            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id, next=request.path) }}">Build</a>
+                            {% endif %}
+                            {% if e.build_job_status.value not in ['BUILDING'] %}
+                            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_delete', exercise_id=e.id, next=request.path) }}">Delete</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endfor %}
 
 <script>
     function setCookie(name,value,days) {
