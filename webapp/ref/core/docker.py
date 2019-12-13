@@ -52,6 +52,10 @@ class DockerClient():
             self._client = docker.from_env()
         return self._client
 
+    def close(self):
+        if self._client:
+            self._client.close()
+
     def local_path_to_host(self, path):
         """
         Converts the given full qualified local path (path inside this container) into a host path.

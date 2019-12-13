@@ -9,7 +9,8 @@ export FORWARDED_ALLOW_IPS="*"
 
 mkdir /data/log
 args=" --logger file:logfile=/data/log/uwsgi.log,maxsize=33554432 "
-if [[ ! -z "$DEBUG" && "$DEBUG" == "1" ]]; then
+if [[ "$DEBUG" == "1" || "$TESTING" == "1" ]]; then
+
     #--py-autoreload=1 --- Check every second if any python file changed
     uwsgi --http :8000 --master --py-autoreload=1 --processes 4 --manage-script-name --mount "/=ref:create_app()" $args
 else

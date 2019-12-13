@@ -119,6 +119,9 @@ class ExerciseImageManager():
         """
         Builds the entry service of an exercise.
         """
+        with app.app_context():
+            app.logger.info(f'Building entry service of exercise {exercise}')
+
         log = ' --- Building entry service --- \n'
         image_name = exercise.entry_service.image_name
 
@@ -140,6 +143,9 @@ class ExerciseImageManager():
         except Exception as e:
             raise e
 
+        with app.app_context():
+            app.logger.info(f'Build of {exercise} finished, copying persisted folder')
+
         #Make a copy of the data that needs to be persisted
         if exercise.entry_service.persistance_container_path:
             client = DockerClient()
@@ -148,6 +154,9 @@ class ExerciseImageManager():
                 exercise.entry_service.persistance_container_path,
                 client.local_path_to_host(exercise.entry_service.persistance_lower)
                 )
+
+        with app.app_context():
+            app.logger.info(f'Copying finished')
 
         return log
 
@@ -226,6 +235,7 @@ class ExerciseImageManager():
                 exercise.build_job_status = ExerciseBuildStatus.FINISHED
 
         with app.app_context():
+            app.logger.info(f'Commiting build result to DB')
             app.db.session.add(exercise)
             app.db.session.commit()
 
@@ -241,11 +251,6 @@ class ExerciseImageManager():
         log.info(f'Starting build of exercise {self.exercise}')
         t = Thread(target=ExerciseImageManager.__run_build, args=(current_app._get_current_object(), self.exercise))
         t.start()
-        #FIXME: Temporary fix to solve issues during tests of the build function.
-        #This is likely caused by the flask test_client during that
-        #apparently does not work well with threads outside the requests context .
-        if current_app.config['TESTING']:
-            t.join()
 
     def remove(self):
         """

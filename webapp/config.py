@@ -65,10 +65,9 @@ class DebugConfig(ReleaseConfig):
 
 class TestConfig(ReleaseConfig):
     TESTING = True
-    debug = False
-    DEBUG = False
+    DEBUG = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
     PRESERVE_CONTEXT_ON_EXCEPTION = False
     WTF_CSRF_ENABLED = False
-    SERVER_NAME = 'ref.local'
+    SERVER_NAME = '127.0.0.1:8000'
     DOCKER_RESSOURCE_PREFIX = 'ref-testing-ressource'
