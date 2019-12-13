@@ -12,6 +12,8 @@ from .exercise import Exercise, ExerciseBuildStatus
 
 from sqlalchemy.orm import joinedload, raiseload
 
+import traceback
+
 log = LocalProxy(lambda: current_app.logger)
 
 class ExerciseImageManager():
