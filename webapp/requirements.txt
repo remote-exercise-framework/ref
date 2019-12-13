@@ -28,3 +28,5 @@ pytest
 uwsgi
 pytest-cov
 hypothesis
+pytest-watch
+pytest-testmon

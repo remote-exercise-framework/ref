@@ -37,6 +37,7 @@ services:
          - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD not set}
          - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
          - DEBUG=${DEBUG:?DEBUG not set}
+         - TESTING=1
          - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
          - REDIS_URL=redis://redis
          - POSTGRES_USER=ref
@@ -68,10 +69,12 @@ services:
          - /var/run/docker.sock:/var/run/docker.sock
 
       networks:
-         - web-host
-         - web-and-ssh
-         - web-and-db
-         - web-and-redis
+         web-host:
+            aliases:
+               - "ref.localhost"
+         web-and-ssh:
+         web-and-db:
+         web-and-redis:
 
    redis:
       image: 'bitnami/redis:5.0'
