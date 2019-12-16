@@ -11,10 +11,15 @@ System Garbage Collector
 {% block admin_content %}
 
 
-
 {% if dangling_networks %}
 <div class="card">
-    <h5 class="card-header">Found {{ dangling_networks|length }} dangling networks <div class="float-right"><a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.sysmtem_gc_delete_dangling_networks', next=request.path) }}">Delete</a> </div><br></h5>
+    <h4 class="card-header">
+        Found {{ dangling_networks|length }} dangling networks
+        <div class="float-right">
+            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.sysmtem_gc_delete_dangling_networks', next=request.path) }}">Delete</a>
+        </div>
+        <br>
+    </h4>
     <div class="card-body">
       <h5 class="card-title">The following networks are not connected to any container</h5>
         <table class="table table-striped">
@@ -40,7 +45,13 @@ System Garbage Collector
 
 {% if dangling_container %}
 <div class="card">
-    <h5 class="card-header">Found {{ dangling_container|length }} dangling container <div class="float-right"><a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.sysmtem_gc_delete_dangling_container', next=request.path) }}">Delete</a> </div><br></h5>
+    <h4 class="card-header">
+        Found {{ dangling_container|length }} dangling container
+        <div class="float-right">
+            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.sysmtem_gc_delete_dangling_container', next=request.path) }}">Delete</a>
+        </div>
+        <br>
+    </h4>
     <div class="card-body">
       <h5 class="card-title">The following instances are not connected to the SSH entry server. </h5>
         <table class="table table-striped">
