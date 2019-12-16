@@ -13,168 +13,169 @@ Instances
 {% block admin_content %}
 
 {% if instances|length %}
-
-<table class="table table-hover">
-    <thead>
-        <tr>
-        <th scope="col">#</th>
-        <th scope="col">Exercise</th>
-        <th scope="col">Version</th>
-        <th scope="col">User</th>
-        <th scope="col">Running</th>
-        <th scope="col"></th>
-        </tr>
-    </thead>
-    <tbody>
-{% for i in instances %}
-    <tr id="{{ i.id }}" {{ "updateable" if i.new_exercise }} {{ "stopable" if i.running }}>
-        <td>{{ i.id }}</td>
-        <td>{{ i.exercise.short_name }}</td>
-        <td>{{ i.exercise.version }}
-            {% if i.new_exercise %}
-                ({{ i.exercise.version }} => {{ i.new_exercise.version }})
-            {% endif %}
-        </td>
-        <td>{{ i.user.first_name }} {{ i.user.surname }} ({{ i.user.id }})</td>
-        <td>{{ i.running }}</td>
-        <td>
-            <div class="btn-group">
-                <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.instances_view_details', instance_id=i.id, next=request.path) }}">View</a>
-                {% if i.new_exercise %}
-                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_update', instance_id=i.id, next=request.path) }}">Update</a>
-                {% endif %}
-                {% if i.running %}
-                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_stop', instance_id=i.id, next=request.path) }}">Stop</a>
-                {% endif %}
-                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id, next=request.path) }}">Delete</a>
+    <div class="card">
+        <h4 class="card-header">
+            All Instances
+        </h4>
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                <th scope="col">#</th>
+                <th scope="col">Exercise</th>
+                <th scope="col">Version</th>
+                <th scope="col">User</th>
+                <th scope="col">Running</th>
+                <th scope="col"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for i in instances %}
+                    <tr id="{{ i.id }}" {{ "updateable" if i.new_exercise }} {{ "stopable" if i.running }}>
+                        <td>{{ i.id }}</td>
+                        <td>{{ i.exercise.short_name }}</td>
+                        <td>{{ i.exercise.version }}
+                            {% if i.new_exercise %}
+                                ({{ i.exercise.version }} => {{ i.new_exercise.version }})
+                            {% endif %}
+                        </td>
+                        <td>{{ i.user.first_name }} {{ i.user.surname }} ({{ i.user.id }})</td>
+                        <td>{{ i.running }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.instances_view_details', instance_id=i.id, next=request.path) }}">View</a>
+                                {% if i.new_exercise %}
+                                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_update', instance_id=i.id, next=request.path) }}">Update</a>
+                                {% endif %}
+                                {% if i.running %}
+                                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_stop', instance_id=i.id, next=request.path) }}">Stop</a>
+                                {% endif %}
+                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id, next=request.path) }}">Delete</a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="card-footer">
+            <div class="text-center">
+                <div class="btn-group">
+                    <a role="button" id=stop-all-button class="btn btn-outline-success disabled" href="">Stop All</a>
+                    <a role="button" id=update-all-button class="btn btn-outline-success disabled" href="">Update All</a>
+                </div>
             </div>
-        </td>
-    </tr>
-{% endfor %}
-  </tbody>
-
-</table>
-
-<hr>
-
-
-<div class="text-center">
-        <div class="btn-group">
-                <a role="button" id=stop-all-button class="btn btn-outline-success disabled" href="">Stop All</a>
-                <a role="button" id=update-all-button class="btn btn-outline-success disabled" href="">Update All</a>
         </div>
-</div>
+    </div>
 
 
-<script>
+    <script>
 
-    function displayToast(head, body) {
-        $.toast({
-            heading: head,
-            text: body,
-            icon: 'info',
-            loader: true,        // Change it to false to disable loader
-            loaderBg: '#9EC600',  // To change the background
-            position: 'top-right',
-            stack: 8,
-            hideAfter: 5000,
-        })
-    }
+        function displayToast(head, body) {
+            $.toast({
+                heading: head,
+                text: body,
+                icon: 'info',
+                loader: true,        // Change it to false to disable loader
+                loaderBg: '#9EC600',  // To change the background
+                position: 'top-right',
+                stack: 8,
+                hideAfter: 5000,
+            })
+        }
 
-    $(document).ready(function(){
-        //On click on a element with class ok-modal load the URL href points at,
-        //and create a modal using the retrived data.
-        $( ".ok-modal" ).click(function() {
-            var target = $( this ).attr('href')
-            $.get(target, function(data){
-                $("#modal").html(data);
-                $("#modal").modal("show");
+        $(document).ready(function(){
+            //On click on a element with class ok-modal load the URL href points at,
+            //and create a modal using the retrived data.
+            $( ".ok-modal" ).click(function() {
+                var target = $( this ).attr('href')
+                $.get(target, function(data){
+                    $("#modal").html(data);
+                    $("#modal").modal("show");
+                });
+                return false;
             });
-            return false;
+
+            let update_all_button = $("#update-all-button")
+            let updateable = $( "tr" ).filter("[updateable]")
+            let update_url = "{{ url_for('ref.instance_update', instance_id=123456789, next=request.path) }}"
+            if (updateable.length > 0) {
+                update_all_button.removeClass("disabled")
+                update_all_button.click(function(event) {
+                    //$( "tr" ).filter("[updateable]").each(function() { console.log(this.id)} );
+                    let promises = []
+
+                    if (!confirm('Are you sure you want to update all instances?'))
+                        return false
+
+                    displayToast('Updating', 'Updating ' + updateable.length + " instances...")
+
+                    updateable.each(function() {
+                        let target = update_url.replace('123456789', this.id)
+                        let id = this.id
+                        let promise = axios.get(target)
+                        promises.push(promise)
+
+                        promise
+                        .catch(function (error) {
+                            displayToast('Updateing', 'Failed to update instance ' + id)
+                        });
+                    })
+
+                    Promise.all(promises)
+                    .then(function (values) {
+                        displayToast('Updating', 'Successfully updated all instances')
+                    })
+                    .catch(function (error) {
+                        displayToast('Updating', 'Failed to update all instances')
+                    });
+
+                    update_all_button.addClass('disabled')
+                    return false
+                });
+            }
+
+            let stop_all_button = $("#stop-all-button")
+            let stopable = $( "tr" ).filter("[stopable]")
+            let stop_url = "{{ url_for('ref.instance_stop', instance_id=123456789, next=request.path) }}"
+            if (stopable.length > 0) {
+                stop_all_button.removeClass("disabled")
+                stop_all_button.click(function(event) {
+                    //$( "tr" ).filter("[updateable]").each(function() { console.log(this.id)} );
+                    let promises = []
+
+                    if (!confirm('Are you sure you want to stop all instances?'))
+                        return false
+
+                    displayToast('Stopping', 'Stopping ' + stopable.length + " instances...")
+
+                    stopable.each(function() {
+                        let target = stop_url.replace('123456789', this.id)
+                        let id = this.id
+                        let promise = axios.get(target)
+                        promises.push(promise)
+
+                        promise
+                        .catch(function (error) {
+                            displayToast('Stopping', 'Failed to stop instance ' + id)
+                        });
+                    })
+
+                    Promise.all(promises)
+                    .then(function (values) {
+                        displayToast('Stopping', 'Successfully stopped all instances')
+                    })
+                    .catch(function (error) {
+                        displayToast('Stopping', 'Failed to stop all instances')
+                    });
+
+                    stop_all_button.addClass('disabled')
+                    return false
+                });
+            }
         });
-
-        let update_all_button = $("#update-all-button")
-        let updateable = $( "tr" ).filter("[updateable]")
-        let update_url = "{{ url_for('ref.instance_update', instance_id=123456789, next=request.path) }}"
-        if (updateable.length > 0) {
-            update_all_button.removeClass("disabled")
-            update_all_button.click(function(event) {
-                //$( "tr" ).filter("[updateable]").each(function() { console.log(this.id)} );
-                let promises = []
-
-                if (!confirm('Are you sure you want to update all instances?'))
-                    return false
-
-                displayToast('Updating', 'Updating ' + updateable.length + " instances...")
-
-                updateable.each(function() {
-                    let target = update_url.replace('123456789', this.id)
-                    let id = this.id
-                    let promise = axios.get(target)
-                    promises.push(promise)
-
-                    promise
-                    .catch(function (error) {
-                        displayToast('Updateing', 'Failed to update instance ' + id)
-                    });
-                })
-
-                Promise.all(promises)
-                .then(function (values) {
-                    displayToast('Updating', 'Successfully updated all instances')
-                })
-                .catch(function (error) {
-                    displayToast('Updating', 'Failed to update all instances')
-                });
-
-                update_all_button.addClass('disabled')
-                return false
-            });
-        }
-
-        let stop_all_button = $("#stop-all-button")
-        let stopable = $( "tr" ).filter("[stopable]")
-        let stop_url = "{{ url_for('ref.instance_stop', instance_id=123456789, next=request.path) }}"
-        if (stopable.length > 0) {
-            stop_all_button.removeClass("disabled")
-            stop_all_button.click(function(event) {
-                //$( "tr" ).filter("[updateable]").each(function() { console.log(this.id)} );
-                let promises = []
-
-                if (!confirm('Are you sure you want to stop all instances?'))
-                    return false
-
-                displayToast('Stopping', 'Stopping ' + stopable.length + " instances...")
-
-                stopable.each(function() {
-                    let target = stop_url.replace('123456789', this.id)
-                    let id = this.id
-                    let promise = axios.get(target)
-                    promises.push(promise)
-
-                    promise
-                    .catch(function (error) {
-                        displayToast('Stopping', 'Failed to stop instance ' + id)
-                    });
-                })
-
-                Promise.all(promises)
-                .then(function (values) {
-                    displayToast('Stopping', 'Successfully stopped all instances')
-                })
-                .catch(function (error) {
-                    displayToast('Stopping', 'Failed to stop all instances')
-                });
-
-                stop_all_button.addClass('disabled')
-                return false
-            });
-        }
-    });
-</script>
+    </script>
 
 {% else %}
-<h6>No Data</h6>
+    <h6 class="text-center">No Data</h6>
 {% endif %}
 
 {% endblock %}

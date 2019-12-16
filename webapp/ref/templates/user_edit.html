@@ -9,46 +9,50 @@ User Edit
 
 <form method="POST">
         {{ form.csrf_token }}
-        <div class="form-row" id="from_group_3">
-                <div class="form-group col-md-6">
-                    {{ wtf_utils.render_field(form.id, "number", readonly=True) }}
-                </div>
-        </div>
-        <div class="form-row" id="from_group_3">
-            <div class="form-group col-md-6">
+    <div class="row">
+        <div class="col-lg-6 col-md-9">
+            <div class="form-group">
+                {{ wtf_utils.render_field(form.id, "number", readonly=True) }}
+            </div>
+            <div class="form-group">
                 {{ wtf_utils.render_field(form.mat_num, "number") }}
             </div>
-        </div>
-        <div class="form-row" id="from_group_3">
-                <div class="form-group col-md-3">
-                    {{ wtf_utils.render_field(form.password, "password") }}
-                </div>
-                <div class="form-group col-md-3">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
                         {{ wtf_utils.render_field(form.password_rep, "password") }}
+                    </div>
                 </div>
-        </div>
-        <div class="form-row" id="from_group_3">
-                <div class="form-group col-md-3">
-                    {{ wtf_utils.render_field(form.firstname, "text") }}
+                <div class="col-md-6">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(form.password_rep, "password") }}
+                    </div>
                 </div>
-                <div class="form-group col-md-3">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(form.firstname, "text") }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
                         {{ wtf_utils.render_field(form.surname, "text") }}
+                    </div>
                 </div>
-        </div>
-
-        <div class="form-row" id="from_group_3">
-                <div class="form-group col-md-3">
-                    {{ wtf_utils.render_radio(form.course, vertical=True) }}
+                <div class="col-12">
+                    <div class="form-group">
+                        {{ wtf_utils.render_radio(form.course, vertical=True) }}
+                    </div>
                 </div>
-                <div class="form-group col-md-3">
-                    {{ wtf_utils.render_field(form.is_admin, "checkbox") }}
+                <div class="col-12">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(form.is_admin, "checkbox") }}
+                    </div>
                 </div>
             </div>
-        <div class="form-row" id="from_group_3">
-            <div class="form-group col-md-3">
-                {{ wtf_utils.render_submit(form.submit) }}<br>
-           </div>
+
+            {{ wtf_utils.render_submit(form.submit) }}
         </div>
+    </div>
 </form>
 
 
