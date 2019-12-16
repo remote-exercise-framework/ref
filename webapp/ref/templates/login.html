@@ -17,19 +17,27 @@ Login
         <div class="card-body">
             <form method="POST">
                 {{ form.csrf_token }}
-                <div class="form-row" id="from_group_3">
+                <div class="form-group">
+                    {{ wtf_utils.render_field(form.username, "text") }}
+                </div>
+                <div class="form-group">
+                    {{ wtf_utils.render_field(form.password, "password") }}
+                </div>
+
+                {{ wtf_utils.render_submit(form.submit) }}
+                <!-- <div class="form-row" id="from_group_3">
                     <div class="form-group col-12">
                         {{ wtf_utils.render_field(form.username, "text") }}
                     </div>
                 </div>
                 <div class="form-row" id="from_group_3">
-                        <div class="form-group col-12">
-                            {{ wtf_utils.render_field(form.password, "password") }}
-                        </div>
-                </div>
-                <div class="form-row" id="from_group_3">
+                    <div class="form-group col-12">
+                        {{ wtf_utils.render_field(form.password, "password") }}
+                    </div>
+                </div> -->
+                <!-- <div class="form-row" id="from_group_3">
                     {{ wtf_utils.render_submit(form.submit) }}
-                </div>
+                </div> -->
             </form>
         </div>
     </div>

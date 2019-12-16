@@ -1,8 +1,16 @@
-/* rub blue:   #17365c */
-/* rub green:  #8dae25 */
+/* rub blue:        #17365c */
+/* rub link blue:   #0058AD*/
+/* rub green:       #8dae25 */
 
 .rub-blue {
     background-color: #17365c;
+}
+
+.public-banner {
+    background:#17365c;
+    color:#FFFFFF !important;
+    border-bottom: 5px solid #8dae25;
+    border-radius: 0;
 }
 
 nav#top-navigation {
@@ -65,4 +73,54 @@ code {
 .card table td .btn-group,
 .card table td .btn-group a {
     margin: 0;
+}
+
+
+/**
+ * CI colors
+ */
+
+.is-focused [class*=" bmd-label"],
+.is-focused [class^=bmd-label] {
+    color: #8dae25;
+}
+
+.custom-file-control, .form-control, .is-focused .custom-file-control, .is-focused .form-control {
+    background-image: linear-gradient(0deg,#8dae25 2px,rgba(0,150,136,0) 0),linear-gradient(0deg,rgba(0,0,0,.26) 1px,transparent 0);
+}
+
+.btn.btn-primary {
+    color: #17365c;
+}
+
+.btn.btn-primary:hover {
+    color: #17365c;
+}
+
+.btn.btn-outline-primary {
+    color: #17365c;
+    border: 1px solid #17365c;
+}
+
+.btn.btn-outline-primary:hover {
+    color: #17365c;
+    border: 1px solid #17365c;
+}
+
+a {
+    color: #0058AD;
+}
+
+a:hover {
+    color: #17365c;
+}
+
+a.highlight {
+    color: #0058AD;
+    border-bottom: #8dae25;
+}
+
+a.highlight:hover {
+    color: #8dae25;
+    border-bottom: none;
 }

@@ -110,7 +110,7 @@ def student_getkey():
     privkey = None
     signed_mat = None
     student = None
-    render = lambda: render_template('student_getkey.html', form=form, student=student, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat)
+    render = lambda: render_template('student_getkey.html', route_name='get_key', form=form, student=student, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat)
 
     if form.submit.data and form.validate():
         student = User.query.filter(User.mat_num == form.mat_num.data).first()
@@ -160,7 +160,7 @@ def student_restorekey():
     pubkey = None
     privkey = None
     signed_mat = None
-    render = lambda: render_template('student_restorekey.html', form=form, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat)
+    render = lambda: render_template('student_restorekey.html', route_name='restore_key', form=form, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat)
 
     signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
 

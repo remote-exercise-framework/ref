@@ -17,39 +17,51 @@ function copy_text(id) {
 
 {% if form %}
 
-<form method="POST">
+<form method="POST" action="#show-keys">
     {{ form.csrf_token }}
-    <div class="form-row" id="from_group_3">
-        <div class="form-group col-md-6">
-            {{ wtf_utils.render_field(form.mat_num, "number") }}
-        </div>
-    </div>
-    <div class="form-row" id="from_group_3">
-            <div class="form-group col-md-3">
-                {{ wtf_utils.render_field(form.password, "password") }}
-            </div>
-            <div class="form-group col-md-3">
-                    {{ wtf_utils.render_field(form.password_rep, "password") }}
-            </div>
-    </div>
-    <div class="form-row" id="from_group_3">
-            <div class="form-group col-md-3">
-                {{ wtf_utils.render_field(form.firstname, "text") }}
-            </div>
-            <div class="form-group col-md-3">
-                    {{ wtf_utils.render_field(form.surname, "text") }}
-            </div>
-    </div>
+    <div class="row">
+        <div class="col-lg-6 col-md-9">
+            <div class="row">
 
-    <div class="form-row" id="from_group_3">
-            <div class="form-group col-md-6">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(form.mat_num, "number") }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(form.password, "password") }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(form.password_rep, "password") }}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(form.firstname, "text") }}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(form.surname, "text") }}
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="form-group">
                 {{ wtf_utils.render_radio(form.course, vertical=True) }}
             </div>
+
+            <div class="form-group">
+                {{ wtf_utils.render_submit(form.submit) }}
+            </div>
+
         </div>
-    <div class="form-row" id="from_group_3">
-        <div class="form-group col-md-3">
-            {{ wtf_utils.render_submit(form.submit) }}<br>
-       </div>
     </div>
 </form>
 
@@ -57,37 +69,35 @@ function copy_text(id) {
 
 {% if pubkey %}
 
-
-<div class="alert alert-success" role="alert">
+    <div class="alert alert-success" role="alert">
         <h4 class="alert-heading">Public-Key</h4>
         <p>This is your public key.</p>
         <hr>
         <div class="float-right">
-            <a href="{{ url_for('ref.student_download_pubkey', signed_mat=signed_mat) }}" class="btn btn-light" role="button">Download</a>
-            <button type="button" class="btn btn-light" onclick="copy_text('pubkey');">Copy</button>
-        </div><br>
+            <a href="{{ url_for('ref.student_download_pubkey', signed_mat=signed_mat) }}" class="btn btn-outline-primary" role="button">Download</a>
+            <button type="button" class="btn btn-outline-primary" onclick="copy_text('pubkey');">Copy</button>
+        </div>
+        <br>
         <textarea class="form-control" id="pubkey" rows="10" readonly>{{pubkey|safe}}</textarea>
-</div>
+    </div>
 
 {% endif %}
 
 {% if privkey %}
 
-<div class="alert alert-success" role="alert">
+    <div class="alert alert-success" role="alert">
         <h4 class="alert-heading">Private-Key</h4>
         <p>
             This is your private key.
         </p>
         <hr>
         <div class="float-right">
-            <a href="{{ url_for('ref.student_download_privkey', signed_mat=signed_mat) }}" class="btn btn-light" role="button">Download</a>
-            <button type="button" class="btn btn-light" onclick="copy_text('privkey');">Copy</button>
+            <a href="{{ url_for('ref.student_download_privkey', signed_mat=signed_mat) }}" class="btn btn-outline-primary" role="button">Download</a>
+            <button type="button" class="btn btn-outline-primary" onclick="copy_text('privkey');">Copy</button>
         </div><br>
         <textarea class="form-control" id="privkey" rows="10" readonly>{{privkey|safe}}</textarea>
-</div>
+    </div>
 
 {% endif %}
-
-</script>
 
 {% endblock %}

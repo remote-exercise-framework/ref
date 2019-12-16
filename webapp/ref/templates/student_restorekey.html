@@ -8,73 +8,66 @@ Key Generation
 {% block content %}
 
 <script>
-function copy_text(id) {
-  var copyText = document.getElementById(id);
-  copyText.select();
-  document.execCommand("copy");
-}
+    function copy_text(id) {
+        var copyText = document.getElementById(id);
+        copyText.select();
+        document.execCommand("copy");
+    }
 </script>
 
 {% if form %}
 
-<form method="POST">
+    <form method="POST">
         {{ form.csrf_token }}
-        <div class="form-row" id="from_group_3">
-            <div class="form-group col-md-6">
-                {{ wtf_utils.render_field(form.mat_num, "number") }}
-            </div>
-        </div>
-        <div class="form-row" id="from_group_3">
-                <div class="form-group col-md-6">
+        <div class="row">
+            <div class="col-lg-6 col-md-9">
+                <div class="form-group">
+                    {{ wtf_utils.render_field(form.mat_num, "number") }}
+                </div>
+                <div class="form-group">
                     {{ wtf_utils.render_field(form.password, "password") }}
                 </div>
-        </div>
-        <div class="form-row" id="from_group_3">
-            <div class="form-group col-md-3">
-                {{ wtf_utils.render_submit(form.submit) }}
-           </div>
+                <div class="form-group">
+                    {{ wtf_utils.render_submit(form.submit) }}
+                </div>
+            </div>
         </div>
     </form>
-
 
 {% endif %}
 
 {% if pubkey %}
 
-
-
-<div class="alert alert-success" role="alert">
-    <h4 class="alert-heading">Public-Key</h4>
-    <p>This is your public key.</p>
-    <hr>
-    <div class="float-right">
-        <a href="{{ url_for('ref.student_download_pubkey', signed_mat=signed_mat) }}" class="btn btn-light" role="button">Download</a>
-        <button type="button" class="btn btn-light" onclick="copy_text('pubkey');">Copy</button>
-    </div><br>
-    <textarea class="form-control" id="pubkey" rows="10" readonly>{{pubkey|safe}}</textarea>
-</div>
+    <div class="alert alert-success" role="alert">
+        <h4 class="alert-heading">Public-Key</h4>
+        <p>This is your public key.</p>
+        <hr>
+        <div class="float-right">
+            <a href="{{ url_for('ref.student_download_pubkey', signed_mat=signed_mat) }}" class="btn btn-outline-primary" role="button">Download</a>
+            <button type="button" class="btn btn-outline-primary" onclick="copy_text('pubkey');">Copy</button>
+        </div><br>
+        <textarea class="form-control" id="pubkey" rows="10" readonly>{{pubkey|safe}}</textarea>
+    </div>
 
 {% endif %}
 
 {% if privkey %}
 
-<div class="alert alert-success" role="alert">
-    <h4 class="alert-heading">Private-Key</h4>
-    <p>
-        This is your private key that is needed to connect over SSH to the server....
-        In case you lose it, you can retrieve it by entering the same mat. number into the generator.
+    <div class="alert alert-success" role="alert">
+        <h4 class="alert-heading">Private-Key</h4>
+        <p>
+            This is your private key that is needed to connect over SSH to the server....
+            In case you lose it, you can retrieve it by entering the same mat. number into the generator.
 
-    </p>
-    <hr>
-    <div class="float-right">
-        <a href="{{ url_for('ref.student_download_privkey', signed_mat=signed_mat) }}" class="btn btn-light" role="button">Download</a>
-        <button type="button" class="btn btn-light" onclick="copy_text('privkey');">Copy</button>
-    </div><br>
-    <textarea class="form-control" id="privkey" rows="10" readonly>{{privkey|safe}}</textarea>
-</div>
+        </p>
+        <hr>
+        <div class="float-right">
+            <a href="{{ url_for('ref.student_download_privkey', signed_mat=signed_mat) }}" class="btn btn-outline-primary" role="button">Download</a>
+            <button type="button" class="btn btn-outline-primary" onclick="copy_text('privkey');">Copy</button>
+        </div><br>
+        <textarea class="form-control" id="privkey" rows="10" readonly>{{privkey|safe}}</textarea>
+    </div>
 
 {% endif %}
-
-</script>
 
 {% endblock %}
