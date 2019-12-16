@@ -1,0 +1,92 @@
+{% extends "admin_base.html" %}
+
+{% block title %}
+{{ title }}
+{% endblock %}
+
+{% block admin_content %}
+
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card">
+                <h4 class="card-header">
+                    Instance files
+                </h4>
+                <div class="card-body">
+                    <ul class="list-group bmd-list-group-sm">
+                    {% for file_name in files %}
+                        <a class="list-group-item highlight load-file" href="{{ file_load_url }}" data-filename="{{ file_name }}">{{ file_name }}</a>
+                    {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <div class="card card-editor">
+                <h4 class="card-header">
+                    Editor
+                    <small id="loaded-file">No file loaded</small>
+                </h4>
+                <div id="editor-wrapper">
+                    <div id="editor"></div>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center">
+                    <select class="custom-select" id="syntax-highlighting">
+                        <option value="c_cpp">C/C++</option>
+                        <option value="python">Python</option>
+                        <option value="yaml">YAML</option>
+                    </select>
+
+                    <span class="badge badge-success" id="saved-highlight">Saved</span>
+
+                    <button class="btn btn-success" id="save-changes" data-url="{{ save_url }}">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://pagecdn.io/lib/ace/1.4.6/ace.js" integrity="sha256-CVkji/u32aj2TeC+D13f7scFSIfphw2pmu4LaKWMSY8=" crossorigin="anonymous"></script>
+    <script>
+        $(function() {
+
+            var editor = ace.edit("editor");
+            editor.setTheme("ace/theme/chrome");
+            editor.session.setMode("ace/mode/c_cpp");
+
+            $('.load-file').click(function () {
+                var fileName = $(this).data('filename'),
+                    url = $(this).attr('href');
+
+                $.post(url, { 'filename': fileName }, function (fileContent) {
+                    $('#loaded-file').text(fileName);
+                    editor.setValue(fileContent);
+                });
+
+                return false;
+            });
+
+            $('#syntax-highlighting').change(function () {
+                var mode = $(this).val();
+                editor.session.setMode('ace/mode/' + mode);
+            });
+
+            $('#save-changes').click(function () {
+                var content = editor.getValue(),
+                    fileName = $('#loaded-file').text(),
+                    url = $(this).data('url');
+
+                $.post(url, {
+                    'filename': fileName,
+                    'content': content
+                }, function (data) {
+                    $('#saved-highlight').addClass('show');
+                    setTimeout(function () {
+                        $('#saved-highlight').removeClass('show');
+                    }, 1000);
+                });
+            });
+        });
+    </script>
+
+{% endblock %}
