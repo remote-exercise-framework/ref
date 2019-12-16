@@ -75,6 +75,18 @@ code {
     margin: 0;
 }
 
+.modal-header {
+    background-color: #17365c;
+    color: #fff;
+    border-bottom: 5px solid #8dae25 !important;
+    padding: 1rem !important;
+    align-items: center !important;
+    border-radius: 0 !important;
+}
+
+.modal-header .close {
+    color: #fff;
+}
 
 /**
  * CI colors

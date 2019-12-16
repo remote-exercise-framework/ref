@@ -145,16 +145,16 @@ Exercises
         document.cookie = name+'=; Max-Age=-99999999;';
     }
 
-
     $(document).ready(function(){
         //On click on a element with class ok-modal load the URL href points at,
         //and create a modal using the retrived data.
-        $( ".ok-modal" ).click(function() {
-            var target = $( this ).attr('href')
+        $( ".ok-modal" ).click(function(e) {
+            var target = $( this ).attr('href');
             $.get(target, function(data){
                 $("#modal").html(data);
                 $("#modal").modal("show");
             });
+
             return false;
         });
     });
