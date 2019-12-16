@@ -88,6 +88,38 @@ code {
     color: #fff;
 }
 
+#editor-wrapper {
+    position: relative;
+    min-height: 500px;
+}
+
+#editor {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+.card-editor .card-footer .bmd-form-group {
+    padding: 0 !important;
+}
+
+.card-editor .card-footer .badge {
+    display: none;
+    font-size: 20px;
+}
+
+.card-editor .card-footer .badge.show {
+    display: inline;
+}
+
+
+.custom-select:focus {
+    border-color: #8dae25;
+    box-shadow: none
+}
+
 /**
  * CI colors
  */

@@ -13,7 +13,7 @@ import yaml
 import redis
 import rq
 from flask import (Blueprint, Flask, abort, current_app, redirect,
-                   render_template, request, url_for)
+                   render_template, request, url_for, Response)
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, InstanceManager, admin_required, flash)
@@ -166,3 +166,45 @@ def instance_delete(instance_id):
         db.session.commit()
 
     return redirect_to_next()
+
+@refbp.route('/admin/instances/review', methods = ['GET'])
+@admin_required
+def instance_review():
+    instance_directory = os.path.join(current_app.config['BASEDIR'], 'editor-example') # TODO: directory based on instance id
+
+    files = []
+    for path in Path(instance_directory).glob('*'):
+        relative_path = str(path).replace(instance_directory, '')
+        files.append(relative_path)
+
+    title = 'Review Instance' # TODO: add instance name
+    file_load_url = '/admin/instances/review/load-file' # TODO: add instance id
+    save_url = '/admin/instances/review/save-file'
+
+    return render_template('instances_review.html', title=title, files=files, file_load_url=file_load_url, save_url=save_url)
+
+@refbp.route('/admin/instances/review/load-file', methods = ['POST'])
+@admin_required
+def instance_review_load_file():
+    payload = request.values
+    filename = payload.get('filename')
+    absolute_filename_path = os.path.join(current_app.config['BASEDIR'], 'editor-example', filename.strip('/'))
+
+    content = None
+    with open(absolute_filename_path, 'r') as f:
+        content = f.read()
+
+    return Response(content, mimetype='text/plain')
+
+@refbp.route('/admin/instances/review/save-file', methods = ['POST'])
+@admin_required
+def instance_review_save_file():
+    payload = request.values
+    filename = payload.get('filename')
+    content = payload.get('content')
+    absolute_filename_path = os.path.join(current_app.config['BASEDIR'], 'editor-example', filename.strip('/'))
+
+    with open(absolute_filename_path, 'w') as f:
+        f.write(content)
+
+    return Response(content, mimetype='text/plain')
