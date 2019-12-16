@@ -181,7 +181,7 @@ def student_restorekey():
 
     return render()
 
-@refbp.route('/student/view', methods=('GET', 'POST'))
+@refbp.route('/admin/student/view', methods=('GET', 'POST'))
 @admin_required
 def student_view_all():
     """
@@ -190,7 +190,7 @@ def student_view_all():
     students = User.query.order_by(User.id).all()
     return render_template('student_view_all.html', students=students)
 
-@refbp.route('/student/view/<int:user_id>')
+@refbp.route('/admin/student/view/<int:user_id>')
 @admin_required
 def student_view_single(user_id):
     """
@@ -203,7 +203,7 @@ def student_view_single(user_id):
 
     return render_template('student_view_single.html', user=user)
 
-@refbp.route('/student/edit/<int:user_id>', methods=('GET', 'POST'))
+@refbp.route('/admin/student/edit/<int:user_id>', methods=('GET', 'POST'))
 @admin_required
 def student_edit(user_id):
     """
@@ -249,7 +249,7 @@ def student_edit(user_id):
     return render_template('user_edit.html', form=form)
 
 
-@refbp.route('/student/delete/<int:user_id>')
+@refbp.route('/admin/student/delete/<int:user_id>')
 @admin_required
 def student_delete(user_id):
     """

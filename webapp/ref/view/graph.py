@@ -43,7 +43,7 @@ class Link():
         self.target = target
 
 
-@refbp.route('/graph')
+@refbp.route('/admin/graph')
 @admin_required
 def graph():
     nodes = []

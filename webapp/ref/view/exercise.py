@@ -30,7 +30,7 @@ from ref.model.enums import ExerciseBuildStatus
 
 log = LocalProxy(lambda: current_app.logger)
 
-@refbp.route('/exercise/build/<int:exercise_id>')
+@refbp.route('/admin/exercise/build/<int:exercise_id>')
 @admin_required
 def exercise_build(exercise_id):
     """
@@ -64,7 +64,7 @@ def exercise_build(exercise_id):
         return redirect_to_next()
 
 
-@refbp.route('/exercise/diff')
+@refbp.route('/admin/exercise/diff')
 @admin_required
 def exercise_diff():
     """
@@ -153,7 +153,7 @@ def _check_import(importable: Exercise):
     return warnings, errors
 
 
-@refbp.route('/exercise/import/<string:cfg_path>')
+@refbp.route('/admin/exercise/import/<string:cfg_path>')
 @admin_required
 def exercise_do_import(cfg_path):
     render = lambda: redirect_to_next()
@@ -194,7 +194,7 @@ def exercise_do_import(cfg_path):
 
     return render()
 
-@refbp.route('/exercise/view')
+@refbp.route('/admin/exercise/view')
 @admin_required
 def exercise_view_all():
     #Exercises already added to the DB
@@ -271,7 +271,7 @@ def exercise_view_all():
 
 
 
-@refbp.route('/exercise/<int:exercise_id>/delete')
+@refbp.route('/admin/exercise/<int:exercise_id>/delete')
 @admin_required
 def exercise_delete(exercise_id):
     exercise =  Exercise.query.filter(Exercise.id == exercise_id).with_for_update().first()
@@ -303,7 +303,7 @@ def exercise_delete(exercise_id):
 
     return redirect_to_next()
 
-@refbp.route('/exercise/default/toggle/<int:exercise_id>')
+@refbp.route('/admin/exercise/default/toggle/<int:exercise_id>')
 @admin_required
 def exercise_toggle_default(exercise_id):
     exercise = Exercise.query.filter(Exercise.id == exercise_id).with_for_update().one_or_none()
@@ -333,7 +333,7 @@ def exercise_toggle_default(exercise_id):
 
     return redirect_to_next()
 
-@refbp.route('/exercise/view/<int:exercise_id>')
+@refbp.route('/admin/exercise/view/<int:exercise_id>')
 @admin_required
 def exercise_view(exercise_id):
     exercise =  Exercise.query.filter(Exercise.id == exercise_id).one_or_none()
