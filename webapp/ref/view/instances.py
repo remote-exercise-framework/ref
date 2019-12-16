@@ -33,7 +33,7 @@ def get_newest_exercise_version(exercise: Exercise):
     new_exercise = list(filter(lambda e: e.version > exercise.version and e.build_job_status == ExerciseBuildStatus.FINISHED, exercises))
     return max(new_exercise, key=lambda e: e.version, default=None)
 
-@refbp.route('/instances/update/<int:instance_id>')
+@refbp.route('/admin/instances/update/<int:instance_id>')
 @admin_required
 def instance_update(instance_id):
     #Lock the instance
@@ -60,7 +60,7 @@ def instance_update(instance_id):
 
     return redirect_to_next()
 
-@refbp.route('/instances/view/<int:instance_id>')
+@refbp.route('/admin/instances/view/<int:instance_id>')
 @admin_required
 def instances_view_details(instance_id):
     instance =  Instance.query.filter(Instance.id == instance_id).first()
@@ -87,7 +87,7 @@ def _instances_render_view(instances, title=None):
 
     return render_template('instances_view_list.html', title=title, instances=instances)
 
-@refbp.route('/instances/view/by-user/<int:user_id>')
+@refbp.route('/admin/instances/view/by-user/<int:user_id>')
 @admin_required
 def instances_by_user_id(user_id):
     user = User.get(user_id)
@@ -101,7 +101,7 @@ def instances_by_user_id(user_id):
     return _instances_render_view(instances, title=title)
 
 
-@refbp.route('/instances/view/by-exercise/<string:exercise_name>')
+@refbp.route('/admin/instances/view/by-exercise/<string:exercise_name>')
 @admin_required
 def instances_view_by_exercise(exercise_name):
     try:
@@ -126,13 +126,13 @@ def instances_view_by_exercise(exercise_name):
 
     return _instances_render_view(instances, title=title)
 
-@refbp.route('/instances/view')
+@refbp.route('/admin/instances/view')
 @admin_required
 def instances_view_all():
     instances = Instance.query.all()
     return _instances_render_view(instances)
 
-@refbp.route('/instances/stop/<int:instance_id>')
+@refbp.route('/admin/instances/stop/<int:instance_id>')
 @admin_required
 def instance_stop(instance_id):
     instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
@@ -150,7 +150,7 @@ def instance_stop(instance_id):
 
     return redirect_to_next()
 
-@refbp.route('/instances/delete/<int:instance_id>')
+@refbp.route('/admin/instances/delete/<int:instance_id>')
 @admin_required
 def instance_delete(instance_id):
     instance =  Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
