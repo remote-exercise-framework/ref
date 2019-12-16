@@ -5,12 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>Remote Exercises Framework</title>
 
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css"
-          integrity="sha384-PsH8R72JQ3SOdhVi3uxftmaW6Vc51MKb0q5P2rRUpPvrszuE4W1povHYgTpBfshb" crossorigin="anonymous">
-
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700|Material+Icons">
+    <link rel="stylesheet" href="https://unpkg.com/bootstrap-material-design@4.1.1/dist/css/bootstrap-material-design.min.css" integrity="sha384-wXznGJNEXNG1NFsbm0ugrLFMQPWswR3lds2VeinahP8N0zJw9VWSopbjv2x7WCvX" crossorigin="anonymous">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
-
-
 
     {% block head %}
 
@@ -19,45 +16,42 @@
 </head>
 
 <body>
-{%  if error_message %}
-    <div class="alert alert-danger" role="alert">
-    {{ error_message }}
-    </div>
-{% endif %}
+    {%  if error_message %}
+        <div class="alert alert-danger" role="alert">
+        {{ error_message }}
+        </div>
+    {% endif %}
 
-<div class="jumbotron" style="background:#77B76A; color:#FFFFFF !important">
+    <div class="jumbotron public-banner">
         <div class="container">
             <h1>OS-Security</h1>
             <p>(your private keys are kept in a super-secure HSM!)</p>
         </div>
     </div>
 
-    <ul class="nav justify-content-center">
-        <li class="nav-item">
-          <a class="nav-link active" href="{{ url_for('ref.student_getkey') }}">Get Key</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('ref.student_restorekey') }}">Restore Key</a>
-        </li>
-      </ul>
+    <div class="container mb-4">
+        <div class="row">
+            <div class="col-lg-6 col-md-9">
+                <ul class="nav nav-tabs justify-content-end">
+                    <li class="nav-item">
+                        <a class="nav-link {% if route_name == 'get_key' %} active {% endif %}" href="{{ url_for('ref.student_getkey') }}">Get Key</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if route_name == 'restore_key' %} active {% endif %}" href="{{ url_for('ref.student_restorekey') }}">Restore Key</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
 
     <div class="container">
-            {% block content %}{% endblock %}
-    <div>
-</div>
+        {% block content %}{% endblock %}
+    </div>
 
-
-
-
-<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-        integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
-        crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.3/umd/popper.min.js"
-        integrity="sha384-vFJXuSJphROIrBnz7yo7oB41mKfc8JzQZiCq4NCceLEaO4IHwicKwpJf9c9IpFgh"
-        crossorigin="anonymous"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js"
-        integrity="sha384-alpBpkh1PFOepccYVYDB4do5UnbKysX5WZXm3XxPqe5iKTfUKjNkCk9SaVuEZflJ"
-        crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/popper.js@1.12.6/dist/umd/popper.js" integrity="sha384-fA23ZRQ3G/J53mElWqVJEGJzU0sTs+SvzG8fXVWP+kJQ1lwFAOkcUOysnlKJC33U" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/bootstrap-material-design@4.1.1/dist/js/bootstrap-material-design.js" integrity="sha384-CauSuKpEqAFajSpkdjv3z9t8E7RlpJ1UP0lKM/+NdtSarroVKu069AlsRPKkFBz9" crossorigin="anonymous"></script>
+    <script>$(document).ready(function() { $('body').bootstrapMaterialDesign(); });</script>
 
     <!-- Disable mouswheel scrolling for number input fields -->
     <script>
