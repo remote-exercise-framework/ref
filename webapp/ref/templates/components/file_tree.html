@@ -1,0 +1,8 @@
+<ul class="list-group bmd-list-group-sm file-structure">
+    {% for file in files %}
+        <a class="list-group-item highlight load-file" href="{{ file_load_url }}" data-filename="{{ file['path'] }}">
+            <span class="text-rub-green">{% if not file['is_file'] %} &rsaquo; {% else %} &bull; {% endif %}</span>
+            {{ file['path'] }}
+        </a>
+    {% endfor %}
+</ul>

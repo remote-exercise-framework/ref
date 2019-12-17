@@ -6,6 +6,10 @@
     background-color: #17365c;
 }
 
+.text-rub-green {
+    color: #8dae25;
+}
+
 .public-banner {
     background:#17365c;
     color:#FFFFFF !important;
@@ -118,6 +122,16 @@ code {
 .custom-select:focus {
     border-color: #8dae25;
     box-shadow: none
+}
+
+.file-structure .list-group-item {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.file-structure .list-group-item :first-child {
+    margin-right: 10px;
+    font-size: 1rem;
 }
 
 /**
