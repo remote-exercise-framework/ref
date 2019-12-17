@@ -238,7 +238,7 @@ function up {
         export MAINTENANCE_ENABLED=1
     fi
 
-    docker-compose up $@
+    docker-compose -p ref up $@
 }
 
 function down {
