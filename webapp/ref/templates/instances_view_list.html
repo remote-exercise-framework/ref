@@ -43,6 +43,7 @@ Instances
                         <td>
                             <div class="btn-group">
                                 <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.instances_view_details', instance_id=i.id, next=request.path) }}">View</a>
+                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_review', instance_id=i.id, next=request.path) }}">Files</a>
                                 {% if i.new_exercise %}
                                     <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_update', instance_id=i.id, next=request.path) }}">Update</a>
                                 {% endif %}
