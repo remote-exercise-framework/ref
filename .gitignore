@@ -1,4 +1,4 @@
-docker-compose.*
+docker-compose*
 .env
 
 **/.vscode
