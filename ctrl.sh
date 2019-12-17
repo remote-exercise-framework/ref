@@ -242,28 +242,28 @@ function up {
 }
 
 function down {
-    docker-compose down
+    docker-compose -p ref down
 }
 
 function log {
-    docker-compose logs $@
+    docker-compose -p ref logs $@
 }
 
 function stop {
-    docker-compose stop
+    docker-compose -p ref stop
 }
 
 function restart {
-    docker-compose restart $@
+    docker-compose -p ref restart $@
 }
 
 function ps {
-    docker-compose ps $@
+    docker-compose -p ref ps $@
 }
 
 function flask-cmd {
     info "FLASK_APP=ref python3 -m flask $@"
-    docker-compose exec web bash -c "FLASK_APP=ref python3 -m flask $*"
+    docker-compose -p ref exec web bash -c "FLASK_APP=ref python3 -m flask $*"
 }
 
 function are_you_sure {
