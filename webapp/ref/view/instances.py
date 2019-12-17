@@ -235,9 +235,13 @@ def instance_review_load_file():
         except:
             return Response('Error while reading file', status=400)
 
+        # Determine file extension.
+        filename, file_extension = os.path.splitext(absolute_filename_path)
+
         response = {
             'type': 'file',
-            'content': content
+            'content': content,
+            'extension': file_extension
         }
 
     elif Path(absolute_filename_path).is_dir():
