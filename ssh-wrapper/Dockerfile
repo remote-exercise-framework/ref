@@ -32,9 +32,11 @@ COPY ssh-wrapper.py /usr/bin/ssh-wrapper.py
 COPY ssh-authorized-keys.py /usr/bin/ssh-authorized-keys.py
 RUN chmod 755 /usr/bin/ssh-authorized-keys.py
 
-#Server SSH keys
+#Server SSH keys + permissions
 COPY server-key/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key
 COPY server-key/ssh_host_rsa_key.pub /etc/ssh/ssh_host_rsa_key.pub
+RUN chmod 600 /etc/ssh/ssh_host_rsa_key
+RUN chmod 600 /etc/ssh/ssh_host_rsa_key.pub
 
 #Startscript
 COPY run-service.sh /home/sshserver/
