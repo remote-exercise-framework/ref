@@ -29,7 +29,11 @@
                 </div>
                 <div class="card-footer d-flex justify-content-between align-items-center">
                     <select class="custom-select" id="syntax-highlighting">
+                        <option value="plain_text">Plain Text</option>
+                        <option value="assembly_x86">Assembly</option>
+                        <option value="sh">Bash/Shell</option>
                         <option value="c_cpp">C/C++</option>
+                        <option value="makefile">Makefile</option>
                         <option value="python">Python</option>
                         <option value="yaml">YAML</option>
                     </select>
@@ -48,7 +52,18 @@
 
             var editor = ace.edit("editor");
             editor.setTheme("ace/theme/chrome");
-            editor.session.setMode("ace/mode/c_cpp");
+            editor.session.setMode("ace/mode/plain_text");
+
+            var extensionMapper = {
+                '.asm': 'assembly_x86',
+                '.c': 'c_cpp',
+                '.cpp': 'c_cpp',
+                '.h': 'c_cpp',
+                '.py': 'python',
+                '.sh': 'sh',
+                '.yaml': 'yaml',
+                '.yml': 'yaml',
+            }
 
             $(document).on('click', '.load-file', function () {
                 var fileName = $(this).data('filename'),
@@ -59,6 +74,16 @@
                         // Handle loaded file
                         $('#loaded-file').text(fileName);
                         editor.setValue(response.content);
+
+                        console.log(response.extension);
+
+                        var mode = extensionMapper[response.extension];
+                        if (!mode) {
+                            mode = 'plain_text';
+                        }
+
+                        editor.session.setMode('ace/mode/' + mode);
+                        $('select#syntax-highlighting').val(mode);
 
                     } else if (response.type == 'dir') {
                         // Handle loaded directory
