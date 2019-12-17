@@ -23,11 +23,14 @@ from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
                        Instance, User)
 from ref.model.enums import ExerciseBuildStatus
 from werkzeug.urls import url_parse
+from werkzeug.local import LocalProxy
 from wtforms import Form, IntegerField, SubmitField, validators
 
 lerr = lambda msg: current_app.logger.error(msg)
 linfo = lambda msg: current_app.logger.info(msg)
 lwarn = lambda msg: current_app.logger.warning(msg)
+
+log = LocalProxy(lambda: current_app.logger)
 
 def get_newest_exercise_version(exercise: Exercise):
     exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
@@ -190,23 +193,31 @@ def _get_file_list(dir_path, base_dir_path):
 
     return files
 
-@refbp.route('/admin/instances/review', methods = ['GET'])
+@refbp.route('/admin/instances/<int:instance_id>/review', methods = ['GET'])
 @admin_required
-def instance_review():
-    instance_directory = os.path.join(current_app.config['BASEDIR'], 'editor-example') # TODO: directory based on instance id
+def instance_review(instance_id):
+    instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
+    if instance is None:
+        return Response('Instance not existing', status=400)
+
+    instance_directory = instance.entry_service.overlay_merged
 
     files = _get_file_list(instance_directory, instance_directory)
 
-    title = 'Review Instance' # TODO: add instance name
-    file_load_url = '/admin/instances/review/load-file' # TODO: add instance id
-    save_url = '/admin/instances/review/save-file'
+    title = f'Review Instance ({instance_id})'
+    file_load_url = url_for('ref.instance_review_load_file', instance_id=instance_id)
+    save_url = url_for('ref.instance_review_save_file', instance_id=instance_id)
 
     return render_template('instances_review.html', title=title, files=files, file_load_url=file_load_url, save_url=save_url)
 
-@refbp.route('/admin/instances/review/load-file', methods = ['POST'])
+@refbp.route('/admin/instances/<int:instance_id>/review/load-file', methods = ['POST'])
 @admin_required
-def instance_review_load_file():
-    instance_directory = os.path.join(current_app.config['BASEDIR'], 'editor-example') # TODO: directory based on instance id
+def instance_review_load_file(instance_id):
+    instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
+    if instance is None:
+        return Response('Instance not existing', status=400)
+
+    instance_directory = instance.entry_service.overlay_merged
 
     # Determine filename from payload
     payload = request.values
@@ -215,13 +226,14 @@ def instance_review_load_file():
     if filename is None:
         return Response('', status=400)
 
+    # .resolve
     file_path_parts = filename.split('/')
     if file_path_parts[-1] == '..':
         filename = '/'.join(file_path_parts[:-2])
 
     absolute_filename_path = os.path.join(instance_directory, filename.strip('/'))
 
-    # Make sure that the absolute path is not outside of the instance directory
+    # Make sure that the absolute path is not outside of the instance directory TODO: make secure
     if not instance_directory in absolute_filename_path:
         return Response('', status=400)
 
@@ -247,7 +259,7 @@ def instance_review_load_file():
     elif Path(absolute_filename_path).is_dir():
         # If the current path belongs to a directory, determine all files in it
         files = _get_file_list(absolute_filename_path, instance_directory)
-        file_load_url = '/admin/instances/review/load-file' # TODO: add instance id
+        file_load_url = url_for('ref.instance_review_load_file', instance_id=instance_id)
 
         response = {
             'type': 'dir',
@@ -259,9 +271,15 @@ def instance_review_load_file():
 
     return Response(json.dumps(response), mimetype='application/json')
 
-@refbp.route('/admin/instances/review/save-file', methods = ['POST'])
+@refbp.route('/admin/instances/<int:instance_id>/review/save-file', methods = ['POST'])
 @admin_required
-def instance_review_save_file():
+def instance_review_save_file(instance_id):
+    instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
+    if instance is None:
+        return Response('Instance not existing', status=400)
+
+    instance_directory = instance.entry_service.overlay_merged
+
     # Get filename and content from payload
     payload = request.values
     filename = payload.get('filename', None)
@@ -271,12 +289,17 @@ def instance_review_save_file():
     if content is None or filename is None:
         return Response('Missing arguments', status=400)
 
-    absolute_filename_path = os.path.join(current_app.config['BASEDIR'], 'editor-example', filename.strip('/'))
+    absolute_filename_path = os.path.join(instance_directory, filename.strip('/'))
 
     if Path(absolute_filename_path).is_file():
-        # Write content to file if file exists
-        with open(absolute_filename_path, 'w') as f:
-            f.write(content)
+        try:
+            # Write content to file if file exists
+            with open(absolute_filename_path, 'w') as f:
+                f.write(content)
+        except Exception as e:
+            log.warning('Failed to save file', exc_info=True)
+            rendered_alert = render_template('components/alert.html', error_message=str(e))
+            return Response(rendered_alert, status=500)
 
     else:
         return Response('', status=400)

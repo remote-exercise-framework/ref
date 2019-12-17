@@ -43,6 +43,9 @@
                     <button class="btn btn-success" id="save-changes" data-url="{{ save_url }}">Save Changes</button>
                 </div>
             </div>
+
+            <div id="error-log"></div>
+
         </div>
     </div>
 
@@ -73,9 +76,7 @@
                     if (response.type == 'file') {
                         // Handle loaded file
                         $('#loaded-file').text(fileName);
-                        editor.setValue(response.content);
-
-                        console.log(response.extension);
+                        editor.setValue(response.content, -1);
 
                         var mode = extensionMapper[response.extension];
                         if (!mode) {
@@ -113,6 +114,9 @@
                     setTimeout(function () {
                         $('#saved-highlight').removeClass('show');
                     }, 1000);
+                })
+                .fail(function (error) {
+                    $('#error-log').html(error.responseText);
                 });
             });
         });
