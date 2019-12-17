@@ -46,6 +46,7 @@ RUN mkdir .ssh
 #Key used for authenticating at the spawned docker instances.
 COPY container-key/* .ssh/
 RUN chown -R sshserver:users .ssh
+RUN chmod 600 .ssh/*
 
 #Save siging key as file. This key is used to
 #sign requests from the ssh server to the web server.
