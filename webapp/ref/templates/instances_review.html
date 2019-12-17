@@ -13,12 +13,8 @@
                 <h4 class="card-header">
                     Instance files
                 </h4>
-                <div class="card-body">
-                    <ul class="list-group bmd-list-group-sm">
-                    {% for file_name in files %}
-                        <a class="list-group-item highlight load-file" href="{{ file_load_url }}" data-filename="{{ file_name }}">{{ file_name }}</a>
-                    {% endfor %}
-                    </ul>
+                <div class="card-body" id="file-tree">
+                    {% include 'components/file_tree.html' %}
                 </div>
             </div>
         </div>
@@ -54,13 +50,21 @@
             editor.setTheme("ace/theme/chrome");
             editor.session.setMode("ace/mode/c_cpp");
 
-            $('.load-file').click(function () {
+            $(document).on('click', '.load-file', function () {
                 var fileName = $(this).data('filename'),
                     url = $(this).attr('href');
 
-                $.post(url, { 'filename': fileName }, function (fileContent) {
-                    $('#loaded-file').text(fileName);
-                    editor.setValue(fileContent);
+                $.post(url, { 'filename': fileName }, function (response) {
+                    if (response.type == 'file') {
+                        // Handle loaded file
+                        $('#loaded-file').text(fileName);
+                        editor.setValue(response.content);
+
+                    } else if (response.type == 'dir') {
+                        // Handle loaded directory
+                        $('#file-tree').html(response.content);
+                    }
+
                 });
 
                 return false;

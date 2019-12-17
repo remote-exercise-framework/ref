@@ -6,6 +6,7 @@ import typing
 import urllib
 from collections import namedtuple
 from pathlib import Path
+import json
 
 import docker
 import yaml
@@ -167,15 +168,34 @@ def instance_delete(instance_id):
 
     return redirect_to_next()
 
+def _get_file_list(dir_path, base_dir_path):
+    files = []
+
+    # Append previous folder if dir_path is not the base_dir_path
+    if dir_path.strip('/') != base_dir_path.strip('/'):
+        relative_path = str(os.path.join(dir_path, '..')).replace(base_dir_path, '')
+        files.append({
+            'path': relative_path,
+            'is_file': False
+        })
+
+    # Iterate over all files and folders in the current dir_path
+    for path in Path(dir_path).glob('*'):
+        is_file = path.is_file()
+        relative_path = str(path).replace(base_dir_path, '')
+        files.append({
+            'path': relative_path,
+            'is_file': is_file
+        })
+
+    return files
+
 @refbp.route('/admin/instances/review', methods = ['GET'])
 @admin_required
 def instance_review():
     instance_directory = os.path.join(current_app.config['BASEDIR'], 'editor-example') # TODO: directory based on instance id
 
-    files = []
-    for path in Path(instance_directory).glob('*'):
-        relative_path = str(path).replace(instance_directory, '')
-        files.append(relative_path)
+    files = _get_file_list(instance_directory, instance_directory)
 
     title = 'Review Instance' # TODO: add instance name
     file_load_url = '/admin/instances/review/load-file' # TODO: add instance id
@@ -186,25 +206,75 @@ def instance_review():
 @refbp.route('/admin/instances/review/load-file', methods = ['POST'])
 @admin_required
 def instance_review_load_file():
+    instance_directory = os.path.join(current_app.config['BASEDIR'], 'editor-example') # TODO: directory based on instance id
+
+    # Determine filename from payload
     payload = request.values
-    filename = payload.get('filename')
-    absolute_filename_path = os.path.join(current_app.config['BASEDIR'], 'editor-example', filename.strip('/'))
+    filename = payload.get('filename', None)
 
-    content = None
-    with open(absolute_filename_path, 'r') as f:
-        content = f.read()
+    if filename is None:
+        return Response('', status=400)
 
-    return Response(content, mimetype='text/plain')
+    file_path_parts = filename.split('/')
+    if file_path_parts[-1] == '..':
+        filename = '/'.join(file_path_parts[:-2])
+
+    absolute_filename_path = os.path.join(instance_directory, filename.strip('/'))
+
+    # Make sure that the absolute path is not outside of the instance directory
+    if not instance_directory in absolute_filename_path:
+        return Response('', status=400)
+
+    response = None
+    if Path(absolute_filename_path).is_file():
+        # If the current path belongs to a file, return the file content.
+        content = None
+        try:
+            with open(absolute_filename_path, 'r') as f:
+                content = f.read()
+        except:
+            return Response('Error while reading file', status=400)
+
+        response = {
+            'type': 'file',
+            'content': content
+        }
+
+    elif Path(absolute_filename_path).is_dir():
+        # If the current path belongs to a directory, determine all files in it
+        files = _get_file_list(absolute_filename_path, instance_directory)
+        file_load_url = '/admin/instances/review/load-file' # TODO: add instance id
+
+        response = {
+            'type': 'dir',
+            'content': render_template('components/file_tree.html', files=files, file_load_url=file_load_url)
+        }
+
+    else:
+        return Response('', status=400)
+
+    return Response(json.dumps(response), mimetype='application/json')
 
 @refbp.route('/admin/instances/review/save-file', methods = ['POST'])
 @admin_required
 def instance_review_save_file():
+    # Get filename and content from payload
     payload = request.values
-    filename = payload.get('filename')
-    content = payload.get('content')
+    filename = payload.get('filename', None)
+    content = payload.get('content', None)
+
+    # If filename or content is missing, return 400 (Bad request)
+    if content is None or filename is None:
+        return Response('Missing arguments', status=400)
+
     absolute_filename_path = os.path.join(current_app.config['BASEDIR'], 'editor-example', filename.strip('/'))
 
-    with open(absolute_filename_path, 'w') as f:
-        f.write(content)
+    if Path(absolute_filename_path).is_file():
+        # Write content to file if file exists
+        with open(absolute_filename_path, 'w') as f:
+            f.write(content)
+
+    else:
+        return Response('', status=400)
 
     return Response(content, mimetype='text/plain')
