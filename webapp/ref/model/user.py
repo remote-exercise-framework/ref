@@ -5,14 +5,15 @@ from flask_bcrypt import generate_password_hash, check_password_hash
 from ref import db
 from flask_login import UserMixin
 from .util import CommonDbOpsMixin, ModelToStringMixin
+from sqlalchemy.orm import backref
 
 class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id', 'name']
     __tablename__ = 'user_group'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Text(), nullable=False)
+    name = db.Column(db.Text(), nullable=False, unique=True)
 
-    users = db.relationship('User', backref='group', lazy=False)
+    users = db.relationship('User', backref=backref('group'), lazy=False)
 
 class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     __to_str_fields__ = ['id', 'is_admin', 'first_name', 'surname', 'nickname']
@@ -26,10 +27,12 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     nickname = db.Column(db.Text(), nullable=False)
 
     #backref is group
-    group_id = db.Column(db.Integer, db.ForeignKey('user_group.id', ondelete='RESTRICT'), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('user_group.id'), nullable=True)
 
     password = db.Column(db.LargeBinary(), nullable=False)
     mat_num = db.Column(db.BigInteger, nullable=False, unique=True)
+    #mat_num = db.Column(db.Text(), nullable=False, unique=True)
+
     registered_date = db.Column(db.DateTime(), nullable=False)
     pub_key = db.Column(db.Text(), nullable=False)
     pub_key_ssh = db.Column(db.Text(), nullable=False)
