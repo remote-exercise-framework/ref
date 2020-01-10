@@ -1,5 +1,24 @@
 
 
+{% macro render_select_or_string_field(field, label_visible=true) -%}
+    {% if field.type != 'HiddenField' and label_visible %}
+        <label for="{{ field.id }}">{{ field.label }}</label>
+    {% endif %}
+
+    <input class="form-control" name="{{ field.id }}" type="text" value="{{ field.data }}" list="{{ field.id }}_list" />
+    <datalist id="{{ field.id }}_list">
+        {% for c in field.choices %}
+            <option>{{ c }}</option>
+        {% endfor %}
+    </datalist>
+
+    {% if field.errors %}
+        {% for e in field.errors %}
+            <div class="alert alert-danger" role="alert">{{ e }}</div>
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
 {% macro render_field(field, type, label_visible=true, placeholder='', readonly=False) -%}
     {% if readonly %}
         {% set readonly = 'readonly' %}

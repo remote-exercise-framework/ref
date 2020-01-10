@@ -333,14 +333,16 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return q.one_or_none()
 
     @staticmethod
-    def get_exercise(short_name, version):
+    def get_exercise(short_name, version, for_update=False):
         exercise = Exercise.query.filter(
             and_(
                 Exercise.short_name == short_name,
                 Exercise.version == version
                 )
         )
-        return exercise.first()
+        if for_update:
+            exercise.with_for_update()
+        return exercise.one_or_none()
 
     @staticmethod
     def get_exercises(short_name):

@@ -6,8 +6,16 @@ from ref import db
 from flask_login import UserMixin
 from .util import CommonDbOpsMixin, ModelToStringMixin
 
+class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
+    __to_str_fields__ = ['id', 'name']
+    __tablename__ = 'user_group'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.Text(), nullable=False)
+
+    users = db.relationship('User', backref='group', lazy=False)
+
 class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
-    __to_str_fields__ = ['id', 'is_admin', 'first_name', 'surname']
+    __to_str_fields__ = ['id', 'is_admin', 'first_name', 'surname', 'nickname']
 
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
@@ -15,6 +23,11 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
 
     first_name = db.Column(db.Text(), nullable=False)
     surname = db.Column(db.Text(), nullable=False)
+    nickname = db.Column(db.Text(), nullable=False)
+
+    #backref is group
+    group_id = db.Column(db.Integer, db.ForeignKey('user_group.id', ondelete='RESTRICT'), nullable=True)
+
     password = db.Column(db.LargeBinary(), nullable=False)
     mat_num = db.Column(db.BigInteger, nullable=False, unique=True)
     registered_date = db.Column(db.DateTime(), nullable=False)
