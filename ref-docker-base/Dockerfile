@@ -36,6 +36,10 @@ RUN apt install -y screen tmux
 RUN groupadd -g 9999 user && useradd -g 9999 -u 9999 -d /home/user -m -s /bin/bash user
 RUN groupadd -g 7799 admin && useradd -g 7799 -u 7799 -s /bin/false admin
 
+RUN groupadd -g 8001 admin0 && useradd -g 8001 -u 8001 -s /bin/false admin0
+RUN groupadd -g 8002 admin1 && useradd -g 8002 -u 8002 -s /bin/false admin1
+RUN groupadd -g 8003 admin2 && useradd -g 8003 -u 8003 -s /bin/false admin2
+
 RUN echo "user:user" | chpasswd
 
 RUN mkdir -p /run/sshd
