@@ -193,6 +193,8 @@ if [[ ! -d "./data/redis-db" || "$(stat -c '%u' './data/redis-db')" != "1001" ]]
     sudo chown 1001:1001 -R './data/redis-db'
 fi
 
+python generate-configs.py
+
 function build {
     #Build the base image for all exercises
     (
