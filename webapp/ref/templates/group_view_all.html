@@ -1,0 +1,41 @@
+{% extends "admin_base.html" %}
+
+{% block title %}
+Groups
+{% endblock %}
+
+{% block admin_content %}
+{% if groups %}
+    <div class="card">
+        <h4 class="card-header">
+            All Groups
+        </h4>
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th scope="col">#ID</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">#Users</th>
+                    <th scope="col"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in groups %}
+                <tr>
+                    <td scope="row">{{group.id}}</td>
+                    <td scope="row">{{group.name}}</td>
+                    <td scope="row">{{group.users|length}}</td>
+                    <td>
+                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.group_view_users', group_id=group.id, next=request.path) }}">Users</a>
+                        <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.group_delete', group_id=group.id, next=request.path) }}">Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <h6 class="text-center">No Data</h6>
+{% endif %}
+
+{% endblock %}

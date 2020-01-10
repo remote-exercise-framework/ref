@@ -302,7 +302,7 @@ class InstanceManager():
         #Store token inside container that can be used to authenticate requests
         #from the container to, e.g., web.
         signer = itsdangerous.Serializer(current_app.config['SECRET_KEY'])
-        token = {'instance_id': self.instance.user.id, 'container_id': container.id}
+        token = {'user_id': self.instance.user.id, 'container_id': container.id, 'instance_id': self.instance.id}
         signature = signer.dumps(token)
 
         add_token_cmd = f'bash -c "echo {signature} > /etc/auth_token && chmod 400 /etc/auth_token"'
