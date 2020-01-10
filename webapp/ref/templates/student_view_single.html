@@ -13,7 +13,13 @@ User Deatils
     <dt class="col-sm-3">Firstname</dt>
     <dd class="col-sm-9">{{ user.first_name }}</dd>
     <dt class="col-sm-3">Surname</dt>
-    <dd class="col-sm-9">{{ user.surname }}</dd>
+    <dd class="col-sm-9">{{ user.first_name }}</dd>
+    <dt class="col-sm-3">Nickname</dt>
+    <dd class="col-sm-9">{{ user.nickname }}</dd>
+    <dt class="col-sm-3">Group</dt>
+    {% if user.group %}
+    <dd class="col-sm-9">{{ user.group.name }} ({{ user.group.id }})</dd>
+    {% endif %}
     <dt class="col-sm-3">Matriculation Number</dt>
     <dd class="col-sm-9">{{ user.mat_num }}</dd>
     <dt class="col-sm-3">Course</dt>

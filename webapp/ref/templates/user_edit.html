@@ -7,7 +7,7 @@ User Edit
 
 {% block admin_content %}
 
-<form method="POST">
+<form autocomplete="off" method="POST">
         {{ form.csrf_token }}
     <div class="row">
         <div class="col-lg-6 col-md-9">
@@ -38,6 +38,17 @@ User Edit
                         {{ wtf_utils.render_field(form.surname, "text") }}
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(form.nickname, "text") }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        {{ wtf_utils.render_select_or_string_field(form.group_name) }}
+                    </div>
+                </div>
+
                 <div class="col-12">
                     <div class="form-group">
                         {{ wtf_utils.render_radio(form.course, vertical=True) }}

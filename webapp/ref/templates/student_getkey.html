@@ -17,7 +17,7 @@ function copy_text(id) {
 
 {% if form %}
 
-<form method="POST" action="#show-keys">
+<form autocomplete="off" method="POST" action="#show-keys">
     {{ form.csrf_token }}
     <div class="row">
         <div class="col-lg-6 col-md-9">
@@ -51,7 +51,17 @@ function copy_text(id) {
                     </div>
                 </div>
 
+                <div class="col-md-6">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(form.nickname, "text") }}
+                    </div>
+                    <div class="form-group">
+                        {{ wtf_utils.render_select_or_string_field(form.group_name) }}
+                    </div>
+                </div>
+
             </div>
+
 
             <div class="form-group">
                 {{ wtf_utils.render_radio(form.course, vertical=True) }}

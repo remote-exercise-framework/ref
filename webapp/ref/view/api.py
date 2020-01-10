@@ -6,6 +6,7 @@ import typing
 from collections import namedtuple
 from pathlib import Path
 import hashlib
+import re
 import docker
 import redis
 import rq
@@ -101,13 +102,23 @@ def api_provision():
         log.warning('Missing username')
         return error_response('Invalid request')
 
+    #Check if a specififc version was requested (admin only)
+    exercise_version = re.findall(r"(.*)-v([0-9]+)", exercise_name)
+
+    #Do we have a match?
+    if exercise_version and len(exercise_version[0]) == 2:
+        exercise_name = exercise_version[0][0]
+        exercise_version = exercise_version[0][1]
+    else:
+        exercise_version = None
+
     #The public key the user used to authenticate
     pubkey = content.get('pubkey')
     if not pubkey:
         log.warning('Missing pubkey')
         return error_response('Invalid request')
 
-    log.info(f'Request for exercise {exercise_name} for user {pubkey:32} was requested')
+    log.info(f'Request for exercise {exercise_name} version {exercise_version} for user {pubkey:32} was requested')
 
     #Try to lock all DB rows we are going to work with
     with retry_on_deadlock():
@@ -128,9 +139,13 @@ def api_provision():
             log.info('Failed to find exercise with requested name')
             return error_response('No such task')
 
-        #Get the default exercise for the requested exercise name
-        default_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
-        log.info(f'Default exercise for {exercise_name} is {default_exercise}')
+        if exercise_version and user.is_admin:
+            #Admin users are allowed to request instances of exercises that are not set as default
+            default_exercise = Exercise.get_exercise(exercise_name, exercise_version, for_update=True)
+        else:
+            #Get the default exercise for the requested exercise name
+            default_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
+            log.info(f'Default exercise for {exercise_name} is {default_exercise}')
 
         #Consistency check
         #Get the user instance of requested exercise name (if any). This might have a different version then the
@@ -148,8 +163,8 @@ def api_provision():
     """
     If the user has an instance of the default version of the exercise or one that is more recent
     (i.e., has an high version number than the default) we return it. In case the instance has
-    a lower version than the default, we fall through, since it needs to be updated. Furthermore,
-    if the user has no instance, we also continue to create one.
+    a lower version than the default, it will be updated below.
+    If the user has no instance we continue and create one.
     """
     if user_instance and (not default_exercise or user_instance.exercise == default_exercise or user_instance.exercise.version > default_exercise.version):
         log.info(f'User has an instance of the requested exercise: {user_instance}')

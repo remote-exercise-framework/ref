@@ -1,19 +1,34 @@
-from flask import Flask, render_template, Blueprint, redirect, url_for, request, Response, current_app
-from wtforms import Form, IntegerField, validators, SubmitField, RadioField, TextField, StringField, PasswordField, BooleanField
-from ref import refbp, db
-from ref.model import User
-from ref.core.util import redirect_to_next
-from ref.model.enums import CourseOfStudies
 import datetime
-from Crypto.PublicKey import RSA
-from itsdangerous import URLSafeTimedSerializer
-from ref.core import flash, admin_required
 import re
+
+from flask import (Blueprint, Flask, Response, current_app, redirect,
+                   render_template, request, url_for)
+from itsdangerous import URLSafeTimedSerializer
+
+from Crypto.PublicKey import RSA
+from ref import db, refbp
+from ref.core import admin_required, flash
+from ref.core.util import redirect_to_next
+from ref.model import User, UserGroup
+from ref.model.enums import CourseOfStudies
+from wtforms import (BooleanField, Form, IntegerField, PasswordField,
+                     RadioField, StringField, SubmitField, TextField,
+                     validators, SelectField)
 
 #mat_regex = r"^1080[0-2][0-9][1-2][0-9]{5}$"
 mat_regex = r"^[0-9]+$"
+group_regex = r"^[a-zA-Z0-9-_]+$"
 
 linfo = lambda msg: current_app.logger.info(msg)
+
+# class SelectOrStringField(StringField):
+
+#     def __init__(self, *args, **kwargs):
+#         if 'choices' in kwargs:
+#             self.choices = kwargs['choices']
+#             del kwargs['choices']
+#         super().__init__(self, *args, **kwargs)
+#         self.label = args[0]
 
 class EditUserForm(Form):
     id = IntegerField('ID')
@@ -24,6 +39,9 @@ class EditUserForm(Form):
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = StringField('Firstname', validators=[validators.DataRequired()])
     surname = StringField('Surname', validators=[validators.DataRequired()])
+    nickname = StringField('Nickname', validators=[validators.DataRequired()])
+    group_name = StringField('Group', validators=[validators.Optional(), validators.Regexp(group_regex)])
+
     password = PasswordField('Password')
     password_rep = PasswordField('Password (Repeat)')
     is_admin = BooleanField('Is Admin?')
@@ -39,6 +57,9 @@ class GetKeyForm(Form):
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = StringField('Firstname', validators=[validators.DataRequired()])
     surname = StringField('Surname', validators=[validators.DataRequired()])
+    nickname = StringField('Nickname', validators=[validators.DataRequired()])
+    group_name = StringField('Group', validators=[validators.Optional(), validators.Regexp(group_regex)])
+
     password = PasswordField('Password', validators=[validators.DataRequired()])
     password_rep = PasswordField('Password (Repeat)', validators=[validators.DataRequired()])
     submit = SubmitField('Get Key')
@@ -106,6 +127,11 @@ def student_getkey():
     for authentication to get access to the exercises.
     """
     form = GetKeyForm(request.form)
+
+    #Get valid group names
+    groups = UserGroup.all()
+    form.group_name.choices = [e.name for e in groups]
+
     pubkey = None
     privkey = None
     signed_mat = None
@@ -130,6 +156,14 @@ def student_getkey():
             student.mat_num = form.mat_num.data
             student.first_name = form.firstname.data
             student.surname = form.surname.data
+            student.nickname = form.nickname.data
+
+            group = UserGroup.query.filter(UserGroup.name == form.group_name.data).one_or_none()
+            if not group and form.group_name.data:
+                group = UserGroup()
+                group.name = form.group_name.data
+            student.group = group
+
             student.set_password(form.password.data)
             student.pub_key = pubkey
             student.pub_key_ssh = pubkey
@@ -210,6 +244,11 @@ def student_edit(user_id):
     Edit the user with the id user_id.
     """
     form = EditUserForm(request.form)
+
+    #Get valid group names
+    groups = UserGroup.all()
+    form.group_name.choices = [e.name for e in groups]
+
     user: User = User.query.filter(User.id == user_id).first()
     if not user:
         flash.error(f'Unknown user ID {user_id}')
@@ -227,6 +266,15 @@ def student_edit(user_id):
         user.course_of_studies = CourseOfStudies(form.course.data)
         user.first_name = form.firstname.data
         user.surname = form.surname.data
+        user.nickname = form.nickname.data
+
+        group = UserGroup.query.filter(UserGroup.name == form.group_name.data).one_or_none()
+        #Only create a group if the name was set
+        if not group and form.group_name.data:
+            group = UserGroup()
+            group.name = form.group_name.data
+        user.group = group
+
         if form.is_admin.data != user.is_admin:
             user.invalidate_session()
         user.is_admin = form.is_admin.data
@@ -240,6 +288,9 @@ def student_edit(user_id):
         form.course.data = user.course_of_studies.value
         form.firstname.data = user.first_name
         form.surname.data = user.surname
+        form.nickname.data = user.nickname
+        if user.group:
+            form.group_name.data = user.group.name
         form.is_admin.data = user.is_admin
         #Leave password empty
         form.password.data = ''
