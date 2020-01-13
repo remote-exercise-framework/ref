@@ -20,7 +20,7 @@ from werkzeug.local import LocalProxy, Local
 from ref.core import retry_on_deadlock
 from ref import db, refbp
 from ref.core import flash, ExerciseImageManager, InstanceManager, ExerciseManager
-from ref.model import ConfigParsingError, Exercise, Instance, User
+from ref.model import ConfigParsingError, Exercise, Instance, User, SystemSetting
 from ref.model.enums import ExerciseBuildStatus
 
 from itsdangerous import Serializer
@@ -296,3 +296,10 @@ def api_getuserinfo():
     else:
         log.info('User not found')
         return error_response("Failed to find user with given pubkey")
+
+@refbp.route('/api/header', methods=('GET', 'POST'))
+def api_get_header():
+    """
+    Returns the header that is display when a user connects.
+    """
+    return ok_response(SystemSetting.get_ssh_welcome_header())

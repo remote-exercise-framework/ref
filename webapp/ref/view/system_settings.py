@@ -19,12 +19,13 @@ from wtforms import (BooleanField, Form, IntegerField, PasswordField,
 log = LocalProxy(lambda: current_app.logger)
 
 class GroupSettings(Form):
-    group_size = IntegerField('Max. Group Size')
-    groups_enable = BooleanField('Groups Enabled')
+    group_size = IntegerField('Max. group size')
+    groups_enable = BooleanField('Groups enabled')
     submit = SubmitField('Save')
 
 class SshSettings(Form):
     welcome_header = TextField('SSH Welcome Header')
+    allow_none_default_provisioning = BooleanField('Allow admins to provision non default container')
     submit = SubmitField('Save')
 
 @refbp.route('/admin/system/settings/', methods=('GET', 'POST'))
