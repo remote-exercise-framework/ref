@@ -13,6 +13,8 @@ services:
       ports:
          - "${SSH_HOST_PORT:?SSH_HOST_PORT not set}:4444"
 {% endif %}
+      volumes:
+         - ./ssh-wrapper/ssh-wrapper.py:/usr/bin/ssh-wrapper.py:ro
       networks:
          - ssh-and-host
          - web-and-ssh
