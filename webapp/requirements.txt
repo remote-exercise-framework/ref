@@ -30,3 +30,4 @@ pytest-cov
 hypothesis
 pytest-watch
 pytest-testmon
+flask_failsafe
