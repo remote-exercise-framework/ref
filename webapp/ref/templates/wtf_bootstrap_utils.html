@@ -40,11 +40,11 @@
     {% endif %}
 {%- endmacro %}
 
-{% macro render_textarea(field, label_visible=true, rows=8) -%}
+{% macro render_textarea(field, label_visible=true, rows=8, style="") -%}
     {% if field.type != 'HiddenField' and label_visible %}
         <label for="{{ field.id }}">{{ field.label }}</label>
     {% endif %}
-    <textarea class="form-control" id="{{ field.id  }}" name="{{ field.id }}" rows="{{ rows }}">{{ field.data or "" }}</textarea>
+    <textarea class="form-control" id="{{ field.id  }}" name="{{ field.id }}" rows="{{ rows }}" style="{{ style }}" >{{ field.data or "" }}</textarea>
     {% if field.errors %}
         {% for e in field.errors %}
             <div class="alert alert-danger" role="alert">{{ e }}</div>

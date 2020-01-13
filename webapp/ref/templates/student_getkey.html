@@ -55,9 +55,11 @@ function copy_text(id) {
                     <div class="form-group">
                         {{ wtf_utils.render_field(form.nickname, "text") }}
                     </div>
+                {% if groups_enabled %}
                     <div class="form-group">
                         {{ wtf_utils.render_select_or_string_field(form.group_name) }}
                     </div>
+                {% endif %}
                 </div>
 
             </div>
