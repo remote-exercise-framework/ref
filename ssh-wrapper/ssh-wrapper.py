@@ -14,6 +14,22 @@ with open('/etc/request_key', 'rb') as f:
 
 CONTAINER_STARTUP_TIMEOUT = 10
 
+def get_header():
+    req = {
+    }
+
+    s = Serializer(SECRET_KEY)
+    req = s.dumps(req)
+    res = requests.post('http://web:8000/api/header', json=req)
+
+    try:
+        json = res.json()
+        return 200, json
+    except ValueError:
+        return 400, 'Missing JSON body'
+    except Exception:
+        return 400, 'Internal Error'
+
 def get_user_info(pubkey):
     req = {
         'pubkey': pubkey
@@ -82,15 +98,19 @@ def main():
 
     status_code, resp = get_user_info(pubkey)
     if status_code != 200:
-        if isinstance(repr, str):
+        if isinstance(resp, str):
             print(resp)
         else:
             print(resp['error'])
         exit(1)
 
     real_name = resp['name']
-    print(header, end='')
-    #print(header_title)
+    status_code, resp = get_header()
+    if status_code != 200:
+        print(f'Error: {resp}')
+        exit(1)
+    print(resp)
+
 
     print(f'Hello {real_name}!\nTrying to connect to task "{real_user}"...')
     status_code, resp = get_container(real_user, pubkey)

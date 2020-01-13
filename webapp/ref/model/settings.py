@@ -10,11 +10,16 @@ from enum import Enum
 from flask import current_app
 
 default_ssh_welcome_msg = """
-  ____  ____  ____                 _ __
- / __ \/ __/ / __/__ ______ ______(_) /___ __
+____  ____  ____                 _ __
+/ __ \/ __/ / __/__ ______ ______(_) /___ __
 / /_/ /\ \  _\ \/ -_) __/ // / __/ / __/ // /
 \____/___/ /___/\__/\__/\_,_/_/ /_/\__/\_, /
-                                      /___/"""
+                                    /___/"""
+
+class SystemSettingDefaults():
+    SSH_HEADER = default_ssh_welcome_msg
+    GROUP_SIZE = 2
+    GROUPS_ENABLED = False
 
 class SystemSettingKeys:
     GROUPS_ENABLED = 'GROUPS_ENABLED'
@@ -37,7 +42,10 @@ class SystemSetting(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     @staticmethod
     def get_user_groups_enabled() -> bool:
         is_enabled = SystemSetting.get_setting(SystemSettingKeys.GROUPS_ENABLED)
-        return is_enabled and is_enabled.value is True
+        if not is_enabled:
+            return SystemSettingDefaults.GROUPS_ENABLED
+        else:
+            return is_enabled.value
 
     @staticmethod
     def set_user_groups_enabled(enabled: bool):
@@ -54,7 +62,7 @@ class SystemSetting(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     def get_user_groups_size_limit() -> int:
         group_size = SystemSetting.get_setting(SystemSettingKeys.GROUP_SIZE)
         if group_size is None:
-            return None
+            return SystemSettingDefaults.GROUP_SIZE
         else:
             return group_size.value
 
@@ -73,7 +81,7 @@ class SystemSetting(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     def get_ssh_welcome_header() -> str:
         msg = SystemSetting.get_setting(SystemSettingKeys.SSH_WELCOME_MSG)
         if msg is None:
-            return default_ssh_welcome_msg
+            return SystemSettingDefaults.SSH_HEADER
         else:
             return msg.value
 
