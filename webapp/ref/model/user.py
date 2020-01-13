@@ -10,6 +10,7 @@ from sqlalchemy.orm import backref
 class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id', 'name']
     __tablename__ = 'user_group'
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text(), nullable=False, unique=True)
 

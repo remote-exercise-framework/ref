@@ -9,6 +9,46 @@ System Settings
 {% endblock %}
 
 {% block admin_content %}
+<div class="card">
+    <h4 class="card-header">
+    SSH Entry Server Settings
+    </h4>
+    <div class="card-body">
+        <form autocomplete="off" method="POST">
+            {{ ssh_settings.csrf_token }}
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        {{ wtf_utils.render_textarea(ssh_settings.welcome_header, style="font-family: monospace") }}
+                    </div>
+                </div>
+                {{ wtf_utils.render_submit(ssh_settings.submit) }}
+            </div>
+        </form>
+    </div>
+</div>
 
-
+<div class="card">
+    <h4 class="card-header">
+        Groups
+    </h4>
+    <div class="card-body">
+        <form autocomplete="off" method="POST">
+            {{ group_settings.csrf_token }}
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(group_settings.groups_enable, "checkbox") }}
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(group_settings.group_size, "number") }}
+                    </div>
+                </div>
+                {{ wtf_utils.render_submit(group_settings.submit) }}
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}

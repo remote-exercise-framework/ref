@@ -9,7 +9,7 @@ from Crypto.PublicKey import RSA
 from ref import db, refbp
 from ref.core import admin_required, flash
 from ref.core.util import redirect_to_next
-from ref.model import User, UserGroup
+from ref.model import User, UserGroup, SystemSetting
 from ref.model.enums import CourseOfStudies
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, StringField, SubmitField, TextField,
@@ -136,7 +136,9 @@ def student_getkey():
     privkey = None
     signed_mat = None
     student = None
-    render = lambda: render_template('student_getkey.html', route_name='get_key', form=form, student=student, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat)
+
+    groups_enabled = SystemSetting.get_user_groups_enabled()
+    render = lambda: render_template('student_getkey.html', route_name='get_key', form=form, student=student, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat, groups_enabled=groups_enabled)
 
     if form.submit.data and form.validate():
         student = User.query.filter(User.mat_num == form.mat_num.data).first()
@@ -158,10 +160,13 @@ def student_getkey():
             student.surname = form.surname.data
             student.nickname = form.nickname.data
 
-            group = UserGroup.query.filter(UserGroup.name == form.group_name.data).one_or_none()
-            if not group and form.group_name.data:
-                group = UserGroup()
-                group.name = form.group_name.data
+            if SystemSetting.set_user_groups_enabled():
+                group = UserGroup.query.filter(UserGroup.name == form.group_name.data).one_or_none()
+                if not group and form.group_name.data:
+                    group = UserGroup()
+                    group.name = form.group_name.data
+            else:
+                group = None
             student.group = group
 
             student.set_password(form.password.data)
