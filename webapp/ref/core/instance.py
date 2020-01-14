@@ -231,7 +231,9 @@ class InstanceManager():
 
         #Make the ssh server join the network
         log.info(f'connecting ssh server to network {self.instance.network_id}')
-        entry_to_ssh_network.connect(ssh_container)
+
+        #aliases makes the ssh_container available to other container through the hostname sshserver
+        entry_to_ssh_network.connect(ssh_container, aliases=['sshserver'])
 
         #Mounts of the entry services
         mounts = None

@@ -1,7 +1,7 @@
 FROM python:3.7
 MAINTAINER Nils Bars <nils.bars@rub.de>
 
-RUN apt update && apt install -y sudo gcc git autoconf zlib1g-dev libssl-dev build-essential valgrind netcat
+RUN apt update && apt install -y sudo gcc git autoconf zlib1g-dev libssl-dev build-essential valgrind netcat tinyproxy
 RUN mkdir -p /var/run/sshd
 
 RUN useradd -m -d /home/sshd -s /bin/bash sshd
@@ -40,6 +40,7 @@ RUN chmod 600 /etc/ssh/ssh_host_rsa_key.pub
 
 #Startscript
 COPY run-service.sh /home/sshserver/
+COPY tinyproxy.conf /home/sshserver/
 
 RUN mkdir .ssh
 
