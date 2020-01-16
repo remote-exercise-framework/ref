@@ -6,7 +6,11 @@ from werkzeug.local import LocalProxy
 import os
 import subprocess
 import shutil
+import binascii
 import datetime
+import re
+import base64
+import hashlib
 import itsdangerous
 from pathlib import Path
 
@@ -42,6 +46,8 @@ class InstanceManager():
 
         #Create the entry service
         entry_service = InstanceEntryService()
+        entry_service.is_submission = False
+        #Backref
         entry_service.instance = instance
 
         #Create the peripheral services
@@ -54,7 +60,8 @@ class InstanceManager():
             Path(instance.persistance_path),
             Path(entry_service.overlay_upper),
             Path(entry_service.overlay_work),
-            Path(entry_service.overlay_merged)
+            Path(entry_service.overlay_merged),
+            Path(entry_service.overlay_submission_lower)
         ]
         try:
             for d in dirs:
@@ -301,15 +308,23 @@ class InstanceManager():
         success = container.exec_run(add_key_cmd)
         log.info(f'Add ssh key ret={success}')
 
-        #Store token inside container that can be used to authenticate requests
-        #from the container to, e.g., web.
-        signer = itsdangerous.Serializer(current_app.config['SECRET_KEY'])
-        token = {'user_id': self.instance.user.id, 'container_id': container.id, 'instance_id': self.instance.id}
-        signature = signer.dumps(token)
+        #Writes the instance ID to /etc/instance_id, thus scripts running inside the container
+        #can use it when sending request to the web server.
+        add_id_cmd = f'bash -c "echo -n {self.instance.id} > /etc/instance_id && chmod 400 /etc/instance_id"'
+        success = container.exec_run(add_id_cmd)
+        log.info(f'Add id cmd={add_id_cmd} ret={success}')
 
-        add_token_cmd = f'bash -c "echo {signature} > /etc/auth_token && chmod 400 /etc/auth_token"'
-        success = container.exec_run(add_token_cmd)
-        log.info(f'Add token ret={success}')
+        #Get an instance specific key the can be used for request authentication.
+        instance_key = self.instance.get_key()
+
+        #Convert byte array to \xXX encoding, thus we can used it with echo
+        instance_key = re.findall('..', binascii.hexlify(instance_key).decode())
+        instance_key = ['\\x' + e for e in instance_key]
+        instance_key = "".join(instance_key)
+
+        add_key_cmd = f'bash -c "echo -en \'{instance_key}\' > /etc/key && chmod 400 /etc/key"'
+        success = container.exec_run(add_key_cmd)
+        log.info(f'Add key cmd={add_key_cmd} ret={success}')
 
         #Remove created container from 'none' network
         none_network = self.dc.network('none')
@@ -461,7 +476,7 @@ class InstanceManager():
             if os.path.exists(self.instance.persistance_path):
                 subprocess.check_call(f'sudo rm -rf {self.instance.persistance_path}', shell=True)
         except:
-            log.error(f'Error during removal of if instance {self.instance}')
+            log.error(f'Error during removal of instance {self.instance}')
             raise
 
         for service in self.instance.peripheral_services:

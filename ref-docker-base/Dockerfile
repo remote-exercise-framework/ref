@@ -27,9 +27,12 @@ RUN apt-mark hold gdb
 RUN apt install -y \
     net-tools \
     iproute2 \
-    iputils-ping
+    iputils-ping \
+    screen \
+    tmux \
+    sudo
 
-RUN pip3 install ipython
+RUN pip3 install ipython itsdangerous
 
 RUN apt install -y screen tmux
 
@@ -64,6 +67,18 @@ RUN chmod -x /etc/update-motd.d/* && rm /etc/legal
 #in case euid != uid.
 COPY my-shell.c /tmp/my-shell.c
 RUN gcc /tmp/my-shell.c -o /bin/sh && rm /tmp/my-shell.c
+
+#Install the reset script
+COPY _instance-cmds.py /usr/local/bin/_instance-cmds.py
+RUN chown root:root /usr/local/bin/_instance-cmds.py \
+    && chmod 700 /usr/local/bin/_instance-cmds.py
+
+#Allow user to reset the instance
+RUN echo "user ALL=(ALL) NOPASSWD: /usr/local/bin/_instance-cmds.py reset" >> /etc/sudoers
+
+#Script used to run the reset script
+RUN echo "sudo /usr/local/bin/_instance-cmds.py reset" > /usr/bin/instance-reset \
+    && chmod 555 /usr/bin/instance-reset
 
 CMD ["/usr/sbin/sshd", "-D"]
 

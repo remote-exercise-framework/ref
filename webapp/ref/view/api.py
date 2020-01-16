@@ -23,7 +23,7 @@ from ref.core import flash, ExerciseImageManager, InstanceManager, ExerciseManag
 from ref.model import ConfigParsingError, Exercise, Instance, User, SystemSetting
 from ref.model.enums import ExerciseBuildStatus
 
-from itsdangerous import Serializer
+from itsdangerous import Serializer, TimedSerializer
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -151,6 +151,8 @@ def api_provision():
         #Get the user instance of requested exercise name (if any). This might have a different version then the
         #default.
         user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name, user.exercise_instances))
+        #Do not provision submitted instances
+        user_instances = list(filter(lambda instance: not instance.is_submission, user_instances))
         if len(user_instances) > 1:
             log.error(f'User {user} has more then one instance of the same exercise')
             return error_response('Internal error, please notify the system administrator')
@@ -303,3 +305,105 @@ def api_get_header():
     Returns the header that is display when a user connects.
     """
     return ok_response(SystemSetting.get_ssh_welcome_header())
+
+
+def _sanitize_container_request(request, max_age=60) -> str:
+    """
+    Requests send by a container must have the following structure:
+    {
+        'instance_id': int #Used only for lookup to generate the key used for auth.
+        'data': { # Data signed using a key that is specific to instance_id
+            'instance_id': # Signed version of instance_id !!! MUST BE COMPARED TO THE OUTER instance_id !!!
+            ... # Request specific data
+        }
+    }
+    """
+
+    content = request.get_json(force=True, silent=True)
+    if not content:
+        log.warning('Got request without JSON body')
+        raise ('Request is missing JSON body')
+
+    if not isinstance(content, str):
+        log.warning(f'Invalid type {type(content)}')
+        raise Exception('Invalid request')
+
+    s = TimedSerializer(b"", salt='from-container-to-web')
+    try:
+        _, unsafe_content = s.loads_unsafe(content)
+    except:
+        log.warning(f'Failed to decode payload', exc_info=True)
+        raise Exception('Error during decoding')
+
+    #This instance ID (['instance_id']) is just used to calculate the signature (['data']),
+    #thus we do not have to iterate over all instance. After checking the signature,
+    #this id must be compared to signed one (['data']['instance_id']).
+    instance_id = unsafe_content.get('instance_id')
+    if instance_id is None:
+        log.warning('Missing instance_id')
+        raise Exception('Missing instance_id')
+
+    try:
+        instance_id = int(instance_id)
+    except:
+        log.warning(f'Failed to convert {instance_id} to int', exc_info=True)
+        raise Exception('Invalid instance ID')
+
+    instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
+    if not instance:
+        log.warning(f'Failed to find instance with ID {instance_id}')
+        raise Exception("Unable to find given instance")
+
+    instance_key = instance.get_key()
+
+    s = TimedSerializer(instance_key, salt='from-container-to-web')
+    try:
+        signed_content = s.loads(content, max_age=60)
+    except Exception as e:
+        log.warning(f'Invalid request', exc_info=True)
+        raise Exception('Invalid request')
+
+    return signed_content
+
+
+@refbp.route('/api/instance/reset', methods=('GET', 'POST'))
+def api_instance_reset():
+    """
+    Reset the instance with the given instance ID.
+    This function expects the following signed data structure:
+    {
+        'instance_id': <ID>
+    }
+    """
+    try:
+        content = _sanitize_container_request(request)
+    except Exception as e:
+        return error_response(str(e))
+
+    instance_id = content.get('instance_id')
+    try:
+        instance_id = int(instance_id)
+    except ValueError:
+        log.warning(f'Invalid instance id {instance_id}', exc_info=True)
+        return error_response('Invalid instance ID')
+
+    log.info(f'Got reset request for instance_id={instance_id}')
+
+    #Lock the instance and the user
+    with retry_on_deadlock():
+        instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
+        if not instance:
+            log.warning(f'Invalid instance id {instance_id}')
+            return error_response('Invalid request')
+
+        user = User.query.filter(User.id == instance.user.id).with_for_update().one_or_none()
+        if not user:
+            log.warning(f'Invalid user ID {instance.user.id}')
+            return error_response('Invalid request')
+
+    mgr = InstanceManager(instance)
+    mgr.stop()
+    mgr.remove()
+    current_app.db.session.commit()
+
+    return ok_response('OK')

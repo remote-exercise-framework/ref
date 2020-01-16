@@ -3,6 +3,8 @@ import enum
 import pickle
 import threading
 import time
+import hashlib
+import base64
 from io import BytesIO
 
 from sqlalchemy import and_, or_
@@ -107,6 +109,20 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         nullable=False)
 
     creation_ts = db.Column(db.DateTime(), nullable=True)
+
+    def get_key(self) -> bytes:
+        secret_key = current_app.config['SECRET_KEY']
+        instance_key = hashlib.sha256()
+        instance_key.update(secret_key.encode())
+        instance_key.update(str(self.id).encode())
+        instance_key = instance_key.digest()
+        return instance_key
+
+    def is_submission(self):
+        """
+        Whether this is a submitted instance (a solution submitted by a user)
+        """
+        return self.entry_service.is_submission
 
     @property
     def long_name(self):
