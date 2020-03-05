@@ -37,7 +37,7 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     registered_date = db.Column(db.DateTime(), nullable=False)
     pub_key = db.Column(db.Text(), nullable=False)
     pub_key_ssh = db.Column(db.Text(), nullable=False)
-    priv_key = db.Column(db.Text(), nullable=False)
+    priv_key = db.Column(db.Text(), nullable=True)
     course_of_studies = db.Column(db.Enum(CourseOfStudies), nullable=True)
 
     is_admin = db.Column(db.Boolean(), nullable=False)

@@ -12,9 +12,9 @@ args=""
 if [[ "$DEBUG" == "1" || "$TESTING" == "1" ]]; then
 
     #--py-autoreload=1 --- Check every second if any python file changed
-    uwsgi --http :8000 --master --py-autoreload=1 --processes 4 --manage-script-name --mount "/=ref:create_app()" $args
+    uwsgi --http :8000 --disable-logging --master --py-autoreload=1 --processes 4 --manage-script-name --mount "/=ref:create_app()" $args
 else
-    uwsgi --http :8000 --master --processes 4 --manage-script-name --mount "/=ref:create_app()" --logger file:logfile=/data/log/uwsgi.log,maxsize=33554432 $args
+    uwsgi --http :8000 --disable-logging --master --processes 4 --manage-script-name --mount "/=ref:create_app()" --logger file:logfile=/data/log/uwsgi.log,maxsize=33554432 $args
 fi
 
 # if [[ -z "$DEBUG" || "$DEBUG" == "0" ]]; then
