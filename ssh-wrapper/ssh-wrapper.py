@@ -1,5 +1,11 @@
 #!/usr/bin/env python3.7
 
+"""
+This script is executed each time a SSH connection is successfully established
+to the SSH server. The main task of this script is to determine the IP address
+of the task container of the connected user. 
+"""
+
 import os
 import time
 import socket
@@ -9,6 +15,7 @@ sys.path.append('/usr/local/lib/python3.7/site-packages')
 import requests
 from itsdangerous import Serializer
 
+#Secret used to sign messages send from the SSH server to the webserver
 with open('/etc/request_key', 'rb') as f:
     SECRET_KEY = f.read()
 
@@ -65,20 +72,6 @@ def get_container(username, pubkey):
     except Exception:
         return 400, 'Internal Error'
 
-
-
-header = """
-  ____  ____  ____                 _ __      
- / __ \/ __/ / __/__ ______ ______(_) /___ __
-/ /_/ /\ \  _\ \/ -_) __/ // / __/ / __/ // /
-\____/___/ /___/\__/\__/\_,_/_/ /_/\__/\_, / 
-                                      /___/  
-"""
-
-header_title = """
-Time wasted debugging: 13h 43m 11s
-"""
-
 def main():
     #The username that was provided by the client as login name.
     real_user = os.environ['REAL_USER']
@@ -92,9 +85,6 @@ def main():
     with open(user_auth_path, 'r') as f:
         pubkey = f.read()
         pubkey = " ".join(pubkey.split(' ')[1:]).rstrip()
-
-    # print(f"User {real_user} logged in.")
-    # print(f"Pubkey={pubkey}")
 
     status_code, resp = get_user_info(pubkey)
     if status_code != 200:
@@ -122,20 +112,13 @@ def main():
             print(resp['error'])
         exit(1)
 
-    #print('Requesting IP', flush=True)
     ip = resp['ip']
-    #print(f'Got IP {ip}', flush=True)
-
-    #print(f'SSH_ORIGINAL_COMMAND={os.environ.get("SSH_ORIGINAL_COMMAND")}', flush=True)
-
     cmd = ['/usr/bin/ssh', '-t', '-o', ' StrictHostKeyChecking=no', '-i', '/home/sshserver/.ssh/container-key', '-p', '13370', '-l', 'user', ip]
 
+    #Cmd provided by the client
     ssh_cmd = os.environ.get("SSH_ORIGINAL_COMMAND")
+    #Cmd used if nothing was provided
     default_cmd = resp['cmd']
-
-    #In previous versions cmd was a string, thus, convert it to a list.
-    if isinstance(default_cmd, str):
-        default_cmd = default_cmd.split(' ')
 
     if ssh_cmd:
         cmd += [ssh_cmd]
@@ -147,6 +130,7 @@ def main():
     result = None
     while (time.time() - start_ts) < CONTAINER_STARTUP_TIMEOUT:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #returns errno
         result = sock.connect_ex((str(ip), 13370))
         sock.close()
         if result == 0:

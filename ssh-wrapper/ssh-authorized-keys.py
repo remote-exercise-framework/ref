@@ -13,6 +13,7 @@ sys.path.append('/usr/local/lib/python3.7/site-packages')
 import requests
 from itsdangerous import Serializer
 
+#Key used to sign messages send to the webserver
 with open('/etc/request_key', 'rb') as f:
     SECRET_KEY = f.read()
 
@@ -33,6 +34,7 @@ def get_public_keys(username):
 def main():
     keys = get_public_keys("NotUsed")
 
+    #OpenSSH expects the keys to be printed to stdout
     for k in keys:
         print(k)
 
