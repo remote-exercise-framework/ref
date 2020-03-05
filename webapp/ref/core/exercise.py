@@ -77,7 +77,7 @@ class ExerciseManager():
         try:
             with open(path, 'r') as f:
                 cfg = f.read()
-            cfg = yaml.load(cfg)
+            cfg = yaml.unsafe_load(cfg)
         except Exception as e:
             raise ExerciseConfigError(str(e))
 
