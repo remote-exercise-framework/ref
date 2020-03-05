@@ -110,19 +110,19 @@ fi
 if ! has_binary "kpatch" || ! has_binary "kpatch-build"; then
     warning "kpatch or kpatch-build are not installed but are required for disabling"
     warning "ASLR on a per exercise basis. See aslr-patch for further instructions."
-    exit 1
+
+else
+    pushd aslr-patch
+    set +e
+    ./enable.sh
+    if [[ $? != 0 ]]; then
+        warning "Failed to load ASLR patch."
+        warning "Disabling ASLR for setuid binaries will not work..."
+    fi
+    set -e
+    popd
 fi
 
-old_pwd="$(pwd)"
-cd aslr-patch
-set +e
-./enable.sh
-if [[ $? != 0 ]]; then
-    warning "Failed to load ASLR patch."
-    warning "Disabling ASLR for setuid binaries will not work..."
-fi
-set -e
-cd "$old_pwd"
 
 #Check the .env files used to parametrize the docker-compose file.
 
@@ -138,7 +138,8 @@ if [[ -z "$DOCKER_GROUP_ID" ]]; then
 fi
 
 if [[ "$(getent group docker | cut -d ':' -f 3)" != "$DOCKER_GROUP_ID" ]]; then
-    error "DOCKER_GROUP_ID in .env does not match the local docker group ID"
+    error "DOCKER_GROUP_ID in .env does not match the local docker group ID."
+    error "Use the id command to get the correct group ID."
     exit 1
 fi
 
@@ -189,6 +190,7 @@ fi
 
 
 if [[ ! -d "./data/redis-db" || "$(stat -c '%u' './data/redis-db')" != "1001" ]]; then
+    info "=> Fixing redis DB permissinos, requesting super user access..."
     sudo mkdir -p './data/redis-db'
     sudo chown 1001:1001 -R './data/redis-db'
 fi
@@ -264,7 +266,7 @@ function ps {
 }
 
 function flask-cmd {
-    info "FLASK_APP=ref python3 -m flask $@"
+    info "FLASK_APP=ref python3 -m flask $*"
     docker-compose -p ref exec web bash -c "FLASK_APP=ref python3 -m flask $*"
 }
 

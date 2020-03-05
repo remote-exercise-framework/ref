@@ -23,6 +23,9 @@ class ReleaseConfig(object):
 
     ADMIN_PASSWORD = os.environ['ADMIN_PASSWORD']
 
+    HOSTNAME = os.environ['HOSTNAME']
+    SSH_HOST_PORT = os.environ['SSH_HOST_PORT']
+
     #NOTE: This name must be adapated if the name of the ssh server is changed
     #or the parent directory of the docker-compose.yml file is renamed.
     SSHSERVER_CONTAINER_NAME = None # 'remote-exercises-framework_sshserver_1'
