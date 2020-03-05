@@ -11,15 +11,16 @@ from ref.core import admin_required, flash
 from ref.core.util import redirect_to_next
 from ref.model import User, UserGroup, SystemSetting
 from ref.model.enums import CourseOfStudies
+from werkzeug.local import LocalProxy
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, StringField, SubmitField, TextField,
-                     validators, SelectField)
+                     validators, SelectField, ValidationError)
 
 #mat_regex = r"^1080[0-2][0-9][1-2][0-9]{5}$"
 mat_regex = r"^[0-9]+$"
 group_regex = r"^[a-zA-Z0-9-_]+$"
 
-linfo = lambda msg: current_app.logger.info(msg)
+log = LocalProxy(lambda: current_app.logger)
 
 # class SelectOrStringField(StringField):
 
@@ -30,11 +31,34 @@ linfo = lambda msg: current_app.logger.info(msg)
 #         super().__init__(self, *args, **kwargs)
 #         self.label = args[0]
 
+def validate_matriculation_number(form, field):
+    """
+    Checksums matriculation number. Raises ValidationError if not a valid matriculation number.
+    """
+    if not field.data.startswith("1080"):
+        log.info(f"Not a valid RUB matriculation number {field.data}")
+        return
+    if len(field.data) != 12:
+        log.info(f"Matriculation number has less than 12 characters.")
+        raise ValidationError('Matriculation number must have 12 characters')
+    checksum = 0
+    for i in range(10 + 1):
+        tmp = int(field.data[i]) + 1
+        tmp *= ((i + 1) % 3) + 1
+        tmp -= 1 if tmp > 10 else 0
+        tmp -= 1 if tmp > 20 else 0
+        checksum += tmp
+    checksum_str = str(checksum % 10)
+    if field.data[-1] != checksum_str:
+        log.info(f"Invalid matriculation number {field.data} - checksum is {checksum_str}")
+        raise ValidationError('Invalid matriculation number: checksum failure')
+
 class EditUserForm(Form):
     id = IntegerField('ID')
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
-        validators.Regexp(mat_regex)
+        validators.Regexp(mat_regex),
+        validate_matriculation_number
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = StringField('Firstname', validators=[validators.DataRequired()])
@@ -52,7 +76,8 @@ class EditUserForm(Form):
 class GetKeyForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
-        validators.Regexp(mat_regex)
+        validators.Regexp(mat_regex),
+        validate_matriculation_number
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = StringField('Firstname', validators=[validators.DataRequired()])
@@ -67,7 +92,8 @@ class GetKeyForm(Form):
 class RestoreKeyForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
-        validators.Regexp(mat_regex)
+        validators.Regexp(mat_regex),
+        validate_matriculation_number
         ])
     password = PasswordField('Password (The password used during first retrieval)', validators=[validators.DataRequired()])
     submit = SubmitField('Restore')
