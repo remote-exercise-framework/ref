@@ -86,6 +86,28 @@ Commands:
 EOF
 }
 
+function docker_subnet_warning {
+txt_yellow
+txt_bold
+cat <<EOF
+You should consider adding more subnets to docker, thus
+we are able to create enough instances of each task.
+
+cat /etc/docker/daemon.json 
+{
+        "default-address-pools":[
+                {"base":"172.80.0.0/16","size":24},
+                {"base":"172.81.0.0/16","size":24},
+                {"base":"172.82.0.0/16","size":24},
+                {"base":"172.83.0.0/16","size":24},
+                {"base":"172.84.0.0/16","size":24}
+        ]
+}
+EOF
+txt_reset
+echo ""
+}
+
 function has_binary {
     command -v $1 >/dev/null 2>&1
     return $?
@@ -107,10 +129,15 @@ if ! has_binary docker-compose; then
     exit 1
 fi
 
+if ! has_binary jq; then
+    error "Please install jq"
+    exit 1
+fi
+
 if ! has_binary "kpatch" || ! has_binary "kpatch-build"; then
     warning "kpatch or kpatch-build are not installed but are required for disabling"
     warning "ASLR on a per exercise basis. See aslr-patch for further instructions."
-
+    echo ""
 else
     pushd aslr-patch
     set +e
@@ -194,6 +221,18 @@ if [[ ! -d "./data/redis-db" || "$(stat -c '%u' './data/redis-db')" != "1001" ]]
     sudo mkdir -p './data/redis-db'
     sudo chown 1001:1001 -R './data/redis-db'
 fi
+
+#Check whether we have enough docker subnets configured.
+if [[ ! -f "/etc/docker/daemon.json" ]]; then
+    docker_subnet_warning
+else
+    #FIXME: Just counting the number of configured nets, not their size
+    net_cnt="$(cat /etc/docker/daemon.json | jq '."default-address-pools"' | grep base | wc -l)"
+    if [[ $net_cnt -lt 4 ]]; then
+        docker_subnet_warning
+    fi
+fi
+
 
 python generate-configs.py
 
