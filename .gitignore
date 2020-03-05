@@ -9,3 +9,8 @@ docker-compose*
 rq-worker
 
 data
+
+webapp/.coverage
+webapp/.testmondata
+webapp/htmlcov/
+
