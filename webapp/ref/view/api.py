@@ -20,7 +20,7 @@ from werkzeug.local import LocalProxy, Local
 from ref.core import retry_on_deadlock
 from ref import db, refbp
 from ref.core import flash, ExerciseImageManager, InstanceManager, ExerciseManager
-from ref.model import ConfigParsingError, Exercise, Instance, User, SystemSetting
+from ref.model import ConfigParsingError, Exercise, Instance, User, SystemSetting, SystemSettingsManager
 from ref.model.enums import ExerciseBuildStatus
 
 from itsdangerous import Serializer, TimedSerializer
@@ -36,6 +36,14 @@ def ok_response(msg):
     return make_response(msg, 200)
 
 def start_and_return_instance(instance: Instance):
+    """
+    Returns the ip and default command (that should be executed on connect) of the given instance.
+    In case the instance is not running, it is started.
+    In case some operation fails, the function returns a description of the error
+    using error_response().
+    """
+    log.info('Start for instance {instance} was requested.')
+
     #Check if the instances exercise image is build
     if not ExerciseImageManager(instance.exercise).is_build():
         log.error(f'User {instance.user} has an instance ({instance}) of an exercise that is not build. Possibly someone deleted the docker image?')
@@ -49,7 +57,7 @@ def start_and_return_instance(instance: Instance):
     try:
         ip = instance_manager.get_entry_ip()
     except:
-        log.error('Failed to get IP of container, stopping new instance')
+        log.error('Failed to get IP of container, stopping instance')
         instance_manager.stop()
         raise
 
@@ -62,20 +70,56 @@ def start_and_return_instance(instance: Instance):
 
     return ok_response(resp)
 
+def handle_instance_introspection_request(exercise_name, pubkey):
+    """
+    Handeles deploy request that are targeting a specific instances.
+    This feature allows, e.g., admin users to connect to an arbitrary
+    instance using 'instance-<INSTANCE_ID>' as exercise name during
+    authentication.
+    On error an 'Exception' is raised containing a string that can be provided
+    to the requesting user as error message.
+    """
+    #The ID of the requested instance
+    instance_id = re.findall(r"^instance-([0-9]+)", exercise_name)
+    try:
+        instance_id = int(instance_id[0])
+    except:
+        log.warning(f'Invalid instance ID {instance_id}', exc_info=True)
+        raise Exception('Invalid request')
+
+    #Make sure nobody messes with the instance or requesting user.
+    with retry_on_deadlock():
+        instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
+        user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
+
+    if not user:
+        log.warning(f'Unknown with pubkey={pubkey}')
+        raise Exception('Invalid user')
+
+    if not SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value:
+        m = f'Instance SSH introspection is disabled!'
+        log.warning(m)
+        raise Exception(m)
+
+    if not user.is_admin:
+        log.warning(f'Only admins are allowed to request specific instances')
+        raise Exception('Insufficient permissions')
+
+    if not instance:
+        log.warning(f'Invalid instance_id={instance_id}')
+        raise Exception('Invalid instance ID')
+
+    return start_and_return_instance(instance)
+
 @refbp.route('/api/provision', methods=('GET', 'POST'))
 def api_provision():
     """
     Request a instance of a specific exercise for a certain user.
     This endpoint is called by the SSH entry server and is used to
-    decide how an incoming connection should be redirected, .i.e.,
-    getting the IP address of the container the belongs to the requesting
-    user.
-    This functions locks the following database rows:
-        - The requesting user
-        - The default exercise (read?)
-    In case of an update, in addition:
-        - The old user instance
-        - 
+    decide how an incoming connection should be handeled. This means basically
+    to decide whether it is necessary to create a new instance for the user,
+    or if he already has one to which the connection just needs to be forwarded.
+    This function might be called concurrently.
     """
     content = request.get_json(force=True, silent=True)
     if not content:
@@ -96,11 +140,26 @@ def api_provision():
 
     #Parse request args
 
+    #The public key the user used to authenticate
+    pubkey = content.get('pubkey')
+    if not pubkey:
+        log.warning('Missing pubkey')
+        return error_response('Invalid request')
+
     #The user name used for authentication
     exercise_name = content.get('username')
     if not exercise_name:
         log.warning('Missing username')
         return error_response('Invalid request')
+
+    log.info(f'Got request from pubkey={pubkey:32}, exercise_name={exercise_name}')
+
+    #Check whether a admin requested access to a specififc instance
+    if exercise_name.startswith('instance-'):
+        try:
+            return handle_instance_introspection_request(exercise_name, pubkey)
+        except Exception as e:
+            return error_response(str(e))
 
     #Check if a specififc version was requested (admin only)
     exercise_version = re.findall(r"(.*)-v([0-9]+)", exercise_name)
@@ -108,17 +167,18 @@ def api_provision():
     #Do we have a match?
     if exercise_version and len(exercise_version[0]) == 2:
         exercise_name = exercise_version[0][0]
-        exercise_version = exercise_version[0][1]
+        try:
+            exercise_version = int(exercise_version[0][1])
+        except ValueError:
+            log.warning(f'Invalid version number', exc_info=True)
+            return error_response('Invalid request')
     else:
         exercise_version = None
-
-    #The public key the user used to authenticate
-    pubkey = content.get('pubkey')
-    if not pubkey:
-        log.warning('Missing pubkey')
-        return error_response('Invalid request')
-
     log.info(f'Request for exercise {exercise_name} version {exercise_version} for user {pubkey:32} was requested')
+
+    if exercise_version is not None and not SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value:
+        log.warning('None default provisioning is disabled')
+        return error_response('None default provisioning is disabled')
 
     #Try to lock all DB rows we are going to work with
     with retry_on_deadlock():
@@ -139,28 +199,31 @@ def api_provision():
             log.info('Failed to find exercise with requested name')
             return error_response('No such task')
 
-        if exercise_version and user.is_admin:
+        if exercise_version is not None and user.is_admin:
             #Admin users are allowed to request instances of exercises that are not set as default
-            default_exercise = Exercise.get_exercise(exercise_name, exercise_version, for_update=True)
+            requested_exercise = Exercise.get_exercise(exercise_name, exercise_version, for_update=True)
+            if not requested_exercise:
+                return error_response('Requested exercise does not exist!')
+        elif exercise_version is not None:
+            return error_response('Only admins are allowed to request a specific version')
         else:
             #Get the default exercise for the requested exercise name
-            default_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
-            log.info(f'Default exercise for {exercise_name} is {default_exercise}')
+            requested_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
+            log.info(f'Default exercise for {exercise_name} is {requested_exercise}')
+            if not requested_exercise:
+                return error_response('There is no active default for the requested exercise')
 
-        #Consistency check
-        #Get the user instance of requested exercise name (if any). This might have a different version then the
+        #Get the user instance of requested exercise_name (if any). This might have a different version then the
         #default.
         user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name, user.exercise_instances))
-        #Do not provision submitted instances
-        user_instances = list(filter(lambda instance: not instance.is_submission, user_instances))
-        if len(user_instances) > 1:
-            log.error(f'User {user} has more then one instance of the same exercise')
-            return error_response('Internal error, please notify the system administrator')
+        for i in range(0, len(user_instances)):
+            user_instances[i] = user_instances[i].refresh(lock=True)
 
-        user_instance = None
-        if user_instances:
-            user_instance = user_instances[0]
-            user_instance = user_instance.refresh(lock=True)
+    #user_instances contains all instance of the requested exercise_name (if any)
+
+    #Do not provision submitted instances
+    #FIXME: Implement
+    #user_instances = list(filter(lambda instance: not instance.is_submission, user_instances))
 
     """
     If the user has an instance of the default version of the exercise or one that is more recent
@@ -168,7 +231,20 @@ def api_provision():
     a lower version than the default, it will be updated below.
     If the user has no instance we continue and create one.
     """
-    if user_instance and (not default_exercise or user_instance.exercise == default_exercise or user_instance.exercise.version > default_exercise.version):
+
+    user_instance = None
+    if exercise_version is not None:
+        #The user requested a specific version
+        user_instances = list(filter(lambda i: i.exercise.version == exercise_version, user_instances))
+    else:
+        #Get instance with same version or newer than the default
+        user_instances = list(filter(lambda e: e.exercise == requested_exercise or e.exercise.version > requested_exercise.version, user_instances))
+
+    if user_instances:
+        user_instance = user_instances[0]
+
+    if user_instance and (exercise_version is not None or (user_instance.exercise.version >= requested_exercise.version)):
+        #We let instance with lower version number fallthrough, thus they get updated down below
         log.info(f'User has an instance of the requested exercise: {user_instance}')
         try:
             ret = start_and_return_instance(user_instance)
@@ -177,34 +253,31 @@ def api_provision():
         except:
             raise
 
-    '''
+    """
     If we are here, one of the following statements is true:
-        1. The user has no instance of the requested exercise or
+        1. The user has no instance of the requested exercise (user_instance is None)
         2. The user has an instance, but it is older then the current default version.
-    '''
+    """
 
-    if not default_exercise:
-        return error_response('There is no active default for the requested exercise')
-
-    if not ExerciseImageManager(default_exercise).is_build():
-        log.error(f'Exercise {default_exercise} is marked as default, but is not build! Possibly someone deleted the docker image?')
+    if not ExerciseImageManager(requested_exercise).is_build():
+        log.error(f'Exercise {requested_exercise} is marked as default, but is not build! Possibly someone deleted the docker image?')
         return error_response('Internal error, please notify the system administrator')
 
     new_instance = None
     if user_instance:
         #The user has an older version of the exercise, upgrade it.
         old_instance = user_instance
-        log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {default_exercise}')
+        log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {requested_exercise}')
         mgr = InstanceManager(old_instance)
         try:
-            new_instance = mgr.update_instance(default_exercise)
+            new_instance = mgr.update_instance(requested_exercise)
         except:
             raise
     else:
         #The user has no instance of the exercise, create a new one.
-        log.info(f'User has no instance of exercise {default_exercise}, creating one...')
+        log.info(f'User has no instance of exercise {requested_exercise}, creating one...')
         try:
-            new_instance = InstanceManager.create_instance(user, default_exercise)
+            new_instance = InstanceManager.create_instance(user, requested_exercise)
         except:
             raise
 
@@ -304,7 +377,7 @@ def api_get_header():
     """
     Returns the header that is display when a user connects.
     """
-    return ok_response(SystemSetting.get_ssh_welcome_header())
+    return ok_response(SystemSettingsManager.SSH_WELCOME_MSG.value)
 
 
 def _sanitize_container_request(request, max_age=60) -> str:

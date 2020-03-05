@@ -9,7 +9,7 @@ from Crypto.PublicKey import RSA
 from ref import db, refbp
 from ref.core import admin_required, flash
 from ref.core.util import redirect_to_next
-from ref.model import User, UserGroup, SystemSetting
+from ref.model import User, UserGroup, SystemSettingsManager
 from ref.model.enums import CourseOfStudies
 from werkzeug.local import LocalProxy
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
@@ -53,6 +53,12 @@ def validate_matriculation_number(form, field):
         log.info(f"Invalid matriculation number {field.data} - checksum is {checksum_str}")
         raise ValidationError('Invalid matriculation number: checksum failure')
 
+def validate_pubkey(form, field):
+    try:
+        key = RSA.importKey(field.data)
+    except:
+        raise ValidationError('Invalid Public-Key.')
+
 class EditUserForm(Form):
     id = IntegerField('ID')
     mat_num = StringField('Matriculation Number', validators=[
@@ -87,6 +93,9 @@ class GetKeyForm(Form):
 
     password = PasswordField('Password', validators=[validators.DataRequired()])
     password_rep = PasswordField('Password (Repeat)', validators=[validators.DataRequired()])
+
+    pubkey = StringField('Public-Key (if empty, a key-pair is generated for you)', validators=[validators.Optional(), validate_pubkey])
+
     submit = SubmitField('Get Key')
 
 class RestoreKeyForm(Form):
@@ -163,7 +172,7 @@ def student_getkey():
     signed_mat = None
     student = None
 
-    groups_enabled = SystemSetting.get_user_groups_enabled()
+    groups_enabled = SystemSettingsManager.GROUPS_ENABLED.value
     render = lambda: render_template('student_getkey.html', route_name='get_key', form=form, student=student, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat, groups_enabled=groups_enabled)
 
     if form.submit.data and form.validate():
@@ -176,9 +185,15 @@ def student_getkey():
                 form.password.data = ""
                 form.password_rep.data = ""
                 return render()
-            key = RSA.generate(2048)
-            pubkey = key.export_key(format='OpenSSH').decode()
-            privkey = key.export_key().decode()
+
+            if form.pubkey.data:
+                key = RSA.importKey(form.pubkey.data)
+                pubkey = key.export_key(format='OpenSSH').decode()
+                privkey = None
+            else:
+                key = RSA.generate(2048)
+                pubkey = key.export_key(format='OpenSSH').decode()
+                privkey = key.export_key().decode()
             student = User()
             student.invalidate_session()
             student.mat_num = form.mat_num.data
@@ -186,7 +201,7 @@ def student_getkey():
             student.surname = form.surname.data
             student.nickname = form.nickname.data
 
-            if SystemSetting.set_user_groups_enabled():
+            if groups_enabled:
                 group = UserGroup.query.filter(UserGroup.name == form.group_name.data).one_or_none()
                 if not group and form.group_name.data:
                     group = UserGroup()

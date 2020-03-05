@@ -10,7 +10,7 @@ from Crypto.PublicKey import RSA
 from ref import db, refbp
 from ref.core import admin_required, flash
 from ref.core.util import redirect_to_next
-from ref.model import User, UserGroup, SystemSetting
+from ref.model import User, UserGroup, SystemSettingsManager
 from ref.model.enums import CourseOfStudies
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, StringField, SubmitField, TextField,
@@ -26,6 +26,7 @@ class GroupSettings(Form):
 class SshSettings(Form):
     welcome_header = TextField('SSH Welcome Header')
     allow_none_default_provisioning = BooleanField('Allow admins to provision non default container')
+    ssh_instance_introspection = BooleanField('Allow admins to access instances over SSH')
     submit = SubmitField('Save')
 
 @refbp.route('/admin/system/settings/', methods=('GET', 'POST'))
@@ -35,17 +36,19 @@ def view_system_settings():
     #Group settings belong here
     group_settings = GroupSettings(request.form, prefix='group_settings')
     if group_settings.submit.data and group_settings.validate():
-        SystemSetting.set_user_groups_size_limit(group_settings.group_size.data)
-        SystemSetting.set_user_groups_enabled(group_settings.groups_enable.data)
+        SystemSettingsManager.GROUP_SIZE.value = group_settings.group_size.data
+        SystemSettingsManager.GROUPS_ENABLED.value = group_settings.groups_enable.data
     else:
-        group_settings.group_size.data = SystemSetting.get_user_groups_size_limit()
-        group_settings.groups_enable.data = SystemSetting.get_user_groups_enabled()
+        group_settings.group_size.data = SystemSettingsManager.GROUP_SIZE.value
+        group_settings.groups_enable.data = SystemSettingsManager.GROUPS_ENABLED.value
 
     ssh_settings = SshSettings(request.form, prefix='ssh_settings')
     if ssh_settings.submit.data and ssh_settings.validate():
-        SystemSetting.set_ssh_welcome_header(ssh_settings.welcome_header.data)
+        SystemSettingsManager.SSH_WELCOME_MSG.value = ssh_settings.welcome_header.data
+        SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value = ssh_settings.ssh_instance_introspection.data
     else:
-        ssh_settings.welcome_header.data = SystemSetting.get_ssh_welcome_header()
+        ssh_settings.welcome_header.data = SystemSettingsManager.SSH_WELCOME_MSG.value
+        ssh_settings.ssh_instance_introspection.data = SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value
 
     return render_template('system_settings.html', group_settings=group_settings, ssh_settings=ssh_settings)
 

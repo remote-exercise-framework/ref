@@ -78,6 +78,29 @@ class InstanceManager():
 
         return instance
 
+    def create_submission(self) -> Instance:
+        """
+        Submits the instance.
+        """
+        assert not self.instance.is_submission
+
+        #Make sure the instance is not running, since we are going to copy
+        #some data from it.
+        self.stop()
+
+        #FIXME: Locking
+        user = self.instance.user
+        exercise = self.instance.exercise
+
+        new_instance = InstanceManager.create_instance(user, exercise)
+        new_instance.entry_service.is_submission = True
+
+        #Copy user data from the original instance as second lower dir to new instance.
+        src = self.instance.entry_service.overlay_upper
+        dst = self.instance.entry_service.overlay_submission_lower
+        cmd = f'sudo cp -arT {src} {dst}'
+        subprocess.check_call(cmd, shell=True)
+
     def update_instance(self, new_exercise: Exercise) -> Instance:
         """
         Updates the instance to the new exercise version new_exercise.

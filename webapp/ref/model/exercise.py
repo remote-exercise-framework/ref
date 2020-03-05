@@ -58,6 +58,16 @@ class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     #ID of the container
     container_id = db.Column(db.Text(), unique=True)
 
+    #Whether this is a normal entry service or a submission
+    is_submission = db.Column(db.Boolean(), nullable=False)
+
+    @property
+    def overlay_submission_lower(self):
+        """
+        The directory that contains the files submitted by a user.
+        """
+        return f'{self.instance.persistance_path}/entry-submission-lower'
+
     @property
     def overlay_upper(self):
         """
@@ -250,7 +260,7 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
 class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
-    An Exercise is a description of a task that can be deployed for the user.
+    An Exercise is a description of a task that can be deployed for a user.
     A single exercise consists of at least one ExerciseService.
     In order to make a exercise available to a student, an ExerciseInstance must be
     created.
@@ -287,7 +297,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     description = db.Column(db.Text(), nullable=True)
 
-    #Is this Exercise version deployed by default in case a instance is requested?
+    #Is this Exercise version deployed by default in case an instance is requested?
     #At most one exercise with same short_name can have this flag.
     is_default = db.Column(db.Boolean(), nullable=False)
 

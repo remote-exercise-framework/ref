@@ -69,6 +69,12 @@ function copy_text(id) {
                 {{ wtf_utils.render_radio(form.course, vertical=True) }}
             </div>
 
+            <div class="col-md-12">
+                <div class="form-group">
+                    {{ wtf_utils.render_textarea(form.pubkey, style="font-family: monospace") }}
+                </div>
+            </div>
+
             <div class="form-group">
                 {{ wtf_utils.render_submit(form.submit) }}
             </div>
@@ -87,10 +93,10 @@ function copy_text(id) {
         <hr>
         <div class="float-right">
             <a href="{{ url_for('ref.student_download_pubkey', signed_mat=signed_mat) }}" class="btn btn-outline-primary" role="button">Download</a>
-            <button type="button" class="btn btn-outline-primary" onclick="copy_text('pubkey');">Copy</button>
+            <button type="button" class="btn btn-outline-primary" onclick="copy_text('pubkey-textarea');">Copy</button>
         </div>
         <br>
-        <textarea class="form-control" id="pubkey" rows="10" readonly>{{pubkey|safe}}</textarea>
+        <textarea class="form-control" id="pubkey-textarea" rows="10" readonly>{{pubkey|safe}}</textarea>
     </div>
 
 {% endif %}
@@ -105,9 +111,9 @@ function copy_text(id) {
         <hr>
         <div class="float-right">
             <a href="{{ url_for('ref.student_download_privkey', signed_mat=signed_mat) }}" class="btn btn-outline-primary" role="button">Download</a>
-            <button type="button" class="btn btn-outline-primary" onclick="copy_text('privkey');">Copy</button>
+            <button type="button" class="btn btn-outline-primary" onclick="copy_text('privkey-textarea');">Copy</button>
         </div><br>
-        <textarea class="form-control" id="privkey" rows="10" readonly>{{privkey|safe}}</textarea>
+        <textarea class="form-control" id="privkey-textarea" rows="10" readonly>{{privkey|safe}}</textarea>
     </div>
 
 {% endif %}
