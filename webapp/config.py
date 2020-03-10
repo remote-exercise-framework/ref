@@ -37,7 +37,7 @@ class ReleaseConfig(object):
     BASE_IMAGE_NAME = 'remote-exercises-framework-exercise-base:latest'
 
     #Prefix for container and network names created by REF
-    DOCKER_RESSOURCE_PREFIX = 'ref-ressource'
+    DOCKER_RESSOURCE_PREFIX = 'ref-ressource-'
 
     EXERCISE_CONTAINER_CPU_PERIOD = 100000
 
@@ -73,4 +73,4 @@ class TestConfig(ReleaseConfig):
     PRESERVE_CONTEXT_ON_EXCEPTION = False
     WTF_CSRF_ENABLED = False
     SERVER_NAME = '127.0.0.1:8000'
-    DOCKER_RESSOURCE_PREFIX = 'ref-testing-ressource'
+    DOCKER_RESSOURCE_PREFIX = 'ref-testing-ressource-'
