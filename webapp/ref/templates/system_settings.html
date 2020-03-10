@@ -11,6 +11,19 @@ System Settings
 {% block admin_content %}
 <div class="card">
     <h4 class="card-header">
+    General Settings
+    </h4>
+    <div class="card-body">
+        <form autocomplete="off" method="POST">
+            {{ general_settings.csrf_token }}
+                {{ wtf_utils.render_submit(general_settings.submit) }}
+        </form>
+    </div>
+</div>
+
+
+<div class="card">
+    <h4 class="card-header">
     SSH Entry Server Settings
     </h4>
     <div class="card-body">

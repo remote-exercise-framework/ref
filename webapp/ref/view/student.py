@@ -10,11 +10,11 @@ from ref import db, refbp
 from ref.core import admin_required, flash
 from ref.core.util import redirect_to_next
 from ref.model import User, UserGroup, SystemSettingsManager
-from ref.model.enums import CourseOfStudies
+from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
 from werkzeug.local import LocalProxy
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, StringField, SubmitField, TextField,
-                     validators, SelectField, ValidationError)
+                     validators, SelectField, ValidationError, SelectMultipleField)
 
 #mat_regex = r"^1080[0-2][0-9][1-2][0-9]{5}$"
 mat_regex = r"^[0-9]+$"
@@ -71,6 +71,8 @@ class EditUserForm(Form):
     surname = StringField('Surname', validators=[validators.DataRequired()])
     nickname = StringField('Nickname', validators=[validators.DataRequired()])
     group_name = StringField('Group', validators=[validators.Optional(), validators.Regexp(group_regex)])
+
+    auth_group = SelectMultipleField('Authorization Groups', choices=[(e.value, e.value) for e in UserAuthorizationGroups])
 
     password = PasswordField('Password')
     password_rep = PasswordField('Password (Repeat)')
@@ -204,8 +206,17 @@ def student_getkey():
             if groups_enabled:
                 group = UserGroup.query.filter(UserGroup.name == form.group_name.data).one_or_none()
                 if not group and form.group_name.data:
+                    #FIXME: What happens if the same group is created at the same time?
                     group = UserGroup()
                     group.name = form.group_name.data
+                else:
+                    group_mcnt = SystemSettingsManager.GROUP_SIZE.value
+                    if len(group.users) >= group_mcnt:
+                        form.group_name.errors += [f'Groups already reached the maximum of {group_mcnt} members']
+                        pubkey = None
+                        privkey = None
+                        student = None
+                        return render()
             else:
                 group = None
             student.group = group
@@ -216,7 +227,9 @@ def student_getkey():
             student.priv_key = privkey
             student.registered_date = datetime.datetime.utcnow()
             student.course_of_studies = CourseOfStudies(form.course.data)
-            student.is_admin = False
+            student.auth_groups = [UserAuthorizationGroups.STUDENT]
+
+
             db.session.add(student)
             db.session.commit()
 
@@ -321,9 +334,15 @@ def student_edit(user_id):
             group.name = form.group_name.data
         user.group = group
 
-        if form.is_admin.data != user.is_admin:
+        new_auth_groups = []
+        for auth_group in form.auth_group.data:
+            new_auth_groups.append(UserAuthorizationGroups(auth_group))
+
+        if new_auth_groups != form.auth_group:
             user.invalidate_session()
-        user.is_admin = form.is_admin.data
+
+        user.auth_groups = new_auth_groups
+
         current_app.db.session.add(user)
         current_app.db.session.commit()
         flash.success('Updated!')
@@ -337,7 +356,7 @@ def student_edit(user_id):
         form.nickname.data = user.nickname
         if user.group:
             form.group_name.data = user.group.name
-        form.is_admin.data = user.is_admin
+        form.auth_group.data = [e.value for e in user.auth_groups]
         #Leave password empty
         form.password.data = ''
         form.password_rep.data = ''

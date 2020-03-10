@@ -14,7 +14,7 @@ System Garbage Collector
 {% if dangling_networks %}
 <div class="card">
     <h4 class="card-header">
-        Found {{ dangling_networks|length }} dangling networks
+        Found {{ dangling_networks|length }} dangling network(s)
         <div class="float-right">
             <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.sysmtem_gc_delete_dangling_networks', next=request.path) }}">Delete</a>
         </div>
@@ -46,7 +46,7 @@ System Garbage Collector
 {% if dangling_container %}
 <div class="card">
     <h4 class="card-header">
-        Found {{ dangling_container|length }} dangling container
+        Found {{ dangling_container|length }} dangling container(s)
         <div class="float-right">
             <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.sysmtem_gc_delete_dangling_container', next=request.path) }}">Delete</a>
         </div>

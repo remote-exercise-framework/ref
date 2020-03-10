@@ -12,3 +12,4 @@ from .student import (student_default_routes, student_delete, student_getkey,
 from .group import group_view_all
 from .system import system_gc
 from .system_settings import view_system_settings
+from .grading import grading_view_all

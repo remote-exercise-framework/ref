@@ -15,3 +15,9 @@ class ExerciseBuildStatus(Enum):
 class ExerciseServiceType(Enum):
     ENTRY = 'Entry Service'
     PERIPHERAL = 'Peripheral Service'
+
+
+class UserAuthorizationGroups(Enum):
+    ADMIN = 'Admin'
+    GRADING_ASSISTANT = 'Grading Assistant'
+    STUDENT = 'Student'

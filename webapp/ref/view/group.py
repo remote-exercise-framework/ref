@@ -9,6 +9,7 @@ from Crypto.PublicKey import RSA
 from ref import db, refbp
 from ref.core import admin_required, flash
 from ref.core.util import redirect_to_next
+from ref.model import SystemSettingsManager
 from ref.model import User, UserGroup
 from ref.model.enums import CourseOfStudies
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
@@ -20,7 +21,7 @@ from wtforms import (BooleanField, Form, IntegerField, PasswordField,
 @admin_required
 def group_view_all():
     groups = UserGroup.query.order_by(UserGroup.id).all()
-    return render_template('group_view_all.html', groups=groups)
+    return render_template('group_view_all.html', groups=groups, max_group_size=SystemSettingsManager.GROUP_SIZE.value)
 
 @refbp.route('/admin/group/delete/<int:group_id>', methods=('GET', 'POST'))
 @admin_required
@@ -31,7 +32,7 @@ def group_delete(group_id):
         return render_template('400.html'), 400
 
     if len(group.users) > 0:
-        flash.error(f'Unable to delete group with associates users.')
+        flash.error(f'Unable to delete non-empty group')
         return redirect_to_next()
 
     current_app.db.session.delete(group)
