@@ -29,10 +29,13 @@ def login():
     """
     This endpoint allows a user to login.
     """
-    if current_user.is_authenticated and current_user.is_admin:
-        #Only redirect admins, since non admin users are going to be redirected
-        #back to this page...
-        return redirect(url_for('ref.exercise_view_all'))
+    if current_user.is_authenticated:
+        if  current_user.is_admin:
+            #Only redirect admins, since non admin users are going to be redirected
+            #back to this page...
+            return redirect(url_for('ref.exercise_view_all'))
+        elif current_user.is_grading_assistant:
+            return redirect(url_for('ref.grading_view_all'))
 
     form = LoginForm(request.form)
     if form.submit.data and form.validate():
@@ -44,7 +47,7 @@ def login():
             current_app.db.session.add(user)
             current_app.db.session.commit()
 
-        if user is None or not user.check_password(form.password.data) or not user.is_admin:
+        if user is None or not user.check_password(form.password.data) or (not user.is_admin and not user.is_grading_assistant):
             form.password.errors += ['Invalid username or password']
             return render_template('login.html', form=form)
         login_user(user)

@@ -24,7 +24,7 @@ Groups
                 <tr>
                     <td scope="row">{{group.id}}</td>
                     <td scope="row">{{group.name}}</td>
-                    <td scope="row">{{group.users|length}}</td>
+                    <td scope="row">{{group.users|length}} / {{ max_group_size }}</td>
                     <td>
                         <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.group_view_users', group_id=group.id, next=request.path) }}">Users</a>
                         <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.group_delete', group_id=group.id, next=request.path) }}">Delete</a>

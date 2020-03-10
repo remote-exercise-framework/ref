@@ -18,6 +18,9 @@ from wtforms import (BooleanField, Form, IntegerField, PasswordField,
 
 log = LocalProxy(lambda: current_app.logger)
 
+class GeneralSettings(Form):
+    submit = SubmitField('Save')
+
 class GroupSettings(Form):
     group_size = IntegerField('Max. group size')
     groups_enable = BooleanField('Groups enabled')
@@ -32,6 +35,11 @@ class SshSettings(Form):
 @refbp.route('/admin/system/settings/', methods=('GET', 'POST'))
 @admin_required
 def view_system_settings():
+    general_settings = GeneralSettings(request.form, prefix='general_settings')
+    if general_settings.submit.data and general_settings.validate():
+        pass
+    else:
+        pass
 
     #Group settings belong here
     group_settings = GroupSettings(request.form, prefix='group_settings')
@@ -50,5 +58,5 @@ def view_system_settings():
         ssh_settings.welcome_header.data = SystemSettingsManager.SSH_WELCOME_MSG.value
         ssh_settings.ssh_instance_introspection.data = SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value
 
-    return render_template('system_settings.html', group_settings=group_settings, ssh_settings=ssh_settings)
+    return render_template('system_settings.html', group_settings=group_settings, ssh_settings=ssh_settings, general_settings=general_settings)
 

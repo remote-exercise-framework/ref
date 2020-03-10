@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from ref.model.enums import CourseOfStudies
+from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
 from flask_bcrypt import generate_password_hash, check_password_hash
 from ref import db
 from flask_login import UserMixin
@@ -31,8 +31,7 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('user_group.id'), nullable=True)
 
     password = db.Column(db.LargeBinary(), nullable=False)
-    mat_num = db.Column(db.BigInteger, nullable=False, unique=True)
-    #mat_num = db.Column(db.Text(), nullable=False, unique=True)
+    mat_num = db.Column(db.Text(), nullable=False, unique=True)
 
     registered_date = db.Column(db.DateTime(), nullable=False)
     pub_key = db.Column(db.Text(), nullable=False)
@@ -40,11 +39,25 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     priv_key = db.Column(db.Text(), nullable=True)
     course_of_studies = db.Column(db.Enum(CourseOfStudies), nullable=True)
 
-    is_admin = db.Column(db.Boolean(), nullable=False)
-
+    auth_groups = db.Column(db.PickleType(), nullable=False)
 
     #Exercise instances associated to the student
     exercise_instances = db.relationship('Instance', backref='user', lazy=True)
+
+    @property
+    def is_admin(self):
+        return UserAuthorizationGroups.ADMIN in self.auth_groups
+
+    @property
+    def is_grading_assistant(self):
+        return UserAuthorizationGroups.GRADING_ASSISTANT in self.auth_groups
+
+    @property
+    def is_student(self):
+        return UserAuthorizationGroups.STUDENT in self.auth_groups
+
+    def is_auth_group_member(self, group: UserAuthorizationGroups):
+        return group in self.auth_groups
 
     def set_password(self, password):
         """
