@@ -1,15 +1,19 @@
-from flask import Flask, render_template, Blueprint, redirect, url_for, request, Response, current_app
-from wtforms import Form, IntegerField, validators, SubmitField, RadioField, TextField, PasswordField, StringField
-from ref import refbp, db
-from ref.model import User
 import datetime
-from Crypto.PublicKey import RSA
-from itsdangerous import URLSafeTimedSerializer
-from ref.core import flash
-from flask_login import current_user, login_user, logout_user
-from ref.core.util import redirect_to_next
-from werkzeug.local import LocalProxy
 import uuid
+
+from Crypto.PublicKey import RSA
+from flask import (Blueprint, Flask, Response, current_app, redirect,
+                   render_template, request, url_for)
+from itsdangerous import URLSafeTimedSerializer
+from werkzeug.local import LocalProxy
+
+from flask_login import current_user, login_user, logout_user
+from ref import db, refbp
+from ref.core import flash
+from ref.core.util import redirect_to_next
+from ref.model import User
+from wtforms import (Form, IntegerField, PasswordField, RadioField,
+                     StringField, SubmitField, TextField, validators)
 
 log = LocalProxy(lambda: current_app.logger)
 

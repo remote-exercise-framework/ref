@@ -1,10 +1,12 @@
-from redis import Redis
+import time
+import uuid
+
 #import uwsgidecorators
 from flask import current_app
-from ref.model import Exercise
-import time
+from redis import Redis
 from werkzeug.local import LocalProxy
-import uuid
+
+from ref.model import Exercise
 
 rd: Redis = LocalProxy(lambda: current_app.redis)
 

@@ -1,15 +1,14 @@
-from flask import render_template, current_app
-from werkzeug.exceptions import Forbidden
-from werkzeug.exceptions import Gone
-from werkzeug.exceptions import InternalServerError
-from werkzeug.exceptions import MethodNotAllowed
-from werkzeug.exceptions import NotFound
-from functools import wraps
-import random
-from binascii import hexlify
 import logging
 import os
+import random
 import uuid
+from binascii import hexlify
+from functools import wraps
+
+from flask import current_app, render_template
+from werkzeug.exceptions import (Forbidden, Gone, InternalServerError,
+                                 MethodNotAllowed, NotFound)
+
 error_handlers = []
 
 smileys_sad = [u'😐', u'😑', u'😒', u'😓', u'😔', u'😕', u'😖', u'😝', u'😞', u'😟',

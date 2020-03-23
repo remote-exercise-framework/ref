@@ -1,9 +1,11 @@
-from flask_login import login_required, current_user
-from flask import current_app
 from functools import wraps
-from ref.core import flash
 from pathlib import Path
+
+from flask import current_app
 from werkzeug.local import LocalProxy
+
+from flask_login import current_user, login_required
+from ref.core import flash
 from ref.model.enums import UserAuthorizationGroups
 
 log = LocalProxy(lambda: current_app.logger)
