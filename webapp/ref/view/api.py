@@ -1,29 +1,29 @@
 import datetime
+import hashlib
 import os
+import re
 import shutil
 import tempfile
 import typing
 from collections import namedtuple
 from pathlib import Path
-import hashlib
-import re
+
 import docker
 import redis
 import rq
 import yaml
 from flask import (Blueprint, Flask, current_app, jsonify, make_response,
                    redirect, render_template, request, url_for)
-from wtforms import Form, IntegerField, SubmitField, validators
-
-from werkzeug.local import LocalProxy, Local
-
-from ref.core import retry_on_deadlock
-from ref import db, refbp
-from ref.core import flash, ExerciseImageManager, InstanceManager, ExerciseManager
-from ref.model import ConfigParsingError, Exercise, Instance, User, SystemSetting, SystemSettingsManager
-from ref.model.enums import ExerciseBuildStatus
-
 from itsdangerous import Serializer, TimedSerializer
+from werkzeug.local import Local, LocalProxy
+
+from ref import db, refbp
+from ref.core import (ExerciseImageManager, ExerciseManager, InstanceManager,
+                      flash, retry_on_deadlock)
+from ref.model import (ConfigParsingError, Exercise, Instance, SystemSetting,
+                       SystemSettingsManager, User)
+from ref.model.enums import ExerciseBuildStatus
+from wtforms import Form, IntegerField, SubmitField, validators
 
 log = LocalProxy(lambda: current_app.logger)
 

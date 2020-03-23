@@ -1,18 +1,21 @@
-from .exercise import Exercise
-from ref.model import Instance, InstanceEntryService, InstanceService, User
-from .docker import DockerClient
-from flask import current_app
-from werkzeug.local import LocalProxy
-import os
-import subprocess
-import shutil
+import base64
 import binascii
 import datetime
-import re
-import base64
 import hashlib
-import itsdangerous
+import os
+import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import itsdangerous
+from flask import current_app
+from werkzeug.local import LocalProxy
+
+from ref.model import Instance, InstanceEntryService, InstanceService, User
+
+from .docker import DockerClient
+from .exercise import Exercise
 
 log = LocalProxy(lambda: current_app.logger)
 

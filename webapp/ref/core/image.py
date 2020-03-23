@@ -1,18 +1,17 @@
 import os
 import shutil
 import subprocess
+import traceback
 from threading import Thread
 
 import docker
 from flask import current_app
 from werkzeug.local import LocalProxy
 
-from .docker import DockerClient
-from .exercise import Exercise, ExerciseBuildStatus
-
 from sqlalchemy.orm import joinedload, raiseload
 
-import traceback
+from .docker import DockerClient
+from .exercise import Exercise, ExerciseBuildStatus
 
 log = LocalProxy(lambda: current_app.logger)
 

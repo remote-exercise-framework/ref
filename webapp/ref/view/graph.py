@@ -12,15 +12,14 @@ import rq
 import yaml
 from flask import (Blueprint, Flask, abort, current_app, redirect,
                    render_template, request, url_for)
-from wtforms import Form, IntegerField, SubmitField, validators
-
-from ref import db, refbp
-from ref.core import (ExerciseConfigError,
-                      ExerciseImageManager, ExerciseManager, flash, admin_required, DockerClient)
-from ref.model import ConfigParsingError, Exercise, User
-from ref.model.enums import ExerciseBuildStatus
 
 from flask_login import login_required
+from ref import db, refbp
+from ref.core import (DockerClient, ExerciseConfigError, ExerciseImageManager,
+                      ExerciseManager, admin_required, flash)
+from ref.model import ConfigParsingError, Exercise, User
+from ref.model.enums import ExerciseBuildStatus
+from wtforms import Form, IntegerField, SubmitField, validators
 
 lerr = lambda msg: current_app.logger.error(msg)
 linfo = lambda msg: current_app.logger.info(msg)

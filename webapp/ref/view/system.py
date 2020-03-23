@@ -1,11 +1,11 @@
-from flask import redirect, render_template, current_app
-
-from ref import db, refbp
-from ref.core import admin_required
 from dataclasses import dataclass
 
-from ref.core import DockerClient
+from flask import current_app, redirect, render_template
+
+from ref import db, refbp
+from ref.core import DockerClient, admin_required
 from ref.core.util import redirect_to_next
+
 
 @dataclass
 class danglingNetwork():

@@ -1,10 +1,10 @@
-import docker
-import subprocess
-from docker import errors
 import random
 import string
-from flask import current_app
+import subprocess
 
+import docker
+from docker import errors
+from flask import current_app
 from werkzeug.local import LocalProxy
 
 log = LocalProxy(lambda: current_app.logger)

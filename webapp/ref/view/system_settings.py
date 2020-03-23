@@ -1,20 +1,20 @@
 import datetime
 import re
 
+from Crypto.PublicKey import RSA
 from flask import (Blueprint, Flask, Response, current_app, redirect,
                    render_template, request, url_for)
 from itsdangerous import URLSafeTimedSerializer
-
 from werkzeug.local import LocalProxy
-from Crypto.PublicKey import RSA
+
 from ref import db, refbp
 from ref.core import admin_required, flash
 from ref.core.util import redirect_to_next
-from ref.model import User, UserGroup, SystemSettingsManager
+from ref.model import SystemSettingsManager, User, UserGroup
 from ref.model.enums import CourseOfStudies
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
-                     RadioField, StringField, SubmitField, TextField,
-                     validators, SelectField)
+                     RadioField, SelectField, StringField, SubmitField,
+                     TextField, validators)
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -59,4 +59,3 @@ def view_system_settings():
         ssh_settings.ssh_instance_introspection.data = SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value
 
     return render_template('system_settings.html', group_settings=group_settings, ssh_settings=ssh_settings, general_settings=general_settings)
-

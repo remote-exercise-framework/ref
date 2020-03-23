@@ -15,19 +15,19 @@ import rq
 import yaml
 from flask import (Blueprint, Flask, abort, current_app, jsonify, redirect,
                    render_template, request, url_for)
-from flask_login import login_required
-from sqlalchemy import and_, or_
 from werkzeug.local import LocalProxy
-from wtforms import Form, IntegerField, SubmitField, validators
 
+from flask_login import login_required
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, flash)
-from ref.core.security import admin_required, grading_assistant_required
-from ref.core.security import sanitize_path_is_subdir
+from ref.core.security import (admin_required, grading_assistant_required,
+                               sanitize_path_is_subdir)
 from ref.core.util import redirect_to_next
 from ref.model import ConfigParsingError, Exercise, User
 from ref.model.enums import ExerciseBuildStatus, UserAuthorizationGroups
+from sqlalchemy import and_, or_
+from wtforms import Form, IntegerField, SubmitField, validators
 
 log = LocalProxy(lambda: current_app.logger)
 

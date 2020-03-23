@@ -1,5 +1,6 @@
 import flask
 
+
 def success(msg):
     flask.flash(msg, 'success')
 

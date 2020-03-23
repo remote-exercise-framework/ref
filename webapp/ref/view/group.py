@@ -1,20 +1,19 @@
 import datetime
 import re
 
+from Crypto.PublicKey import RSA
 from flask import (Blueprint, Flask, Response, current_app, redirect,
                    render_template, request, url_for)
 from itsdangerous import URLSafeTimedSerializer
 
-from Crypto.PublicKey import RSA
 from ref import db, refbp
 from ref.core import admin_required, flash
 from ref.core.util import redirect_to_next
-from ref.model import SystemSettingsManager
-from ref.model import User, UserGroup
+from ref.model import SystemSettingsManager, User, UserGroup
 from ref.model.enums import CourseOfStudies
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
-                     RadioField, StringField, SubmitField, TextField,
-                     validators, SelectField)
+                     RadioField, SelectField, StringField, SubmitField,
+                     TextField, validators)
 
 
 @refbp.route('/admin/group/view/', methods=('GET', 'POST'))

@@ -1,9 +1,12 @@
-from werkzeug.urls import url_parse
-from flask import url_for, redirect, request, abort, current_app
-from ref.core import flash
 from contextlib import contextmanager
+
+from flask import abort, current_app, redirect, request, url_for
+from werkzeug.urls import url_parse
+
 #http://initd.org/psycopg/docs/errors.html
-from psycopg2.errors import TransactionRollback, DeadlockDetected
+from psycopg2.errors import DeadlockDetected, TransactionRollback
+from ref.core import flash
+
 
 def redirect_to_next(default='ref.admin_default_routes'):
     next_page = request.args.get('next')
