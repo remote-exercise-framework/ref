@@ -1,5 +1,5 @@
 from .exercise import (ConfigParsingError, Exercise, ExerciseEntryService,
-                       Instance, InstanceEntryService,
-                       ExerciseService, InstanceService)
-from .user import User, UserGroup
+                       ExerciseService)
+from .instance import Instance, InstanceEntryService, InstanceService
 from .settings import SystemSetting, SystemSettingsManager
+from .user import User, UserGroup

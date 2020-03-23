@@ -1,11 +1,14 @@
 import datetime
 import uuid
-from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
-from flask_bcrypt import generate_password_hash, check_password_hash
-from ref import db
+
+from flask_bcrypt import check_password_hash, generate_password_hash
 from flask_login import UserMixin
-from .util import CommonDbOpsMixin, ModelToStringMixin
+from ref import db
+from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
 from sqlalchemy.orm import backref
+
+from .util import CommonDbOpsMixin, ModelToStringMixin
+
 
 class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id', 'name']
