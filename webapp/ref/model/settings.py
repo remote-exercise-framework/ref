@@ -1,13 +1,17 @@
 import datetime
 import uuid
-from ref.model.enums import CourseOfStudies
-from flask_bcrypt import generate_password_hash, check_password_hash
-from ref import db
-from flask_login import UserMixin
-from .util import CommonDbOpsMixin, ModelToStringMixin
-from sqlalchemy.orm import backref
 from enum import Enum
+
 from flask import current_app
+
+from flask_bcrypt import check_password_hash, generate_password_hash
+from flask_login import UserMixin
+from ref import db
+from ref.model.enums import CourseOfStudies
+from sqlalchemy.orm import backref
+
+from .util import CommonDbOpsMixin, ModelToStringMixin
+
 
 class SystemSetting(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 

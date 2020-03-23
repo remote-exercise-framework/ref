@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class CourseOfStudies(Enum):
     MASTER_ITS_NS = 'Master ITS/Netze und Systeme'
     MASTER_ITS_IS = 'Master ITS/Informationstechnik'
