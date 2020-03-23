@@ -16,12 +16,12 @@ import docker
 import itsdangerous
 import yaml
 from flask import current_app
-from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
 
 from ref.model import (Exercise, ExerciseEntryService, ExerciseService,
                        Instance, InstanceEntryService, InstanceService, User)
 from ref.model.enums import ExerciseBuildStatus
+from sqlalchemy.orm import joinedload, raiseload
 
 from .docker import DockerClient
 from .image import ExerciseImageManager

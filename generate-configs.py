@@ -1,4 +1,10 @@
 #!/usr/bin/python
+
+"""
+Used to generate the docker-compose configs used by ref.
+"""
+
+
 import jinja2
 
 COMPOSE_TEMPLATE = 'docker-compose.template.yml'

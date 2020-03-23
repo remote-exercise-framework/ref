@@ -1,25 +1,24 @@
+import base64
 import datetime
 import enum
+import hashlib
 import pickle
 import threading
 import time
-import hashlib
-import base64
 from io import BytesIO
-
-from sqlalchemy import and_, or_
 
 import docker
 import yaml
 from flask import current_app
-from flask_bcrypt import check_password_hash, generate_password_hash
 from rq.job import Job
 
-from .enums import ExerciseBuildStatus, ExerciseServiceType
+from flask_bcrypt import check_password_hash, generate_password_hash
 from ref import db
-from sqlalchemy import Column, Integer, PickleType, create_engine
+from sqlalchemy import Column, Integer, PickleType, and_, create_engine, or_
 
-from .util import ModelToStringMixin, CommonDbOpsMixin
+from .enums import ExerciseBuildStatus, ExerciseServiceType
+from .util import CommonDbOpsMixin, ModelToStringMixin
+
 
 class ConfigParsingError(Exception):
 
@@ -215,13 +214,15 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         Name of the docker image that was build based on this configuration.
         """
-        return f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}-{self.exercise.short_name}-entry:v{self.exercise.version}'
+        return f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.exercise.short_name}-entry:v{self.exercise.version}'
 
 
 class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
-    A ExerciseService descrives a service that is provided to the user.
-
+    A ExerciseService describes a service that is provided to the user.
+    Such service is not directly available to a user, i.e., a user must first
+    connect to an ExerciseEntryService to access such services.
+    ExerciseService might be used 
     """
     __to_str_fields__ = ['id', 'exercise_id']
 
@@ -256,7 +257,7 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         Name of the docker image that was build based on this configuration.
         """
-        return f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}-{self.exercise.short_name}-{self.name}:v{self.exercise.version}'
+        return f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.exercise.short_name}-{self.name}:v{self.exercise.version}'
 
 class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
@@ -376,4 +377,3 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             Exercise.short_name == short_name
         )
         return exercises.all()
-
