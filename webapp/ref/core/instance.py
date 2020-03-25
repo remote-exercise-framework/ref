@@ -64,7 +64,7 @@ class InstanceManager():
             Path(entry_service.overlay_upper),
             Path(entry_service.overlay_work),
             Path(entry_service.overlay_merged),
-            Path(entry_service.overlay_submission_lower)
+            Path(entry_service.overlay_submitted)
         ]
         try:
             for d in dirs:
@@ -279,7 +279,7 @@ class InstanceManager():
             #that is started by the host (see below for further details).
             cmd = [
                 'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
-                f'-olowerdir={exercise.entry_service.persistance_lower},upperdir={instance_entry_service.overlay_upper},workdir={instance_entry_service.overlay_work}',
+                f'-olowerdir={exercise.entry_service.persistance_lower}:{exercise.entry_service.overlay_submitted},upperdir={instance_entry_service.overlay_upper},workdir={instance_entry_service.overlay_work}',
                 f'{instance_entry_service.overlay_merged}'
             ]
             subprocess.check_call(cmd)

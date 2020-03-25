@@ -21,6 +21,10 @@ from .util import CommonDbOpsMixin, ModelToStringMixin
 
 
 class InstanceService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
+    """
+    A container that implements a peripheral service, i.e., a service that can
+    be accessed through the InstanceEntryService.
+    """
 
     __to_str_fields__ = ['id', 'instance_id', 'exercise_service_id', 'container_id']
     __tablename__ = 'instance_service'
@@ -28,13 +32,18 @@ class InstanceService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
+    #The exercise service describing this service.
     exercise_service_id = db.Column(db.Integer, db.ForeignKey('exercise_service.id'))
+
+    #The instance this service belongs to.
     instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id'))
+
+    #The docker container id of this service.
     container_id = db.Column(db.Text(), unique=True)
 
 class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
-    Container that represents the entrypoint for a specific task instance.
+    Container that represents the entrypoint for a specific exercise instance.
     Such and InstanceEntryService is exposed via SSH and supports data persistance.
     """
     __to_str_fields__ = ['id', 'instance_id', 'container_id']
@@ -44,18 +53,16 @@ class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     #The instance this entry service belongs to
     instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
 
-    #ID of the container
+    #ID of the docker container.
     container_id = db.Column(db.Text(), unique=True)
 
-    #Whether this is a normal entry service or a submission
-    is_submission = db.Column(db.Boolean(), nullable=False)
-
     @property
-    def overlay_submission_lower(self):
+    def overlay_submitted(self):
         """
-        The directory that contains the files submitted by a user.
+        Directory that is used as lower dir besides the "base" files of the exercise.
+        This directory can be used to store submitted files.
         """
-        return f'{self.instance.persistance_path}/entry-submission-lower'
+        return f'{self.instance.persistance_path}/entry-submitted'
 
     @property
     def overlay_upper(self):
@@ -109,6 +116,19 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     creation_ts = db.Column(db.DateTime(), nullable=True)
 
+    """
+    All submissions (snapshots) of this instance. This must be null for an instance
+    with .is_submission set.
+    """
+    submissions = db.relationship('Instance', backref=db.backref('instance', remote_side=[id]), lazy=True)
+    parent_submission_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
+
+    """
+    Whether this is a submission of an Instance. If True, .instance
+    points to the snapshotted instance.
+    """ 
+    is_submission = db.Column(db.Boolean(), nullable=False)
+
     def get_key(self) -> bytes:
         secret_key = current_app.config['SECRET_KEY']
         instance_key = hashlib.sha256()
@@ -116,12 +136,6 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         instance_key.update(str(self.id).encode())
         instance_key = instance_key.digest()
         return instance_key
-
-    def is_submission(self):
-        """
-        Whether this is a submitted instance (a solution submitted by a user)
-        """
-        return self.entry_service.is_submission
 
     @property
     def long_name(self):
@@ -132,8 +146,10 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         Path used to store all data that belongs to this instance.
         """
+        assert self.user.id is not None
         return self.exercise.persistence_path + f'/instances/{self.user.id}'
 
+    #FIXME: Remove?
     @classmethod
     def all(cls):
         return cls.query.all()
