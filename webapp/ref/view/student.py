@@ -64,7 +64,8 @@ class EditUserForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
         validators.Regexp(mat_regex),
-        validate_matriculation_number
+        validate_matriculation_number,
+        str
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = StringField('Firstname', validators=[validators.DataRequired()])
@@ -85,7 +86,8 @@ class GetKeyForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
         validators.Regexp(mat_regex),
-        validate_matriculation_number
+        validate_matriculation_number,
+        str
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = StringField('Firstname', validators=[validators.DataRequired()])
@@ -104,7 +106,8 @@ class RestoreKeyForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
         validators.Regexp(mat_regex),
-        validate_matriculation_number
+        validate_matriculation_number,
+        str
         ])
     password = PasswordField('Password (The password used during first retrieval)', validators=[validators.DataRequired()])
     submit = SubmitField('Restore')
