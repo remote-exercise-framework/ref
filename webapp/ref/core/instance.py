@@ -533,6 +533,10 @@ class InstanceManager():
             log.error(f'Error during removal of instance {self.instance}')
             raise
 
+        for submission in self.instance.submissions:
+            mgr = InstanceManager(submission)
+            mgr.remove()
+
         for service in self.instance.peripheral_services:
             current_app.db.session.delete(service)
 
