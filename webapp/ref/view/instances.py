@@ -176,11 +176,18 @@ def instance_delete(instance_id):
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400
 
+    if not SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value:
+        if instance.submissions:
+            flash.error(f'Unable to delete instance {instance_id}, since it has associated submissions.')
+            return redirect_to_next()
+        elif instance.is_submission:
+            flash.error(f'Unable to delete instance {instance_id}, since submission deletion is disabled.')
+            return redirect_to_next()
+
+    #FIXME: We should move this logic into the core.
     try:
-        for submission in instance.submissions + [instance]:
-            mgr = InstanceManager(submission)
-            log.info(f"Delxx {submission}")
-            mgr.remove()
+        mgr = InstanceManager(instance)
+        mgr.remove()
     finally:
         db.session.commit()
 

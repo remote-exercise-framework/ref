@@ -15,6 +15,11 @@ System Settings
     </h4>
     <div class="card-body">
         <form autocomplete="off" method="POST">
+            <div class="col-md-12">
+                <div class="form-group">
+                    {{ wtf_utils.render_field(general_settings.allow_submission_deletion, "checkbox") }}
+                </div>
+            </div>
             {{ general_settings.csrf_token }}
                 {{ wtf_utils.render_submit(general_settings.submit) }}
         </form>
