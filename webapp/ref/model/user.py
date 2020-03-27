@@ -17,7 +17,7 @@ class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text(), nullable=False, unique=True)
 
-    users = db.relationship('User', backref=backref('group'), lazy=False)
+    users = db.relationship('User', backref=backref('group'), lazy=False,  passive_deletes='all')
 
 class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     __to_str_fields__ = ['id', 'is_admin', 'first_name', 'surname', 'nickname']
@@ -45,7 +45,7 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     auth_groups = db.Column(db.PickleType(), nullable=False)
 
     #Exercise instances associated to the student
-    exercise_instances = db.relationship('Instance', backref='user', lazy=True)
+    exercise_instances = db.relationship('Instance', backref='user', lazy=True,  passive_deletes='all')
 
     @property
     def is_admin(self):

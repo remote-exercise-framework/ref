@@ -29,7 +29,7 @@ class GroupSettings(Form):
 class SshSettings(Form):
     welcome_header = TextField('SSH Welcome Header')
     allow_none_default_provisioning = BooleanField('Allow admins to provision non default container')
-    ssh_instance_introspection = BooleanField('Allow admins to access instances over SSH')
+    ssh_instance_introspection = BooleanField('Allow admins to access arbitrary instances using instance-{ID} as username')
     submit = SubmitField('Save')
 
 @refbp.route('/admin/system/settings/', methods=('GET', 'POST'))

@@ -22,7 +22,7 @@ from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, InstanceManager, admin_required, flash)
 from ref.core.util import redirect_to_next
 from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
-                       Instance, User)
+                       Instance, SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
 from wtforms import Form, IntegerField, SubmitField, validators
 
@@ -89,7 +89,7 @@ def _instances_render_view(instances, title=None):
         new_exercise = get_newest_exercise_version(i.exercise)
         setattr(i, 'new_exercise', new_exercise)
 
-    return render_template('instances_view_list.html', title=title, instances=instances)
+    return render_template('instances_view_list.html', title=title, instances=instances, settings=SystemSettingsManager)
 
 @refbp.route('/admin/instances/view/by-user/<int:user_id>')
 @admin_required
@@ -100,6 +100,7 @@ def instances_by_user_id(user_id):
         return render_template('400.html'), 400
 
     instances = Instance.get_by_user(user_id)
+    instances = list(filter(lambda e: not e.is_submission, instances))
 
     title=f'Instances of user {user.full_name} (#{user.id})'
     return _instances_render_view(instances, title=title)
@@ -123,6 +124,7 @@ def instances_view_by_exercise(exercise_name):
             return render_template('400.html'), 400
 
     instances = Instance.get_instances_by_exercise(exercise_name, exercise_version)
+    instances = list(filter(lambda e: not e.is_submission, instances))
 
     title=f'Instances of exercise {exercise_name}'
     if exercise_version:
@@ -130,10 +132,22 @@ def instances_view_by_exercise(exercise_name):
 
     return _instances_render_view(instances, title=title)
 
+@refbp.route('/admin/instances/<int:instance_id>')
+@admin_required
+def instance_view_submissions(instance_id):
+    instance =  Instance.query.filter(Instance.id == instance_id).first()
+    if not instance:
+        flash.error(f'Unknown instance ID {instance_id}')
+        return render_template('400.html'), 400
+    
+    return _instances_render_view(instance.submissions, title=f'Submissions of instance {instance.id}')
+
 @refbp.route('/admin/instances/view')
 @admin_required
 def instances_view_all():
     instances = Instance.query.all()
+    instances = list(filter(lambda e: not e.is_submission, instances))
+
     return _instances_render_view(instances)
 
 @refbp.route('/admin/instances/stop/<int:instance_id>')
@@ -162,10 +176,11 @@ def instance_delete(instance_id):
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400
 
-    mgr = InstanceManager(instance)
-
     try:
-        mgr.remove()
+        for submission in instance.submissions + [instance]:
+            mgr = InstanceManager(submission)
+            log.info(f"Delxx {submission}")
+            mgr.remove()
     finally:
         db.session.commit()
 

@@ -96,8 +96,8 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    entry_service = db.relationship("InstanceEntryService", uselist=False, backref="instance")
-    peripheral_services = db.relationship('InstanceService', backref='instance', lazy=True)
+    entry_service = db.relationship("InstanceEntryService", uselist=False, backref="instance", passive_deletes='all')
+    peripheral_services = db.relationship('InstanceService', backref='instance', lazy=True,  passive_deletes='all')
 
     #The network the entry service is connected to the ssh server by
     network_id = db.Column(db.Text(), unique=True)
@@ -120,8 +120,8 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     All submissions (snapshots) of this instance. This must be null for an instance
     with .is_submission set.
     """
-    submissions = db.relationship('Instance', backref=db.backref('instance', remote_side=[id]), lazy=True)
-    parent_submission_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
+    submissions = db.relationship('Instance', backref=db.backref('instance', remote_side=[id]), lazy=True, passive_deletes='all')
+    parent_submission_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=True)
 
     """
     Whether this is a submission of an Instance. If True, .instance
@@ -146,13 +146,10 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         Path used to store all data that belongs to this instance.
         """
-        assert self.user.id is not None
-        return self.exercise.persistence_path + f'/instances/{self.user.id}'
-
-    #FIXME: Remove?
-    @classmethod
-    def all(cls):
-        return cls.query.all()
+        #Make sure there is a PK by flushing pending DB ops
+        current_app.db.session.flush(objects=[self])
+        assert self.id is not None
+        return self.exercise.persistence_path + f'/instances/{self.id}'
 
     @staticmethod
     def get_instances_by_exercise(short_name, version=None):

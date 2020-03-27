@@ -108,7 +108,7 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     allow_internet = db.Column(db.Boolean(), nullable=True, default=False)
 
-    instances = db.relationship("InstanceService", backref="exercise_service", lazy=True)
+    instances = db.relationship("InstanceService", backref="exercise_service", lazy=True, passive_deletes='all')
 
     flag_path = db.Column(db.Text(), nullable=True)
     flag_value = db.Column(db.Text(), nullable=True)
@@ -136,11 +136,10 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     #The services that defnies the entrypoint of this exercise
-    #entry_service = db.relationship("ExerciseEntryService", uselist=False, back_populates="exercise")
-    entry_service = db.relationship("ExerciseEntryService", uselist=False, backref="exercise")
+    entry_service = db.relationship("ExerciseEntryService", uselist=False, backref="exercise",  passive_deletes='all')
 
     #Additional services that are mapped into the network for this exercise.
-    services = db.relationship('ExerciseService', backref='exercise', lazy=True)
+    services = db.relationship('ExerciseService', backref='exercise', lazy=True, passive_deletes='all')
 
     #Folder the template was initially imported from
     template_import_path = db.Column(db.Text(), nullable=False, unique=False)
@@ -173,7 +172,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     build_job_status: ExerciseBuildStatus = db.Column(db.Enum(ExerciseBuildStatus), nullable=False)
 
     #All running instances of this exercise
-    instances = db.relationship('Instance', backref='exercise', lazy=True)
+    instances = db.relationship('Instance', backref='exercise', lazy=True,  passive_deletes='all')
 
     def get_users_instance(self, user):
         for instance in self.instances:
