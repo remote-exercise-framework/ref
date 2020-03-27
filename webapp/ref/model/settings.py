@@ -67,6 +67,8 @@ class SystemSettingsManager():
     SSH_HOSTNAME = Setting('SSH_HOSTNAME', str, "127.0.0.1")
     SSH_PORT = Setting('SSH_PORT', str, "22")
 
+    SUBMISSION_ALLOW_DELETE = Setting('SUBMISSION_ALLOW_DELETE', bool, False)
+
     INSTANCE_SSH_INTROSPECTION = Setting('INSTANCE_SSH_INTROSPECTION', bool, False)
     INSTANCE_NON_DEFAULT_PROVISIONING = Setting('INSTANCE_NON_DEFAULT_PROVISIONING', bool, False)
 

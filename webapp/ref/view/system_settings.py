@@ -20,6 +20,7 @@ log = LocalProxy(lambda: current_app.logger)
 
 class GeneralSettings(Form):
     submit = SubmitField('Save')
+    allow_submission_deletion = BooleanField('Allow admins to delete submissions')
 
 class GroupSettings(Form):
     group_size = IntegerField('Max. group size')
@@ -35,11 +36,12 @@ class SshSettings(Form):
 @refbp.route('/admin/system/settings/', methods=('GET', 'POST'))
 @admin_required
 def view_system_settings():
+
     general_settings = GeneralSettings(request.form, prefix='general_settings')
     if general_settings.submit.data and general_settings.validate():
-        pass
+         SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value = general_settings.allow_submission_deletion.data
     else:
-        pass
+        general_settings.allow_submission_deletion.data = SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value
 
     #Group settings belong here
     group_settings = GroupSettings(request.form, prefix='group_settings')
