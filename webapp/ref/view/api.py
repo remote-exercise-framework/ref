@@ -157,7 +157,9 @@ def api_provision():
     #Check whether a admin requested access to a specififc instance
     if exercise_name.startswith('instance-'):
         try:
-            return handle_instance_introspection_request(exercise_name, pubkey)
+            ret = handle_instance_introspection_request(exercise_name, pubkey)
+            db.session.commit()
+            return ret
         except Exception as e:
             return error_response(str(e))
 
@@ -215,7 +217,7 @@ def api_provision():
 
         #Get the user instance of requested exercise_name (if any). This might have a different version then the
         #default.
-        user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name, user.exercise_instances))
+        user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name and not instance.is_submission, user.exercise_instances))
         for i in range(0, len(user_instances)):
             user_instances[i] = user_instances[i].refresh(lock=True)
 
@@ -476,7 +478,56 @@ def api_instance_reset():
 
     mgr = InstanceManager(instance)
     mgr.stop()
+    #FIXME: Purge upper dir?
     mgr.remove()
+    current_app.db.session.commit()
+
+    return ok_response('OK')
+
+
+@refbp.route('/api/instance/submit', methods=('GET', 'POST'))
+def api_instance_submit():
+    """
+    Creates a submission of the instance with the given instance ID.
+    This function expects the following signed data structure:
+    {
+        'instance_id': <ID>
+    }
+    """
+    try:
+        content = _sanitize_container_request(request)
+    except Exception as e:
+        return error_response(str(e))
+
+    instance_id = content.get('instance_id')
+    try:
+        instance_id = int(instance_id)
+    except ValueError:
+        log.warning(f'Invalid instance id {instance_id}', exc_info=True)
+        return error_response('Invalid instance ID')
+
+    log.info(f'Got submit request for instance_id={instance_id}')
+
+    #Lock the instance and the user
+    with retry_on_deadlock():
+        instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
+        if not instance:
+            log.warning(f'Invalid instance id {instance_id}')
+            return error_response('Invalid request')
+
+        user = User.query.filter(User.id == instance.user.id).with_for_update().one_or_none()
+        if not user:
+            log.warning(f'Invalid user ID {instance.user.id}')
+            return error_response('Invalid request')
+
+    if instance.is_submission:
+        log.warning(f'User tried to submit already submitted instance {instance}')
+        return error_response('Unable to submit a submitted instance :-/')
+
+    mgr = InstanceManager(instance)
+    mgr.stop()
+    new_instance = mgr.create_submission()
+    log.info(f'Created submission: {new_instance}')
     current_app.db.session.commit()
 
     return ok_response('OK')

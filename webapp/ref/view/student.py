@@ -31,6 +31,9 @@ log = LocalProxy(lambda: current_app.logger)
 #         super().__init__(self, *args, **kwargs)
 #         self.label = args[0]
 
+def field_to_str(form, field):
+    return str(field.data)
+
 def validate_matriculation_number(form, field):
     """
     Checksums matriculation number. Raises ValidationError if not a valid matriculation number.
@@ -65,7 +68,7 @@ class EditUserForm(Form):
         validators.DataRequired(),
         validators.Regexp(mat_regex),
         validate_matriculation_number,
-        str
+        field_to_str
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = StringField('Firstname', validators=[validators.DataRequired()])
@@ -87,7 +90,7 @@ class GetKeyForm(Form):
         validators.DataRequired(),
         validators.Regexp(mat_regex),
         validate_matriculation_number,
-        str
+        field_to_str
         ])
     course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
     firstname = StringField('Firstname', validators=[validators.DataRequired()])
@@ -107,7 +110,7 @@ class RestoreKeyForm(Form):
         validators.DataRequired(),
         validators.Regexp(mat_regex),
         validate_matriculation_number,
-        str
+        field_to_str
         ])
     password = PasswordField('Password (The password used during first retrieval)', validators=[validators.DataRequired()])
     submit = SubmitField('Restore')
@@ -337,13 +340,18 @@ def student_edit(user_id):
             group.name = form.group_name.data
         user.group = group
 
+        #Make sure there are not too many members in the group
+        max_grp_size = SystemSettingsManager.GROUP_SIZE.value
+        if group and len(group.users) > max_grp_size:
+            form.group_name.errors += [f'Groups already reached the maximum of {max_grp_size} members']
+            return render_template('user_edit.html', form=form)
+
+        #Invalidate login if the authentication group changed
         new_auth_groups = []
         for auth_group in form.auth_group.data:
             new_auth_groups.append(UserAuthorizationGroups(auth_group))
-
         if new_auth_groups != form.auth_group:
             user.invalidate_session()
-
         user.auth_groups = new_auth_groups
 
         current_app.db.session.add(user)

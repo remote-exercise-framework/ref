@@ -69,16 +69,14 @@ COPY my-shell.c /tmp/my-shell.c
 RUN gcc /tmp/my-shell.c -o /bin/sh && rm /tmp/my-shell.c
 
 #Install the reset script
-COPY _instance-cmds.py /usr/local/bin/_instance-cmds.py
-RUN chown root:root /usr/local/bin/_instance-cmds.py \
-    && chmod 700 /usr/local/bin/_instance-cmds.py
+COPY task.py /usr/local/bin/_task
+RUN chown root:root /usr/local/bin/_task \
+    && chmod 500 /usr/local/bin/_task
 
 #Allow user to reset the instance
-RUN echo "user ALL=(ALL) NOPASSWD: /usr/local/bin/_instance-cmds.py reset" >> /etc/sudoers
-
-#Script used to run the reset script
-RUN echo "sudo /usr/local/bin/_instance-cmds.py reset" > /usr/bin/instance-reset \
-    && chmod 555 /usr/bin/instance-reset
+RUN echo 'sudo /usr/local/bin/_task $@' > /usr/local/bin/task \
+    && chmod 555 /usr/local/bin/task
+RUN echo "user ALL=(ALL) NOPASSWD: /usr/local/bin/_task" >> /etc/sudoers
 
 CMD ["/usr/sbin/sshd", "-D"]
 

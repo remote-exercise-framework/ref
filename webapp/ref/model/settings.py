@@ -54,7 +54,7 @@ class Setting():
 
 
 default_ssh_welcome_msg = """
-____  ____  ____                 _ __
+ ____  ____  ____                 _ __
 / __ \/ __/ / __/__ ______ ______(_) /___ __
 / /_/ /\ \  _\ \/ -_) __/ // / __/ / __/ // /
 \____/___/ /___/\__/\__/\_,_/_/ /_/\__/\_, /
@@ -63,6 +63,9 @@ ____  ____  ____                 _ __
 class SystemSettingsManager():
     COURSE_NAME = Setting('COURSE_NAME', str, 'OS-Security')
     COURSE_OF_STUDY = Setting('COURSE_OF_STUDY', list, ['A'])
+
+    SSH_HOSTNAME = Setting('SSH_HOSTNAME', str, "127.0.0.1")
+    SSH_PORT = Setting('SSH_PORT', str, "22")
 
     INSTANCE_SSH_INTROSPECTION = Setting('INSTANCE_SSH_INTROSPECTION', bool, False)
     INSTANCE_NON_DEFAULT_PROVISIONING = Setting('INSTANCE_NON_DEFAULT_PROVISIONING', bool, False)

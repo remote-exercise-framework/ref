@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import traceback
 from pathlib import Path
 
 import itsdangerous
@@ -42,6 +43,7 @@ class InstanceManager():
             - exercise
         """
         instance = Instance()
+        instance.is_submission = False
         instance.creation_ts = datetime.datetime.utcnow()
         instance.exercise = exercise
         instance.user = user
@@ -79,30 +81,35 @@ class InstanceManager():
         current_app.db.session.add(entry_service)
         current_app.db.session.add(instance)
 
+        mgr = InstanceManager(instance)
+        mgr.mount()
+
         return instance
 
     def create_submission(self) -> Instance:
         """
-        Submits the instance.
+        Creates a new instance that represents a snapshot of the current instance state.
         """
-        assert not self.instance.is_submission
+        assert not self.instance.is_submission, f'Can not submit instance {self.instance}, cause it is already a submission'
 
         #Make sure the instance is not running, since we are going to copy
         #some data from it.
         self.stop()
 
-        #FIXME: Locking
         user = self.instance.user
         exercise = self.instance.exercise
 
         new_instance = InstanceManager.create_instance(user, exercise)
-        new_instance.entry_service.is_submission = True
+        new_instance.is_submission = True
+        self.instance.submissions.append(new_instance)
 
         #Copy user data from the original instance as second lower dir to new instance.
         src = self.instance.entry_service.overlay_upper
-        dst = self.instance.entry_service.overlay_submission_lower
+        dst = new_instance.entry_service.overlay_submitted
         cmd = f'sudo cp -arT {src} {dst}'
         subprocess.check_call(cmd, shell=True)
+
+        return new_instance
 
     def update_instance(self, new_exercise: Exercise) -> Instance:
         """
@@ -239,6 +246,52 @@ class InstanceManager():
 
             current_app.db.session.add(service)
 
+    def mount(self):
+        """
+        Mount the persistance of the Instance.
+        """
+        log.info(f'Mounting persistance of {self.instance}')
+        exercise: Exercise = self.instance.exercise
+        exercise_entry_service = exercise.entry_service
+        instance_entry_service = self.instance.entry_service
+
+        #Mounts of the entry services
+        mounts = None
+        if exercise_entry_service.persistance_container_path:
+            if os.path.ismount(self.instance.entry_service.overlay_merged):
+                log.info('Already mounted.')
+                return
+            assert not exercise_entry_service.readonly
+            #Create overlay for the container persistance. All changes made by the student are recorded in the upper dir.
+            #In case an update of the container is necessary, we can replace the lower dir with a new one and reuse the upper
+            #dir. The directory used as mount target (overlay_merged) has shared mount propagation, i.e., mounts done in this
+            #directory are propageted to the host. This is needed, since we are mounting this merged directory into a container
+            #that is started by the host (see below for further details).
+            cmd = [
+                'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
+                f'-olowerdir={exercise.entry_service.persistance_lower}:{instance_entry_service.overlay_submitted},upperdir={instance_entry_service.overlay_upper},workdir={instance_entry_service.overlay_work}',
+                f'{instance_entry_service.overlay_merged}'
+            ]
+            subprocess.check_call(cmd)
+
+            #FIXME: Fix mountpoint permissions, thus the folder is owned by the container user "user".
+            cmd = f'sudo chown 9999:9999 {instance_entry_service.overlay_merged}'
+            subprocess.check_call(cmd, shell=True)
+
+            #Since we are using the hosts docker deamon, the mount source must be a path that is mounted in the hosts tree,
+            #hence we need to translate the locale mount path to a host path.
+            mounts = {
+                self.dc.local_path_to_host(instance_entry_service.overlay_merged): {'bind': '/home/user', 'mode': 'rw'}
+                }
+            log.info(f'mounting persistance {mounts}')
+        else:
+            log.info('Container is readonly')
+
+    def umount(self):
+        log.info(f'Unmounting persistance of {self.instance}')
+        if os.path.ismount(self.instance.entry_service.overlay_merged):
+            cmd = ['sudo', '/bin/umount', self.instance.entry_service.overlay_merged]
+            subprocess.check_call(cmd)
 
     def start(self):
         """
@@ -268,36 +321,6 @@ class InstanceManager():
         #aliases makes the ssh_container available to other container through the hostname sshserver
         entry_to_ssh_network.connect(ssh_container, aliases=['sshserver'])
 
-        #Mounts of the entry services
-        mounts = None
-        if exercise_entry_service.persistance_container_path:
-            assert not exercise_entry_service.readonly
-            #Create overlay for the container persistance. All changes made by the student are recorded in the upper dir.
-            #In case an update of the container is necessary, we can replace the lower dir with a new one and reuse the upper
-            #dir. The directory used as mount target (overlay_merged) has shared mount propagation, i.e., mounts done in this
-            #directory are propageted to the host. This is needed, since we are mounting this merged directory into a container
-            #that is started by the host (see below for further details).
-            cmd = [
-                'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
-                f'-olowerdir={exercise.entry_service.persistance_lower}:{exercise.entry_service.overlay_submitted},upperdir={instance_entry_service.overlay_upper},workdir={instance_entry_service.overlay_work}',
-                f'{instance_entry_service.overlay_merged}'
-            ]
-            subprocess.check_call(cmd)
-
-            #FIXME: Fix mountpoint permissions, thus the folder is owned by the container user "user".
-            cmd = f'sudo chown 9999:9999 {instance_entry_service.overlay_merged}'
-            subprocess.check_call(cmd, shell=True)
-
-            #Since we are using the hosts docker deamon, the mount source must be a path that is mounted in the hosts tree,
-            #hence we need to translate the locale mount path to a host path.
-            mounts = {
-                self.dc.local_path_to_host(instance_entry_service.overlay_merged): {'bind': '/home/user', 'mode': 'rw'}
-                }
-            log.info(f'mounting persistance {mounts}')
-        else:
-            log.info('Container is readonly')
-
-
         image_name = exercise.entry_service.image_name
         #Create container that is initally connected to the 'none' network
 
@@ -307,6 +330,13 @@ class InstanceManager():
         #Apply a custom seccomp profile that allows the personality syscall to disable ASLR
         with open('/app/seccomp.json', 'r') as f:
             seccomp_profile = f.read()
+
+        mounts = None
+        if exercise_entry_service.persistance_container_path:
+            mounts = {
+                self.dc.local_path_to_host(instance_entry_service.overlay_merged): {'bind': '/home/user', 'mode': 'rw'}
+                }
+
 
         cpu_period = current_app.config['EXERCISE_CONTAINER_CPU_PERIOD']
         cpu_quota = current_app.config['EXERCISE_CONTAINER_CPU_QUOTA']
@@ -343,6 +373,7 @@ class InstanceManager():
         #Get an instance specific key the can be used for request authentication.
         instance_key = self.instance.get_key()
 
+        #FIXME: Ugly
         #Convert byte array to \xXX encoding, thus we can used it with echo
         instance_key = re.findall('..', binascii.hexlify(instance_key).decode())
         instance_key = ['\\x' + e for e in instance_key]
@@ -421,11 +452,6 @@ class InstanceManager():
             e = traceback.format_exc()
             log.error(f'Failed to stop networking', exc_info=True)
 
-        #umount entry service persistance
-        if os.path.ismount(self.instance.entry_service.overlay_merged):
-            cmd = ['sudo', '/bin/umount', self.instance.entry_service.overlay_merged]
-            subprocess.check_call(cmd)
-
         self._remove_container()
 
         #Sync state back to DB
@@ -497,7 +523,9 @@ class InstanceManager():
         Kill the instance and remove all associated persisted data.
         NOTE: After callin this function, the instance must be removed from the DB.
         """
+        log.info(f'Deleting instance {self.instance}')
         self.stop()
+        self.umount()
         try:
             if os.path.exists(self.instance.persistance_path):
                 subprocess.check_call(f'sudo rm -rf {self.instance.persistance_path}', shell=True)
