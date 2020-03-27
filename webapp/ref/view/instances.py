@@ -89,7 +89,7 @@ def _instances_render_view(instances, title=None):
         new_exercise = get_newest_exercise_version(i.exercise)
         setattr(i, 'new_exercise', new_exercise)
 
-    return render_template('instances_view_list.html', title=title, instances=instances, settings=SystemSettingsManager)
+    return render_template('instances_view_list.html', title=title, instances=instances)
 
 @refbp.route('/admin/instances/view/by-user/<int:user_id>')
 @admin_required
