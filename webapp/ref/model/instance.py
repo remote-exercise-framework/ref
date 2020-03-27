@@ -120,7 +120,7 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     All submissions (snapshots) of this instance. This must be null for an instance
     with .is_submission set.
     """
-    submissions = db.relationship('Instance', backref=db.backref('instance', remote_side=[id]), lazy=True, passive_deletes='all')
+    submissions = db.relationship('Instance', backref=db.backref('parent_instance', remote_side=[id]), lazy=True, passive_deletes='all')
     parent_submission_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=True)
 
     """
