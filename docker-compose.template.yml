@@ -23,9 +23,13 @@ services:
 {% if not testing %}
    pgadmin:
       image: dpage/pgadmin4
+      volumes:
+         - ./pgadmin/server-config.json:/pgadmin4/servers.json
+         - ./data/pgadmin:/var/lib/pgadmin
       environment:
          - PGADMIN_DEFAULT_EMAIL=admin@admin.de
          - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:?PGADMIN_DEFAULT_PASSWORD not set}
+         - GUNICORN_ACCESS_LOGFILE=/dev/null
       ports:
          - ${PGADMIN_HTTP_PORT:?PGADMIN_HTTP_PORT not set}:80
       networks:

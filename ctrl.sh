@@ -223,6 +223,13 @@ if [[ ! -d "./data/redis-db" || "$(stat -c '%u' './data/redis-db')" != "1001" ]]
     sudo chown 1001:1001 -R './data/redis-db'
 fi
 
+if [[ ! -d "./data/pgadmin" || "$(stat -c '%u' './data/pgadmin')" != "5050" ]]; then
+    info "=> Fixing pgadmin DB permissinos, requesting super user access..."
+    sudo mkdir -p './data/pgadmin'
+    sudo chown 5050:5050 -R './data/pgadmin'
+fi
+
+
 #Check whether we have enough docker subnets configured.
 if [[ ! -f "/etc/docker/daemon.json" ]]; then
     docker_subnet_warning
