@@ -563,3 +563,4 @@ class InstanceManager():
         except:
             log.error(f'Error during purgeing of persisted data {self.instance}', exc_info=True)
             raise
+        self.start()
