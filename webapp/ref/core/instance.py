@@ -537,11 +537,24 @@ class InstanceManager():
             raise
 
         for submission in self.instance.submissions:
-            mgr = InstanceManager(submission)
+            mgr = InstanceManager(submission.submitted_instance)
             mgr.remove()
+            current_app.db.session.delete(submission)
 
         for service in self.instance.peripheral_services:
             current_app.db.session.delete(service)
 
         current_app.db.session.delete(self.instance.entry_service)
         current_app.db.session.delete(self.instance)
+
+    def reset(self):
+        """
+        Purges all persisted data from the instance.
+        """
+        self.stop()
+        try:
+            if os.path.exists(self.instance.entry_service.overlay_upper):
+                subprocess.check_call(f'sudo rm -rf {self.instance.entry_service.overlay_upper}/*', shell=True)
+        except:
+            log.error(f'Error during purgeing of persisted data {self.instance}', exc_info=True)
+            raise
