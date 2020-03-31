@@ -544,6 +544,11 @@ class InstanceManager():
         for service in self.instance.peripheral_services:
             current_app.db.session.delete(service)
 
+        #If this instance is part of a submission, delete the associated submission object.
+        submission = self.instance.submission
+        if submission:
+            current_app.db.session.delete(submission)
+
         current_app.db.session.delete(self.instance.entry_service)
         current_app.db.session.delete(self.instance)
 
