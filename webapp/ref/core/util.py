@@ -1,11 +1,14 @@
 from contextlib import contextmanager
+from functools import wraps
 
-from flask import abort, current_app, redirect, request, url_for
+from flask import (abort, current_app, redirect, render_template, request,
+                   url_for)
 from werkzeug.urls import url_parse
 
 #http://initd.org/psycopg/docs/errors.html
 from psycopg2.errors import DeadlockDetected, TransactionRollback
 from ref.core import flash
+from ref.model import SystemSettingsManager
 
 
 def redirect_to_next(default='ref.admin_default_routes'):
@@ -25,3 +28,14 @@ def retry_on_deadlock(retry_delay=0.5, retry_count=20):
             raise e
         tries += 1
         current_app.logger.info(f'Deadlock during DB operation. Retry in {retry_delay}s ({tries} of {retry_count})', exc_info=True)
+
+def unavailable_during_maintenance(func):
+    """
+    Only allow admins to access the given view.
+    """
+    @wraps(func)
+    def decorated_view(*args, **kwargs):
+        if SystemSettingsManager.MAINTENANCE_ENABLED.value:
+            return render_template('maintenance.html')
+        return func(*args, **kwargs)
+    return decorated_view
