@@ -41,7 +41,7 @@ class Setting():
             return self.default_value
 
     def _set_value(self, val):
-        assert isinstance(val, self.type_)
+        assert isinstance(val, self.type_), f'isinstance({type(val)}, {self.type_}) failed'
         entry = SystemSetting.query.filter(SystemSetting.name == self.key).one_or_none()
         if entry is None:
             entry = SystemSetting()
@@ -61,6 +61,8 @@ default_ssh_welcome_msg = """
                                     /___/"""
 
 class SystemSettingsManager():
+    MAINTENANCE_ENABLED = Setting('MAINTENANCE_ENABLED', bool, False)
+
     COURSE_NAME = Setting('COURSE_NAME', str, 'OS-Security')
     COURSE_OF_STUDY = Setting('COURSE_OF_STUDY', list, ['A'])
 
@@ -69,7 +71,7 @@ class SystemSettingsManager():
 
     SUBMISSION_ALLOW_DELETE = Setting('SUBMISSION_ALLOW_DELETE', bool, False)
 
-    INSTANCE_SSH_INTROSPECTION = Setting('INSTANCE_SSH_INTROSPECTION', bool, False)
+    INSTANCE_SSH_INTROSPECTION = Setting('INSTANCE_SSH_INTROSPECTION', bool, True)
     INSTANCE_NON_DEFAULT_PROVISIONING = Setting('INSTANCE_NON_DEFAULT_PROVISIONING', bool, False)
 
     GROUPS_ENABLED = Setting('GROUPS_ENABLED', bool, False)

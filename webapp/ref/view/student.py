@@ -8,7 +8,7 @@ from itsdangerous import URLSafeTimedSerializer
 from werkzeug.local import LocalProxy
 
 from ref import db, refbp
-from ref.core import admin_required, flash
+from ref.core import admin_required, flash, unavailable_during_maintenance
 from ref.core.util import redirect_to_next
 from ref.model import SystemSettingsManager, User, UserGroup
 from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
@@ -116,6 +116,7 @@ class RestoreKeyForm(Form):
     submit = SubmitField('Restore')
 
 @refbp.route('/student/download/pubkey/<string:signed_mat>')
+@unavailable_during_maintenance
 def student_download_pubkey(signed_mat):
     """
     Returns the public key of the given matriculation number as
@@ -140,6 +141,7 @@ def student_download_pubkey(signed_mat):
         return render_template('400.html'), 400
 
 @refbp.route('/student/download/privkey/<string:signed_mat>')
+@unavailable_during_maintenance
 def student_download_privkey(signed_mat):
     """
     Returns the private key of the given matriculation number as
@@ -164,11 +166,13 @@ def student_download_privkey(signed_mat):
         return render_template('400.html'), 400
 
 @refbp.route('/student/getkey', methods=('GET', 'POST'))
+@unavailable_during_maintenance
 def student_getkey():
     """
     Endpoint used to genereate a public/private key pair used by the students
     for authentication to get access to the exercises.
     """
+
     form = GetKeyForm(request.form)
 
     #Get valid group names
@@ -250,6 +254,7 @@ def student_getkey():
     return render()
 
 @refbp.route('/student/restoreKey', methods=('GET', 'POST'))
+@unavailable_during_maintenance
 def student_restorekey():
     """
     This endpoint allows a user to restore its key using its matriculation number
@@ -404,6 +409,6 @@ def student_delete(user_id):
 @refbp.route('/', methods=('GET', 'POST'))
 def student_default_routes():
     """
-    List all students currently registered.
+    Redirect some urls to the key retrival form.
     """
     return redirect(url_for('ref.student_getkey'))
