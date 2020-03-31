@@ -29,11 +29,11 @@ log = LocalProxy(lambda: current_app.logger)
 
 def error_response(msg, code=400):
     msg = jsonify({'error': msg})
-    return make_response(msg, code)
+    return msg, code
 
 def ok_response(msg):
     msg = jsonify(msg)
-    return make_response(msg, 200)
+    return msg, 200
 
 def start_and_return_instance(instance: Instance):
     """

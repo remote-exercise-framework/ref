@@ -26,7 +26,8 @@ def finalize_request(req):
 
 def handle_response(resp):
     try:
-        err, json = resp.json()
+        err = resp.status_code
+        json = resp.json()
     except ValueError:
         print('Missing JSON body')
         return False
