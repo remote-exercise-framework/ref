@@ -24,7 +24,7 @@ Instances
                 <th scope="col">Exercise</th>
                 <th scope="col">Version</th>
                 <th scope="col">User</th>
-                {% if instances|map(attribute='is_submission')|not|all %}
+                {% if instances|map(attribute='submission')|not|all %}
                     <th scope="col">#Submissions</th>
                 {% endif %}
                 <th scope="col">Running</th>
@@ -42,7 +42,7 @@ Instances
                             {% endif %}
                         </td>
                         <td>{{ i.user.first_name }} {{ i.user.surname }} ({{ i.user.id }})</td>
-                        {% if instances|map(attribute='is_submission')|not|all %}
+                        {% if instances|map(attribute='submission')|not|all %}
                             <td>{{ i.submissions|length }}</td>
                         {% endif %}
                         <td>{{ i.running }}</td>
