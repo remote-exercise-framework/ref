@@ -217,7 +217,7 @@ def api_provision():
 
         #Get the user instance of requested exercise_name (if any). This might have a different version then the
         #default.
-        user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name and not instance.is_submission, user.exercise_instances))
+        user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name and not instance.submission, user.exercise_instances))
         for i in range(0, len(user_instances)):
             user_instances[i] = user_instances[i].refresh(lock=True)
 
