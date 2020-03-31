@@ -477,9 +477,7 @@ def api_instance_reset():
             return error_response('Invalid request')
 
     mgr = InstanceManager(instance)
-    mgr.stop()
-    #FIXME: Purge upper dir?
-    mgr.remove()
+    mgr.reset()
     current_app.db.session.commit()
 
     return ok_response('OK')
@@ -520,14 +518,14 @@ def api_instance_submit():
             log.warning(f'Invalid user ID {instance.user.id}')
             return error_response('Invalid request')
 
-    if instance.is_submission:
+    if instance.submission:
         log.warning(f'User tried to submit already submitted instance {instance}')
         return error_response('Unable to submit a submitted instance :-/')
 
     mgr = InstanceManager(instance)
     mgr.stop()
     new_instance = mgr.create_submission()
-    log.info(f'Created submission: {new_instance}')
+    log.info(f'Created submission: {new_instance.submission}')
     current_app.db.session.commit()
 
     return ok_response('OK')

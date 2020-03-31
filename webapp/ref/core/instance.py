@@ -13,7 +13,8 @@ import itsdangerous
 from flask import current_app
 from werkzeug.local import LocalProxy
 
-from ref.model import Instance, InstanceEntryService, InstanceService, User
+from ref.model import (Instance, InstanceEntryService, InstanceService,
+                       Submission, User)
 
 from .docker import DockerClient
 from .exercise import Exercise
@@ -43,7 +44,6 @@ class InstanceManager():
             - exercise
         """
         instance = Instance()
-        instance.is_submission = False
         instance.creation_ts = datetime.datetime.utcnow()
         instance.exercise = exercise
         instance.user = user
@@ -51,7 +51,6 @@ class InstanceManager():
 
         #Create the entry service
         entry_service = InstanceEntryService()
-        entry_service.is_submission = False
         #Backref
         entry_service.instance = instance
 
@@ -90,7 +89,7 @@ class InstanceManager():
         """
         Creates a new instance that represents a snapshot of the current instance state.
         """
-        assert not self.instance.is_submission, f'Can not submit instance {self.instance}, cause it is already a submission'
+        assert not self.instance.submission, f'Can not submit instance {self.instance}, cause it is already part of a submission'
 
         #Make sure the instance is not running, since we are going to copy
         #some data from it.
@@ -99,9 +98,13 @@ class InstanceManager():
         user = self.instance.user
         exercise = self.instance.exercise
 
+        submission = Submission()
+        submission.origin_instance = self.instance
+
         new_instance = InstanceManager.create_instance(user, exercise)
-        new_instance.is_submission = True
-        self.instance.submissions.append(new_instance)
+        submission.submitted_instance = new_instance
+
+        current_app.db.session.add(submission)
 
         #Copy user data from the original instance as second lower dir to new instance.
         src = self.instance.entry_service.overlay_upper

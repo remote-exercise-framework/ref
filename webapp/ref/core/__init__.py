@@ -1,8 +1,7 @@
+from .dashboard import SystemMetricsUpdateService
+from .docker import DockerClient
 from .exercise import ExerciseConfigError, ExerciseManager
 from .image import ExerciseImageManager
 from .instance import InstanceManager
-from .docker import DockerClient
 from .security import admin_required
-from .instance import InstanceManager
-from .util import retry_on_deadlock
-from .dashboard import SystemMetricsUpdateService
+from .util import retry_on_deadlock, unavailable_during_maintenance
