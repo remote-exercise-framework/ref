@@ -100,7 +100,7 @@ def instances_by_user_id(user_id):
         return render_template('400.html'), 400
 
     instances = Instance.get_by_user(user_id)
-    instances = list(filter(lambda e: not e.is_submission, instances))
+    instances = list(filter(lambda e: not e.submission, instances))
 
     title=f'Instances of user {user.full_name} (#{user.id})'
     return _instances_render_view(instances, title=title)
@@ -124,7 +124,7 @@ def instances_view_by_exercise(exercise_name):
             return render_template('400.html'), 400
 
     instances = Instance.get_instances_by_exercise(exercise_name, exercise_version)
-    instances = list(filter(lambda e: not e.is_submission, instances))
+    instances = list(filter(lambda e: not e.submission, instances))
 
     title=f'Instances of exercise {exercise_name}'
     if exercise_version:
@@ -140,13 +140,17 @@ def instance_view_submissions(instance_id):
         flash.error(f'Unknown instance ID {instance_id}')
         return render_template('400.html'), 400
     
-    return _instances_render_view(instance.submissions, title=f'Submissions of instance {instance.id}')
+    instances = []
+    for submission in instance.submissions:
+        instances.append(submission.submitted_instance)
+
+    return _instances_render_view(instances, title=f'Submissions of instance {instance.id}')
 
 @refbp.route('/admin/instances/view')
 @admin_required
 def instances_view_all():
     instances = Instance.query.all()
-    instances = list(filter(lambda e: not e.is_submission, instances))
+    instances = list(filter(lambda e: not e.submission, instances))
 
     return _instances_render_view(instances)
 
@@ -180,7 +184,7 @@ def instance_delete(instance_id):
         if instance.submissions:
             flash.error(f'Unable to delete instance {instance_id}, since it has associated submissions.')
             return redirect_to_next()
-        elif instance.is_submission:
+        elif instance.submission:
             flash.error(f'Unable to delete instance {instance_id}, since submission deletion is disabled.')
             return redirect_to_next()
 

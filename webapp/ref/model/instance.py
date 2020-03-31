@@ -116,18 +116,11 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     creation_ts = db.Column(db.DateTime(), nullable=True)
 
-    """
-    All submissions (snapshots) of this instance. This must be null for an instance
-    with .is_submission set.
-    """
-    submissions = db.relationship('Instance', backref=db.backref('parent_instance', remote_side=[id]), lazy=True, passive_deletes='all')
-    parent_submission_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=True)
+    #All submission of this instance. If this list is empty, the instance was never submitted.
+    submissions = db.relationship('Submission', foreign_keys='Submission.origin_instance_id', back_populates='origin_instance', lazy=True, passive_deletes='all')
 
-    """
-    Whether this is a submission of an Instance. If True, .instance
-    points to the snapshotted instance.
-    """ 
-    is_submission = db.Column(db.Boolean(), nullable=False)
+    #If this instance is part of a subission, this field points to the Submission. If this field is set, submissions must be empty.
+    submission = db.relationship("Submission", foreign_keys='Submission.submitted_instance_id', uselist=False, back_populates="submitted_instance", passive_deletes='all')
 
     def get_key(self) -> bytes:
         secret_key = current_app.config['SECRET_KEY']
@@ -168,3 +161,24 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             if i.user.id == user_id:
                 ret.append(i)
         return ret
+
+
+class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
+    """
+    TODO:
+    """
+    __to_str_fields__ = ['id', 'origin_instance_id', 'submitted_instance_id']
+    __tablename__ = 'submission'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    #Reference to the Instance that was submitted. Hence, submitted_instance is a snapshot of origin_instance.
+    origin_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
+    origin_instance = db.relationship("Instance", foreign_keys=[origin_instance_id], back_populates="submissions")
+
+    #Reference to the Instance that represents the state of origin_instance at time the time of Submission creation.
+    submitted_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=True)
+    submitted_instance = db.relationship("Instance", foreign_keys=[submitted_instance_id], back_populates="submission")
+
+    #Point in time the submission happend
+    submission_ts = db.Column(db.DateTime(), nullable=True)
