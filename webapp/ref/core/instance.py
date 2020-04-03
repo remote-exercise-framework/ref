@@ -557,10 +557,12 @@ class InstanceManager():
         Purges all persisted data from the instance.
         """
         self.stop()
+        self.umount()
         try:
             if os.path.exists(self.instance.entry_service.overlay_upper):
                 subprocess.check_call(f'sudo rm -rf {self.instance.entry_service.overlay_upper}/*', shell=True)
         except:
             log.error(f'Error during purgeing of persisted data {self.instance}', exc_info=True)
             raise
+        self.mount()
         self.start()
