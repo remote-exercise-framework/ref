@@ -162,7 +162,9 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     description = db.Column(db.Text(), nullable=True)
 
     #Instances must be submitted before this point in time.
-    submission_deadline = db.Column(db.DateTime(), nullable=True)
+    submission_deadline_end = db.Column(db.DateTime(), nullable=True)
+
+    submission_deadline_start = db.Column(db.DateTime(), nullable=True)
 
     #Is this Exercise version deployed by default in case an instance is requested?
     #At most one exercise with same short_name can have this flag.
