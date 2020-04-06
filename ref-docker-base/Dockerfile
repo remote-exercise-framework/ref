@@ -88,5 +88,4 @@ RUN apt update && apt install -y \
     vim
 
 RUN pip install --upgrade pwntools
-RUN pip3 install --upgrade pwntools ipython itsdangerous
-
+RUN pip3 install --upgrade pwntools ipython itsdangerous colorama

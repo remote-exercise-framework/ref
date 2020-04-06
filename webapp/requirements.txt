@@ -58,3 +58,4 @@ Werkzeug==1.0.0
 WTForms==2.2.1
 zipp==2.2.0
 flask-moment
+Flask-Limiter
