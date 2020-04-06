@@ -264,7 +264,8 @@ def exercise_view_all():
         categories[e.category] += [e]
 
     for k in categories:
-        categories[k] = sorted(categories[k], key=lambda e: e.short_name)
+        #sort by name and then by version
+        categories[k] = sorted(categories[k], key=lambda e: e.short_name + str(e.version))
 
     return render()
 
