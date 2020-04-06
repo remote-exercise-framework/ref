@@ -522,6 +522,10 @@ def api_instance_submit():
         log.warning(f'User tried to submit already submitted instance {instance}')
         return error_response('Unable to submit a submitted instance :-/')
 
+    if instance.exercise.submission_deadline_end and datetime.datetime.utcnow() > instance.exercise.submission_deadline_end:
+        log.info(f'User tried to submit instance {instance} after deadline :-O')
+        return error_response('The deadline is unfortunately passed')
+
     mgr = InstanceManager(instance)
     mgr.stop()
     new_instance = mgr.create_submission()
