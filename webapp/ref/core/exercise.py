@@ -1,3 +1,4 @@
+import datetime
 import enum
 import os
 import random
@@ -92,6 +93,12 @@ class ExerciseManager():
         exercise.description = ExerciseManager._parse_attr(cfg, 'description', str, required=False, default=None)
 
         exercise.version = ExerciseManager._parse_attr(cfg, 'version', int)
+
+        exercise.submission_deadline_start = ExerciseManager._parse_attr(cfg, 'deadline-start', datetime.datetime, required=False, default=None)
+
+        exercise.submission_deadline_end = ExerciseManager._parse_attr(cfg, 'deadline-end', datetime.datetime, required=False, default=None)
+
+        #Set defaults
         exercise.is_default = False
         exercise.build_job_status = ExerciseBuildStatus.NOT_BUILD
 
