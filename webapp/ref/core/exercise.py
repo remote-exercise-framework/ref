@@ -98,6 +98,9 @@ class ExerciseManager():
 
         exercise.submission_deadline_end = ExerciseManager._parse_attr(cfg, 'deadline-end', datetime.datetime, required=False, default=None)
 
+        if (exercise.submission_deadline_start is None) != (exercise.submission_deadline_end is None):
+            raise ExerciseConfigError('Either both or none of deadline-{start,end} must be set!')
+
         #Set defaults
         exercise.is_default = False
         exercise.build_job_status = ExerciseBuildStatus.NOT_BUILD
