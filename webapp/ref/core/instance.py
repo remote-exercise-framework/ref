@@ -161,9 +161,11 @@ class InstanceManager():
                 log.error(f'Failed to remove new instance {new_instance} during update of {self.instance}', exc_info=True)
             raise
 
+
+
         try:
             #Remove old instance and all persisted data
-            self.remove()
+            self.remove(bequeath_submissions_to=new_mgr.instance)
         except:
             #If this fails, we have two instances for one user. How do we deal with this?
             #We need to keep the new instance since it contains the persisted user data and
@@ -522,11 +524,14 @@ class InstanceManager():
 
         return True
 
-    def remove(self):
+    def remove(self, bequeath_submissions_to=None):
         """
         Kill the instance and remove all associated persisted data.
         NOTE: After callin this function, the instance must be removed from the DB.
         """
+        #Do not delete instances that belong to a submission and were graded.
+        assert not self.instance.submission or not self.instance.submission.grading 
+
         log.info(f'Deleting instance {self.instance}')
         self.stop()
         self.umount()
@@ -537,13 +542,18 @@ class InstanceManager():
             log.error(f'Error during removal of instance {self.instance}')
             raise
 
-        for submission in self.instance.submissions:
-            mgr = InstanceManager(submission.submitted_instance)
-            mgr.remove()
-            current_app.db.session.delete(submission)
-
         for service in self.instance.peripheral_services:
             current_app.db.session.delete(service)
+
+        #Check if the submissions of this instance should be bequeathed by another Instance.
+        if bequeath_submissions_to:
+             bequeath_submissions_to.submissions = self.instance.submissions
+        else:
+            for submission in self.instance.submissions:
+                mgr = InstanceManager(submission.submitted_instance)
+                mgr.remove()
+                current_app.db.session.delete(submission)
+        self.instance.submissions = []
 
         #If this instance is part of a submission, delete the associated submission object.
         submission = self.instance.submission
