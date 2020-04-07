@@ -452,10 +452,9 @@ class InstanceManager():
 
         try:
             self._stop_networks()
-        except Exception as e:
+        except Exception:
             #FIXME: If a network contains an already removed container, stopping it fails.
             #For now we just ignore this, since this seems to be a known docker issue.
-            e = traceback.format_exc()
             log.error(f'Failed to stop networking', exc_info=True)
 
         self._remove_container()
