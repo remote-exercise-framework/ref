@@ -92,10 +92,6 @@ def handle_instance_introspection_request(exercise_name, pubkey):
         instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
         user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
 
-    if not user:
-        log.warning(f'Unknown with pubkey={pubkey}')
-        raise Exception('Invalid user')
-
     if not SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value:
         m = f'Instance SSH introspection is disabled!'
         log.warning(m)
@@ -154,6 +150,18 @@ def api_provision():
 
     log.info(f'Got request from pubkey={pubkey:32}, exercise_name={exercise_name}')
 
+    #Get the user account
+    with retry_on_deadlock():
+        user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
+        if not user:
+            log.warning('Unable to find user with provided publickey')
+            return error_response('Unknown public-key')
+
+    #If we are in maintenance, reject connections from normal users.
+    if current_app.config['MAINTENANCE_ENABLED'] or SystemSettingsManager.MAINTENANCE_ENABLED.value and not user.is_admin:
+        log.info('Rejecting connection since maintenance mode is enabled and user is no admin')
+        return error_response('-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------')
+
     #Check whether a admin requested access to a specififc instance
     if exercise_name.startswith('instance-'):
         try:
@@ -163,137 +171,45 @@ def api_provision():
         except Exception as e:
             return error_response(str(e))
 
-    #Check if a specififc version was requested (admin only)
-    exercise_version = re.findall(r"(.*)-v([0-9]+)", exercise_name)
-
-    #Do we have a match?
-    if exercise_version and len(exercise_version[0]) == 2:
-        exercise_name = exercise_version[0][0]
-        try:
-            exercise_version = int(exercise_version[0][1])
-        except ValueError:
-            log.warning(f'Invalid version number', exc_info=True)
-            return error_response('Invalid request')
-    else:
-        exercise_version = None
-    log.info(f'Request for exercise {exercise_name} version {exercise_version} for user {pubkey:32} was requested')
-
-    if exercise_version is not None and not SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value:
-        log.warning('None default provisioning is disabled')
-        return error_response('None default provisioning is disabled')
-
-    #Try to lock all DB rows we are going to work with
     with retry_on_deadlock():
-        #Get the user account
         user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
         if not user:
             log.warning('Unable to find user with provided publickey')
             return error_response('Unknown public-key')
 
-        log.info(f'Found matching user: {user}')
+        requested_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
+        log.info(f'Default exercise for {exercise_name} is {requested_exercise}')
+        if not requested_exercise:
+            return error_response('There is no active default for the requested exercise')
 
-        #If we are in maintenance, reject connections from normal users.
-        if current_app.config['MAINTENANCE_ENABLED'] and not user.is_admin:
-            log.info('Rejecting connection since maintenance mode is enabled and user is no admin')
-            return error_response('-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------')
+    user_instances = list(filter(lambda e: e.exercise.short_name == requested_exercise.short_name, user.exercise_instances))
+    user_instances = list(filter(lambda e: not e.submission, user_instances))
 
-        if not Exercise.query.filter(Exercise.short_name == exercise_name).all():
-            log.info('Failed to find exercise with requested name')
-            return error_response('No such task')
-
-        if exercise_version is not None and user.is_admin:
-            #Admin users are allowed to request instances of exercises that are not set as default
-            requested_exercise = Exercise.get_exercise(exercise_name, exercise_version, for_update=True)
-            if not requested_exercise:
-                return error_response('Requested exercise does not exist!')
-        elif exercise_version is not None:
-            return error_response('Only admins are allowed to request a specific version')
-        else:
-            #Get the default exercise for the requested exercise name
-            requested_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
-            log.info(f'Default exercise for {exercise_name} is {requested_exercise}')
-            if not requested_exercise:
-                return error_response('There is no active default for the requested exercise')
-
-        #Get the user instance of requested exercise_name (if any). This might have a different version then the
-        #default.
-        user_instances = list(filter(lambda instance: instance.exercise.short_name == exercise_name and not instance.submission, user.exercise_instances))
-        for i in range(0, len(user_instances)):
-            user_instances[i] = user_instances[i].refresh(lock=True)
-
-    #user_instances contains all instance of the requested exercise_name (if any)
-
-    #Do not provision submitted instances
-    #FIXME: Implement
-    #user_instances = list(filter(lambda instance: not instance.is_submission, user_instances))
-
-    """
-    If the user has an instance of the default version of the exercise or one that is more recent
-    (i.e., has an high version number than the default) we return it. In case the instance has
-    a lower version than the default, it will be updated below.
-    If the user has no instance we continue and create one.
-    """
-
+    #Highest version comes first
+    user_instances = sorted(user_instances, key=lambda e: e.exercise.version, reverse=True)
     user_instance = None
-    if exercise_version is not None:
-        #The user requested a specific version
-        user_instances = list(filter(lambda i: i.exercise.version == exercise_version, user_instances))
+
+    if False:
+        #FIXME: Check if specific version was requested
+        pass
     else:
-        #Get instance with same version or newer than the default
-        user_instances = list(filter(lambda e: e.exercise == requested_exercise or e.exercise.version > requested_exercise.version, user_instances))
+        if user_instances:
+            log.info(f'User has instance {user_instance} of requested exercise')
+            user_instance = user_instances[0]
+            #Make sure we are not dealing with an submission here!
+            assert not user_instance.submission
+            if user_instance.exercise.version < requested_exercise.version:
+                old_instance = user_instance
+                log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {requested_exercise}')
+                mgr = InstanceManager(old_instance)
+                user_instance = mgr.update_instance(requested_exercise)
+        else:
+            user_instance = InstanceManager.create_instance(user, requested_exercise)
+    
+        ret = start_and_return_instance(user_instance)
 
-    if user_instances:
-        user_instance = user_instances[0]
-
-    if user_instance and (exercise_version is not None or (user_instance.exercise.version >= requested_exercise.version)):
-        #We let instance with lower version number fallthrough, thus they get updated down below
-        log.info(f'User has an instance of the requested exercise: {user_instance}')
-        try:
-            ret = start_and_return_instance(user_instance)
-            db.session.commit()
-            return ret
-        except:
-            raise
-
-    """
-    If we are here, one of the following statements is true:
-        1. The user has no instance of the requested exercise (user_instance is None)
-        2. The user has an instance, but it is older then the current default version.
-    """
-
-    if not ExerciseImageManager(requested_exercise).is_build():
-        log.error(f'Exercise {requested_exercise} is marked as default, but is not build! Possibly someone deleted the docker image?')
-        return error_response('Internal error, please notify the system administrator')
-
-    new_instance = None
-    if user_instance:
-        #The user has an older version of the exercise, upgrade it.
-        old_instance = user_instance
-        log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {requested_exercise}')
-        mgr = InstanceManager(old_instance)
-        try:
-            new_instance = mgr.update_instance(requested_exercise)
-        except:
-            raise
-    else:
-        #The user has no instance of the exercise, create a new one.
-        log.info(f'User has no instance of exercise {requested_exercise}, creating one...')
-        try:
-            new_instance = InstanceManager.create_instance(user, requested_exercise)
-        except:
-            raise
-
-    try:
-        ret = start_and_return_instance(new_instance)
-    except:
-        raise
-
-    #Release locks and commit
     db.session.commit()
-
-    log.info(f'returning {ret}')
     return ret
-
 
 @refbp.route('/api/getkeys', methods=('GET', 'POST'))
 def api_getkeys():
