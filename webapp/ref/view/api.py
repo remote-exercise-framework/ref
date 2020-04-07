@@ -524,7 +524,8 @@ def api_instance_submit():
 
     if instance.exercise.submission_deadline_end and datetime.datetime.utcnow() > instance.exercise.submission_deadline_end:
         log.info(f'User tried to submit instance {instance} after deadline :-O')
-        return error_response('The deadline is unfortunately passed')
+        deadline = instance.exercise.submission_deadline_end.strftime("%d/%m/%Y %H:%M:%S")
+        return error_response(f'Sorry, submission was due at {deadline} UTC')
 
     mgr = InstanceManager(instance)
     mgr.stop()
