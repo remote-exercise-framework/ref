@@ -364,12 +364,12 @@ def student_edit(user_id):
             return render_template('user_edit.html', form=form)
 
         #Invalidate login if the authentication group changed
-        new_auth_groups = []
+        new_auth_groups = set()
         for auth_group in form.auth_group.data:
-            new_auth_groups.append(UserAuthorizationGroups(auth_group))
-        if new_auth_groups != form.auth_group:
+            new_auth_groups.add(UserAuthorizationGroups(auth_group))
+        if new_auth_groups != set(user.auth_groups):
             user.invalidate_session()
-        user.auth_groups = new_auth_groups
+        user.auth_groups = list(new_auth_groups)
 
         current_app.db.session.add(user)
         current_app.db.session.commit()
