@@ -99,6 +99,7 @@ class InstanceManager():
         exercise = self.instance.exercise
 
         submission = Submission()
+        submission.submission_ts = datetime.datetime.now()
         submission.origin_instance = self.instance
 
         new_instance = InstanceManager.create_instance(user, exercise)
