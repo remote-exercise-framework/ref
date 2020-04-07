@@ -1,0 +1,44 @@
+{% extends "admin_base.html" %}
+
+{% block title %}
+
+{% endblock %}
+
+{% block admin_content %}
+{% if submissions %}
+    <div class="card">
+        <h4 class="card-header">
+            {{ title or 'Submissions' }}
+        </h4>
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th scope="col">#ID</th>
+                    <th scope="col">User</th>
+                    <th scope="col">Exercise</th>
+                    <th scope="col">Last update</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for submission in submissions %}
+                <tr>
+                    <td scope="row">{{ submission.id }}</td>
+                    <td scope="row">{{ submission.origin_instance.user.full_name }}</td>
+                    <td scope="row">{{ submission.origin_instance.exercise.short_name }} (v{{ submission.origin_instance.exercise.version}})</td>
+                    <td scope="row">{{ moment(submission.submission_ts).fromNow() }}</td>
+                    <td>
+                        <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ submission.submitted_instance.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">SSH</a>
+                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.group_view_users', group_id=0, next=request.path) }}">Files</a>
+                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.group_view_users', group_id=0, next=request.path) }}">Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <h6 class="text-center">No Data</h6>
+{% endif %}
+
+{% endblock %}
