@@ -213,6 +213,13 @@ def student_getkey():
             student.surname = form.surname.data
             student.nickname = form.nickname.data
 
+            if User.query.filter(User.nickname == student.nickname).one_or_none():
+                form.nickname.errors += ['Nickname already taken']
+                pubkey = None
+                privkey = None
+                student = None
+                return render()
+
             if groups_enabled:
                 group = UserGroup.query.filter(UserGroup.name == form.group_name.data).one_or_none()
                 if not group and form.group_name.data:
@@ -336,7 +343,12 @@ def student_edit(user_id):
         user.course_of_studies = CourseOfStudies(form.course.data)
         user.first_name = form.firstname.data
         user.surname = form.surname.data
-        user.nickname = form.nickname.data
+
+        if User.query.filter(User.nickname == form.nickname.data).one_or_none() not in [None, user]:
+            form.nickname.errors += ['Nickname already taken']
+            return render_template('user_edit.html', form=form)
+        else:
+            user.nickname = form.nickname.data
 
         group = UserGroup.query.filter(UserGroup.name == form.group_name.data).one_or_none()
         #Only create a group if the name was set
