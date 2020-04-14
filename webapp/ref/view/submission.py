@@ -14,6 +14,7 @@ import rq
 import yaml
 from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
+from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
 from werkzeug.urls import url_parse
 
@@ -25,7 +26,6 @@ from ref.core.util import redirect_to_next
 from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
                        Instance, Submission, SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
-from sqlalchemy.orm import joinedload, raiseload
 from wtforms import Form, IntegerField, SubmitField, validators
 
 log = LocalProxy(lambda: current_app.logger)
@@ -43,7 +43,7 @@ def submission_delete(submission_id):
     submission = Submission.query.filter(Submission.id == submission_id).with_for_update().one_or_none()
     if not submission:
         flash.error(f'Unknown submission ID {submission_id}')
-        return render_template('400.html'), 400
+        abort(400)
 
     if not SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value:
         flash.error('It is not allowed to delete submissions')
