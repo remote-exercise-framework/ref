@@ -6,8 +6,9 @@ from binascii import hexlify
 from functools import wraps
 
 from flask import current_app, render_template
-from werkzeug.exceptions import (Forbidden, Gone, InternalServerError,
-                                 MethodNotAllowed, NotFound)
+from werkzeug.exceptions import (BadRequest, Forbidden, Gone,
+                                 InternalServerError, MethodNotAllowed,
+                                 NotFound)
 
 error_handlers = []
 
@@ -35,13 +36,17 @@ def render_error_template(e, code, json=False):
                            title='{}'.format(code)), code
 
 @errorhandler(NotFound.code)
-def not_found(e='404: Not Found', json=False):
+def not_found(e, json=False):
     text = f'Not Found: Unable to find the requested ressource.'
     return render_error_template(text, NotFound.code, json)
 
 @errorhandler(Forbidden.code)
-def forbidden(e='Forbidden', json=False):
+def forbidden(e, json=False):
     return render_error_template(e, Forbidden.code, json)
+
+@errorhandler(BadRequest.code)
+def bad_request(e, json=False):
+    return render_error_template(e, BadRequest.code, json)
 
 @errorhandler(Exception)
 @errorhandler(InternalServerError.code)
