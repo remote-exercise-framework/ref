@@ -2,14 +2,19 @@ import datetime
 import re
 
 from Crypto.PublicKey import RSA
-from flask import (Blueprint, Flask, Response, current_app, redirect,
+from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
 from itsdangerous import URLSafeTimedSerializer
+from psycopg2.errors import DeadlockDetected
+from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
 
 from ref import db, refbp
 from ref.core import admin_required, flash, unavailable_during_maintenance
-from ref.core.util import redirect_to_next
+from ref.core.util import (is_deadlock_error, on_integrity_error,
+                           redirect_to_next,
+                           set_transaction_deferable_readonly)
 from ref.model import SystemSettingsManager, User, UserGroup
 from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
@@ -125,11 +130,12 @@ def student_download_pubkey(signed_mat):
     signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
     try:
         mat_num = signer.loads(signed_mat, max_age=60*10)
-    except Exception as e:
+    except Exception :
+        log.warning('Invalid signature', exc_info=True)
         flash.error('Provided token is invalid')
-        return render_template('400.html'), 400
+        abort(400)
 
-    student = User.query.filter(User.mat_num == mat_num).first()
+    student = User.query.filter(User.mat_num == mat_num).one_or_none()
     if student:
         return Response(
             student.pub_key,
@@ -138,7 +144,7 @@ def student_download_pubkey(signed_mat):
                     "attachment; filename=id_rsa.pub"})
     else:
         flash.error('Unknown student')
-        return render_template('400.html'), 400
+        abort(400)
 
 @refbp.route('/student/download/privkey/<string:signed_mat>')
 @unavailable_during_maintenance
@@ -150,11 +156,12 @@ def student_download_privkey(signed_mat):
     signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
     try:
         mat_num = signer.loads(signed_mat, max_age=60*10)
-    except Exception as e:
+    except Exception:
+        log.warning('Invalid signature', exc_info=True)
         flash.error('Provided token is invalid')
-        return render_template('400.html'), 400
+        abort(400)
 
-    student = User.query.filter(User.mat_num == mat_num).first()
+    student = User.query.filter(User.mat_num == mat_num).one_or_none()
     if student:
         return Response(
             student.priv_key,
@@ -163,7 +170,7 @@ def student_download_privkey(signed_mat):
                     "attachment; filename=id_rsa"})
     else:
         flash.error('Unknown student')
-        return render_template('400.html'), 400
+        abort(400)
 
 @refbp.route('/student/getkey', methods=('GET', 'POST'))
 @unavailable_during_maintenance
@@ -188,7 +195,7 @@ def student_getkey():
     render = lambda: render_template('student_getkey.html', route_name='get_key', form=form, student=student, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat, groups_enabled=groups_enabled)
 
     if form.submit.data and form.validate():
-        student = User.query.filter(User.mat_num == form.mat_num.data).first()
+        student = User.query.filter(User.mat_num == form.mat_num.data).one_or_none()
         if not student:
             if form.password.data != form.password_rep.data:
                 err = ['Passwords do not match!']
@@ -221,9 +228,18 @@ def student_getkey():
                 return render()
 
             if groups_enabled:
-                group = UserGroup.query.filter(UserGroup.name == form.group_name.data).one_or_none()
+                try:
+                    group = UserGroup.query.filter(UserGroup.name == form.group_name.data).with_for_update().one_or_none()
+                except OperationalError as e:
+                    if is_deadlock_error(e):
+                        flash.warning('Please retry.')
+                        pubkey = None
+                        privkey = None
+                        student = None
+                        return render()
+                    raise
+
                 if not group and form.group_name.data:
-                    #FIXME: What happens if the same group is created at the same time?
                     group = UserGroup()
                     group.name = form.group_name.data
                 else:
@@ -246,9 +262,16 @@ def student_getkey():
             student.course_of_studies = CourseOfStudies(form.course.data)
             student.auth_groups = [UserAuthorizationGroups.STUDENT]
 
-
-            db.session.add(student)
-            db.session.commit()
+            try:
+                db.session.add(student)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                on_integrity_error()
+                pubkey = None
+                privkey = None
+                student = None
+                return render()
 
             signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
             signed_mat = signer.dumps(str(student.mat_num))
@@ -276,7 +299,7 @@ def student_restorekey():
     signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
 
     if form.submit.data and form.validate():
-        student = User.query.filter(User.mat_num == form.mat_num.data).first()
+        student = User.query.filter(User.mat_num == form.mat_num.data).one_or_none()
         if student:
             if student.check_password(form.password.data):
                 signed_mat = signer.dumps(str(student.mat_num))
@@ -307,10 +330,10 @@ def student_view_single(user_id):
     """
     Shows details for the user that belongs to the given user_id.
     """
-    user =  User.query.filter(User.id == user_id).first()
+    user =  User.query.filter(User.id == user_id).one_or_none()
     if not user:
         flash.error(f'Unknown user ID {user_id}')
-        return render_template('400.html'), 400
+        abort(400)
 
     return render_template('student_view_single.html', user=user)
 
@@ -326,12 +349,14 @@ def student_edit(user_id):
     groups = UserGroup.all()
     form.group_name.choices = [e.name for e in groups]
 
-    user: User = User.query.filter(User.id == user_id).first()
+    user: User = User.query.filter(User.id == user_id).with_for_update().one_or_none()
     if not user:
         flash.error(f'Unknown user ID {user_id}')
-        return render_template('400.html'), 400
+        abort(400)
 
     if form.submit.data and form.validate():
+        #Form was submitted
+
         if form.password.data != '':
             if form.password.data != form.password_rep.data:
                 form.password.errors += ['Passwords do not match']
@@ -339,7 +364,14 @@ def student_edit(user_id):
             else:
                 user.set_password(form.password.data)
                 user.invalidate_session()
-        user.mat_num = form.mat_num.data
+
+        if User.query.filter(User.mat_num == form.mat_num.data).one_or_none() not in [None, user]:
+            form.mat_num.errors += ['Already taken']
+            return render_template('user_edit.html', form=form)
+        else:
+            #Uniqueness enforced by DB constraint
+            user.mat_num = form.mat_num.data
+
         user.course_of_studies = CourseOfStudies(form.course.data)
         user.first_name = form.firstname.data
         user.surname = form.surname.data
@@ -348,16 +380,27 @@ def student_edit(user_id):
             form.nickname.errors += ['Nickname already taken']
             return render_template('user_edit.html', form=form)
         else:
+            #Uniqueness enforced by DB constraint
             user.nickname = form.nickname.data
 
-        group = UserGroup.query.filter(UserGroup.name == form.group_name.data).one_or_none()
+        #Lock the group to make sure we do not exceed the group size limit
+        try:
+            group = UserGroup.query.filter(UserGroup.name == form.group_name.data).with_for_update().one_or_none()
+        except OperationalError as e:
+            if is_deadlock_error(e):
+                flash.warning('Concurrent access, please retry.')
+                return render_template('user_edit.html', form=form)
+            raise
+
         #Only create a group if the name was set
         if not group and form.group_name.data:
+            #Multiple groups with same name might be created concurrently, but ony one will
+            #win the DB unique constraint on commit.
             group = UserGroup()
             group.name = form.group_name.data
         user.group = group
 
-        #Make sure there are not too many members in the group
+        #Make sure there are not to many members in the group
         max_grp_size = SystemSettingsManager.GROUP_SIZE.value
         if group and len(group.users) > max_grp_size:
             form.group_name.errors += [f'Groups already reached the maximum of {max_grp_size} members']
@@ -371,11 +414,16 @@ def student_edit(user_id):
             user.invalidate_session()
         user.auth_groups = list(new_auth_groups)
 
-        current_app.db.session.add(user)
-        current_app.db.session.commit()
-        flash.success('Updated!')
+        try:
+            current_app.db.session.add(user)
+            current_app.db.session.commit()
+            flash.success('Updated!')
+        except IntegrityError:
+            on_integrity_error()
+        
         return render_template('user_edit.html', form=form)
     else:
+        #Form was not submitted: Set initial values
         form.id.data = user.id
         form.mat_num.data = user.mat_num
         form.course.data = user.course_of_studies.value
@@ -399,10 +447,10 @@ def student_delete(user_id):
     """
     Deletes the given user.
     """
-    user: User =  User.query.filter(User.id == user_id).first()
+    user: User = User.query.filter(User.id == user_id).with_for_update().one_or_none()
     if not user:
-        flash.error(f'Unknown user ID {user_id}')
-        return render_template('400.html'), 400
+        flash.warning(f'Unknown user ID {user_id}')
+        return redirect_to_next()
 
     if user.is_admin:
         flash.warning('Admin users can not be deleted')
@@ -410,10 +458,14 @@ def student_delete(user_id):
 
     if len(user.exercise_instances) > 0:
         flash.error('User has active instances, please delete them first!')
-    else:
+        return redirect_to_next()
+
+    try:
         current_app.db.session.delete(user)
         current_app.db.session.commit()
         flash.success(f'User {user.id} deleted')
+    except IntegrityError:
+        on_integrity_error()
 
     return redirect_to_next()
 

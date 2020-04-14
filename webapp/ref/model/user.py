@@ -1,11 +1,12 @@
 import datetime
 import uuid
 
+from sqlalchemy.orm import backref
+
 from flask_bcrypt import check_password_hash, generate_password_hash
 from flask_login import UserMixin
 from ref import db
 from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
-from sqlalchemy.orm import backref
 
 from .util import CommonDbOpsMixin, ModelToStringMixin
 
@@ -17,7 +18,7 @@ class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text(), nullable=False, unique=True)
 
-    users = db.relationship('User', backref=backref('group'), lazy=False,  passive_deletes='all')
+    users = db.relationship('User', backref=backref('group'), lazy=True,  passive_deletes='all')
 
 class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     __to_str_fields__ = ['id', 'is_admin', 'first_name', 'surname', 'nickname']
@@ -28,7 +29,7 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
 
     first_name = db.Column(db.Text(), nullable=False)
     surname = db.Column(db.Text(), nullable=False)
-    nickname = db.Column(db.Text(), nullable=False)
+    nickname = db.Column(db.Text(), nullable=False, unique=True)
 
     #backref is group
     group_id = db.Column(db.Integer, db.ForeignKey('user_group.id'), nullable=True)

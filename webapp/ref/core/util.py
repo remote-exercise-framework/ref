@@ -1,12 +1,14 @@
 from contextlib import contextmanager
 from functools import wraps
 
+import psycopg2
 from flask import (abort, current_app, redirect, render_template, request,
                    url_for)
-from werkzeug.urls import url_parse
-
 #http://initd.org/psycopg/docs/errors.html
 from psycopg2.errors import DeadlockDetected, TransactionRollback
+from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
+from werkzeug.urls import url_parse
+
 from ref.core import flash
 from ref.model import SystemSettingsManager
 
@@ -39,3 +41,21 @@ def unavailable_during_maintenance(func):
             return render_template('maintenance.html')
         return func(*args, **kwargs)
     return decorated_view
+
+def on_integrity_error(msg='Please retry.', flash_category='warning', log=True):
+    if flash_category:
+        getattr(flash, flash_category)(msg)
+    if log:
+        current_app.logger.warning('Integrity error during commit', exc_info=True)
+
+def set_transaction_deferable_readonly(commit=True):
+    current_app.db.session.execute('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE READ ONLY DEFERRABLE;')
+
+def is_db_serialization_error(err: DBAPIError):
+    return getattr(err.orig, 'pgcode', None) == '40001'
+
+def is_deadlock_error(err: OperationalError):
+    ret = isinstance(err, DeadlockDetected) or isinstance(err.orig, DeadlockDetected)
+    if ret:
+        current_app.logger.warning('Deadlock detected', exc_info=True)
+    return ret
