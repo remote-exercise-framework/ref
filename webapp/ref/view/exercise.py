@@ -15,6 +15,7 @@ import rq
 import yaml
 from flask import (Blueprint, Flask, abort, current_app, jsonify, redirect,
                    render_template, request, url_for)
+from sqlalchemy import and_, or_
 from werkzeug.local import LocalProxy
 
 from flask_login import login_required
@@ -25,7 +26,6 @@ from ref.core.security import sanitize_path_is_subdir
 from ref.core.util import redirect_to_next
 from ref.model import ConfigParsingError, Exercise, User
 from ref.model.enums import ExerciseBuildStatus
-from sqlalchemy import and_, or_
 from wtforms import Form, IntegerField, SubmitField, validators
 
 log = LocalProxy(lambda: current_app.logger)
@@ -40,12 +40,12 @@ def exercise_build(exercise_id):
     if not exercise:
         log.info(f'Unknown exercise ID {exercise_id}')
         flash.warning(f"Unknown exercise ID {exercise_id}")
-        return render_template('400.html'), 400
+        abort(400)
 
     if exercise.build_job_status in [ ExerciseBuildStatus.BUILDING,  ExerciseBuildStatus.FINISHED]:
         log.warning(f'Unable to start build for exercise {exercise} in state {exercise.build_job_status}')
         flash.error("Already build!")
-        return render_template('400.html'), 400
+        abort(400)
 
     mgr = ExerciseImageManager(exercise)
     if mgr.is_build():
@@ -77,13 +77,13 @@ def exercise_diff():
 
     if not path_a:
         flash.error("path_a is required")
-        return render_template('400.html'), 400
+        abort(400)
 
     exercises_path = current_app.config['EXERCISES_PATH']
     if not sanitize_path_is_subdir(exercises_path, path_a):
         flash.error("path_a is invalid")
         log.info(f'Failed to sanitize path {path_a}')
-        return render_template('400.html'), 400
+        abort(400)
 
     exercise_a = ExerciseManager.from_template(path_a)
     exercise_b = None
@@ -97,12 +97,12 @@ def exercise_diff():
         if not sanitize_path_is_subdir(exercises_path, path_b):
             flash.error("path_b is invalid")
             log.info(f'Failed to sanitize path {path_b}')
-            return render_template('400.html'), 400
+            abort(400)
 
     if not exercise_b:
         log.info('Unable find any exercise to compare with')
         flash.error("Nothing to compare with")
-        return render_template('400.html'), 400
+        abort(400)
 
     log.info(f'Comparing {exercise_a} with{exercise_b}')
 
@@ -278,7 +278,7 @@ def exercise_delete(exercise_id):
     exercise =  Exercise.query.filter(Exercise.id == exercise_id).with_for_update().first()
     if not exercise:
         flash.error(f'Unknown exercise ID {exercise_id}')
-        return render_template('400.html'), 400
+        abort(400)
 
     if exercise.is_default:
         flash.error("Exercise marked as default can not be deleted")
@@ -311,11 +311,11 @@ def exercise_toggle_default(exercise_id):
     if not exercise:
         log.info(f'Tried to toggle unknown exercise id={exercise_id}')
         flash.error(f'Unknown exercises id={exercise_id}')
-        return render_template('400.html'), 400
+        abort(400)
     if exercise.build_job_status != ExerciseBuildStatus.FINISHED:
         log.info(f'Tried to toggle default for exercise {exercise} that is not build')
         flash.error('Unable to mark exercise that was not build as default')
-        return render_template('400.html'), 400
+        abort(400)
 
     exercises_same_version = Exercise.get_exercises(exercise.short_name)
     exercises_same_version.remove(exercise)
@@ -340,7 +340,7 @@ def exercise_view(exercise_id):
     exercise =  Exercise.query.filter(Exercise.id == exercise_id).one_or_none()
     if not exercise:
         flash.error(f'Unknown exercise ID {exercise_id}')
-        return render_template('400.html'), 400
+        abort(400)
 
     return render_template('exercise_view_single.html', exercise=exercise)
 

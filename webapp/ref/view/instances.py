@@ -44,7 +44,7 @@ def instance_update(instance_id):
     instance: Instance =  Instance.query.filter(Instance.id == instance_id).with_for_update().first()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
-        return render_template('400.html'), 400
+        abort(400)
 
     new_exercise: Exercise = get_newest_exercise_version(instance.exercise)
     #Lock the exercise
@@ -52,7 +52,7 @@ def instance_update(instance_id):
         new_exercise = new_exercise.refresh(lock=True)
     if not new_exercise:
         flash.error(f'There is no new version for this exercise')
-        return render_template('400.html'), 400
+        abort(400)
 
     mgr = InstanceManager(instance)
     try:
@@ -70,7 +70,7 @@ def instances_view_details(instance_id):
     instance =  Instance.query.filter(Instance.id == instance_id).first()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
-        return render_template('400.html'), 400
+        abort(400)
 
     return render_template('instance_view_details.html', instance=instance)
 
@@ -97,7 +97,7 @@ def instances_by_user_id(user_id):
     user = User.get(user_id)
     if not user:
         flash.error(f'Invalid user id')
-        return render_template('400.html'), 400
+        abort(400)
 
     instances = Instance.get_by_user(user_id)
     instances = list(filter(lambda e: not e.submission, instances))
@@ -113,7 +113,7 @@ def instances_view_by_exercise(exercise_name):
         exercise_name = urllib.parse.unquote_plus(exercise_name)
     except Exception as e:
         flash.error(f'Invalid exercise name')
-        return render_template('400.html'), 400
+        abort(400)
 
     exercise_version = request.args.get('exercise_version')
     if exercise_version:
@@ -121,7 +121,7 @@ def instances_view_by_exercise(exercise_name):
             exercise_version = int(exercise_version)
         except (ValueError, TypeError):
             flash.error(f'Invalid exercise version')
-            return render_template('400.html'), 400
+            abort(400)
 
     instances = Instance.get_instances_by_exercise(exercise_name, exercise_version)
     instances = list(filter(lambda e: not e.submission, instances))
@@ -138,7 +138,7 @@ def instance_view_submissions(instance_id):
     instance =  Instance.query.filter(Instance.id == instance_id).first()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
-        return render_template('400.html'), 400
+        abort(400)
     
     instances = []
     for submission in instance.submissions:
@@ -160,7 +160,7 @@ def instance_stop(instance_id):
     instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
-        return render_template('400.html'), 400
+        abort(400)
 
     mgr = InstanceManager(instance)
 
@@ -178,7 +178,7 @@ def instance_delete(instance_id):
     instance =  Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
-        return render_template('400.html'), 400
+        abort(400)
 
     if not SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value:
         if instance.submissions:
