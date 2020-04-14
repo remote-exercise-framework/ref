@@ -183,6 +183,7 @@ def api_provision():
             return error_response('There is no active default for the requested exercise')
 
     user_instances = list(filter(lambda e: e.exercise.short_name == requested_exercise.short_name, user.exercise_instances))
+    #Remove submissions
     user_instances = list(filter(lambda e: not e.submission, user_instances))
 
     #Highest version comes first
@@ -191,6 +192,8 @@ def api_provision():
 
     if False:
         #FIXME: Check if specific version was requested
+        #If this is the case, no automatic update happens. Furthermore, we also have to disallow updates in the webinterface if there
+        #is already a instance of the same exercise version.
         pass
     else:
         if user_instances:
