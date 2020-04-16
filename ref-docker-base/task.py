@@ -48,9 +48,9 @@ def handle_response(resp):
     else:
         if err != 200:
             if 'error' in json:
-                print_err(f'[!]', json['error'])
+                print_err(f'[!] ', json['error'])
             else:
-                print_err('[!]', 'Unknown error, please contact the staff.')
+                print_err('[!] ', 'Unknown error, please contact the staff.')
             return False
         else:
             print_ok('[+] ', json)
@@ -58,7 +58,7 @@ def handle_response(resp):
 
 def check_answer(prompt=None):
     if prompt:
-        print_warn(prompt, end='')
+        print(prompt, end='')
     data = input()
     data = data.lower()
     return data == 'y' or data == 'yes' or data == 'true'
@@ -66,7 +66,8 @@ def check_answer(prompt=None):
 
 def cmd_reset(args):
     print_ok('[+] This operation will delete all data of this instance!')
-    if not check_answer('Continue [y/n]'):
+    print_ok('[+] Continue? [y/n]', end='')
+    if not check_answer():
         exit(0)
 
     print_ok('[+] Resetting instance...', flush=True)
@@ -75,8 +76,23 @@ def cmd_reset(args):
     res = requests.post('http://sshserver:8000/api/instance/reset', json=req)
     handle_response(res)
 
+def _run_tests():
+    test_path = '/usr/local/bin/submission-tests'
+    if not os.path.isfile(test_path):
+        print_warn('[+] No testsuit found, skipping...')
+        return True
+
+    ret = subprocess.run(test_path, shell=False, check=False)
+    return ret.returncode == 0
+
 def cmd_submit(args):
     print_ok('[+] Submitting instance...', flush=True)
+
+    if not _run_tests():
+        print_warn('[!] Some tests failed to run.')
+        print_warn('[!] Still submitt? [y/n]', end='')
+        if not check_answer():
+            exit(0)
 
     req = {}
     req = finalize_request(req)
@@ -92,16 +108,7 @@ def cmd_presubmit(args):
         - Enivron test passed (e.g., correct file name) test "environ"
         - Exercise test passed (user provided script successfully spawns a shell) test "result"
     """
-    test_path = '/usr/local/bin/submission-tests'
-    if not os.path.isfile(test_path):
-        print_warn('[+] No testsuit found, skipping...')
-        exit(2)
-
-    ret = subprocess.run(test_path, shell=False, check=False)
-    if ret.returncode == 0:
-        exit(0)
-    else:
-        exit(1)
+    _run_tests()
 
 def main():
     parser = argparse.ArgumentParser()

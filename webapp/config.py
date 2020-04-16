@@ -1,5 +1,6 @@
 import os
 
+
 class ReleaseConfig(object):
     BASEDIR = '/data'
     DATADIR = os.path.join(BASEDIR, 'data')
@@ -56,6 +57,9 @@ class ReleaseConfig(object):
 
     #If True, only admin are allowed to use the API
     MAINTENANCE_ENABLED = (os.environ.get('MAINTENANCE_ENABLED') and os.environ.get('MAINTENANCE_ENABLED') == '1')
+
+    # TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+    # TELEGRAM_BOT_CHAT_ID = os.environ.get('TELEGRAM_BOT_CHAT_ID')
 
 
 class DebugConfig(ReleaseConfig):

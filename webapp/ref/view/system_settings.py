@@ -69,10 +69,12 @@ def view_system_settings():
         SystemSettingsManager.SSH_PORT.value = ssh_settings.ssh_port.data
         SystemSettingsManager.SSH_WELCOME_MSG.value = ssh_settings.welcome_header.data
         SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value = ssh_settings.ssh_instance_introspection.data
+        SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value = ssh_settings.allow_none_default_provisioning.data
     else:
         ssh_settings.ssh_hostname.data = SystemSettingsManager.SSH_HOSTNAME.value
         ssh_settings.ssh_port.data = SystemSettingsManager.SSH_PORT.value
         ssh_settings.welcome_header.data = SystemSettingsManager.SSH_WELCOME_MSG.value
         ssh_settings.ssh_instance_introspection.data = SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value
+        ssh_settings.allow_none_default_provisioning.data =  SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value
 
     return render_template('system_settings.html', group_settings=group_settings, ssh_settings=ssh_settings, general_settings=general_settings)

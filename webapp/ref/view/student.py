@@ -12,7 +12,7 @@ from werkzeug.local import LocalProxy
 
 from ref import db, refbp
 from ref.core import admin_required, flash, unavailable_during_maintenance
-from ref.core.util import (is_deadlock_error, on_integrity_error,
+from ref.core.util import (is_deadlock_error, lock_db, on_integrity_error,
                            redirect_to_next,
                            set_transaction_deferable_readonly)
 from ref.model import SystemSettingsManager, User, UserGroup

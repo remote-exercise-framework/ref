@@ -20,6 +20,7 @@ from werkzeug.local import Local, LocalProxy
 from ref import db, refbp
 from ref.core import (ExerciseImageManager, ExerciseManager, InstanceManager,
                       flash, retry_on_deadlock)
+from ref.core.util import lock_db
 from ref.model import (ConfigParsingError, Exercise, Instance, SystemSetting,
                        SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
@@ -171,45 +172,56 @@ def api_provision():
         except Exception as e:
             return error_response(str(e))
 
+    exercise_version = None
+    if '@' in exercise_name:
+        if not SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value:
+            return error_response('Non default provisioning not allowed')
+        if not user.is_admin:
+            return error_response('Non default provisioning is only allowed for admins')
+        exercise_name = exercise_name.split('@')
+        exercise_version = exercise_name[1]
+        exercise_name = exercise_name[0]
+
     with retry_on_deadlock():
         user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
         if not user:
             log.warning('Unable to find user with provided publickey')
             return error_response('Unknown public-key')
 
-        requested_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
-        log.info(f'Default exercise for {exercise_name} is {requested_exercise}')
+        if exercise_version is not None:
+            requested_exercise = Exercise.get_exercise(exercise_name, exercise_version, for_update=True)
+        else:
+            requested_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
+        log.info(f'Requested exercise is {requested_exercise}')
         if not requested_exercise:
-            return error_response('There is no active default for the requested exercise')
+            return error_response('Requested exercise not found')
 
     user_instances = list(filter(lambda e: e.exercise.short_name == requested_exercise.short_name, user.exercise_instances))
-    #Remove submissions
+    #Filter submissions
     user_instances = list(filter(lambda e: not e.submission, user_instances))
+
+    #If we requested a version, remove all instances that do not match
+    if exercise_version is not None:
+        user_instances = list(filter(lambda e: e.exercise.version == exercise_version, user_instances))
 
     #Highest version comes first
     user_instances = sorted(user_instances, key=lambda e: e.exercise.version, reverse=True)
     user_instance = None
 
-    if False:
-        #FIXME: Check if specific version was requested
-        #If this is the case, no automatic update happens. Furthermore, we also have to disallow updates in the webinterface if there
-        #is already a instance of the same exercise version.
-        pass
+    if user_instances:
+        log.info(f'User has instance {user_instances} of requested exercise')
+        user_instance = user_instances[0]
+        #Make sure we are not dealing with a submission here!
+        assert not user_instance.submission
+        if exercise_version is None and user_instance.exercise.version < requested_exercise.version:
+            old_instance = user_instance
+            log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {requested_exercise}')
+            mgr = InstanceManager(old_instance)
+            user_instance = mgr.update_instance(requested_exercise)
     else:
-        if user_instances:
-            log.info(f'User has instance {user_instance} of requested exercise')
-            user_instance = user_instances[0]
-            #Make sure we are not dealing with an submission here!
-            assert not user_instance.submission
-            if user_instance.exercise.version < requested_exercise.version:
-                old_instance = user_instance
-                log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {requested_exercise}')
-                mgr = InstanceManager(old_instance)
-                user_instance = mgr.update_instance(requested_exercise)
-        else:
-            user_instance = InstanceManager.create_instance(user, requested_exercise)
-    
-        ret = start_and_return_instance(user_instance)
+        user_instance = InstanceManager.create_instance(user, requested_exercise)
+
+    ret = start_and_return_instance(user_instance)
 
     db.session.commit()
     return ret
@@ -352,7 +364,7 @@ def _sanitize_container_request(request, max_age=60) -> str:
 
     s = TimedSerializer(instance_key, salt='from-container-to-web')
     try:
-        signed_content = s.loads(content, max_age=60)
+        signed_content = s.loads(content, max_age=max_age)
     except Exception as e:
         log.warning(f'Invalid request', exc_info=True)
         raise Exception('Invalid request')
@@ -450,6 +462,12 @@ def api_instance_submit():
     mgr.stop()
     new_instance = mgr.create_submission()
     log.info(f'Created submission: {new_instance.submission}')
+
+    """
+    - Run tests on submission. If they pass, note down the ts of the event. This ts is then used to assign bonus points / first blood
+    - What happens with passed tests and later exercise upgrades that change the test? 
+    """
+
     mgr.start()
     current_app.db.session.commit()
 

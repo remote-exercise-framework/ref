@@ -1,0 +1,54 @@
+#!/usr/bin/python3
+import sys
+
+from colorama import Back, Fore, Style
+
+
+def print_ok(*args, **kwargs):
+    print(Fore.GREEN, *args, Style.RESET_ALL, **kwargs, sep='')
+
+def print_warn(*args, **kwargs):
+    print(Fore.YELLOW, *args, Style.RESET_ALL, **kwargs, sep='')
+
+def print_err(*args, **kwargs):
+    print(Fore.RED, *args, Style.RESET_ALL, **kwargs, sep='')
+
+
+"""
+This script is executed each time a studen creates a submission.
+It is used to determine whether the submission works as expected or not.
+"""
+
+def test_environment():
+    """
+    Test whether all files that should be submitted are in place.
+    """
+    print_ok('[+] Testing environment...')
+
+    #Test if there is a file exploit.py?
+
+    print_ok('[+] Environment looks good, test passed!')
+    return True
+
+
+def test_submission():
+    """successfully
+    Test if the submitted code successfully solves the exercise.
+    """
+    if not test_environment():
+        return False
+
+    #Run exploit.py strace?
+    #Make sure to drop privileges before running
+
+    return True
+
+
+if __name__ == "__main__":
+    print_ok('[+] Running tests...')
+    if not test_submission():
+        print_err('[!] Some tests failed! Please review your submission to avoid penalties during grading.')
+        exit(2)
+    else:
+        print_ok('[+] Good job, all tests passed. Ready to submit!')
+        exit(0)

@@ -5,18 +5,21 @@ import hashlib
 import pickle
 import threading
 import time
+import typing
+from collections import defaultdict
 from io import BytesIO
 
 import docker
 import yaml
 from flask import current_app
 from rq.job import Job
+from sqlalchemy import Column, Integer, PickleType, and_, create_engine, or_
 
 from flask_bcrypt import check_password_hash, generate_password_hash
 from ref import db
-from sqlalchemy import Column, Integer, PickleType, and_, create_engine, or_
 
 from .enums import ExerciseBuildStatus, ExerciseServiceType
+from .instance import Instance, Submission
 from .util import CommonDbOpsMixin, ModelToStringMixin
 
 
@@ -33,7 +36,7 @@ class ParsingError(Exception):
 class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     Each Exercise must have exactly one ExerciseEntryService that represtens the service
-    that serves as entry point for an exercise.
+    that serves as entry point for it.
     """
     __to_str_fields__ = ['id', 'exercise_id']
     __tablename__ = 'exercise_entry_service'
@@ -83,10 +86,9 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
 class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
-    A ExerciseService describes a service that is provided to the user.
-    Such service is not directly available to a user, i.e., a user must first
-    connect to an ExerciseEntryService to access such services.
-    ExerciseService might be used 
+    A ExerciseService describes a service that runs in the same network as
+    the ExerciseEntryService. A usecase for an ExerciseService might be
+    the implementation of a networked service that must be hacked by a user.
     """
     __to_str_fields__ = ['id', 'exercise_id']
 
@@ -245,3 +247,34 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             Exercise.short_name == short_name
         )
         return exercises.all()
+
+    def deadine_passed(self):
+        return self.submission_deadline_end is not None and datetime.datetime.now() > self.submission_deadline_end
+
+    def submission_heads(self):
+        """
+        Returns the most recent submission for this exercise for each user.
+        """
+        ret = []
+        submissions_per_user = defaultdict(list)
+        for instance in self.instances:
+            if not instance.submission:
+                continue
+            submissions_per_user[instance.user] += [instance]
+        for k, v in submissions_per_user.items():
+            ret += [max(v, key=lambda e: e.creation_ts)]
+        return [e.submission for e in ret if e.submission]
+
+    @property
+    def active_instances(self) -> typing.List[Instance]:
+        """
+        Get all instances of this exercise that are no submissions.
+        """
+        return [i for i in self.instances if not i.submission]
+
+    @property
+    def submissions(self) -> typing.List[Submission]:
+        """
+        Get all submissions of this exercise.
+        """
+        return [i.submission for i in self.instances if i.submission]

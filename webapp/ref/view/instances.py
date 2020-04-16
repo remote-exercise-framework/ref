@@ -20,7 +20,7 @@ from werkzeug.urls import url_parse
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, InstanceManager, admin_required, flash)
-from ref.core.util import redirect_to_next
+from ref.core.util import lock_db, redirect_to_next
 from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
                        Instance, SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
@@ -40,11 +40,16 @@ def get_newest_exercise_version(exercise: Exercise):
 @refbp.route('/admin/instances/update/<int:instance_id>')
 @admin_required
 def instance_update(instance_id):
+
+    #Get lock
+
     #Lock the instance
-    instance: Instance =  Instance.query.filter(Instance.id == instance_id).with_for_update().first()
+    instance: Instance = Instance.query.filter(Instance.id == instance_id).with_for_update().first()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         abort(400)
+
+    user = instance.user.refresh(lock=True)
 
     new_exercise: Exercise = get_newest_exercise_version(instance.exercise)
     #Lock the exercise
@@ -54,9 +59,22 @@ def instance_update(instance_id):
         flash.error(f'There is no new version for this exercise')
         abort(400)
 
+    for i in user.exercise_instances:
+        if new_exercise == i.exercise:
+            flash.error('There can be only one instance with same version')
+            return redirect_to_next()
+
+    #release lock (commit)
+
+    #Create new instance (takes long)
+
+    #Get lock
+
+    #Retest assumption. If still valid, update old instance. If not, delete new instance.
+
     mgr = InstanceManager(instance)
     try:
-        new_instance = mgr.update_instance(new_exercise)
+        mgr.update_instance(new_exercise)
     except:
         raise
     finally:
@@ -149,6 +167,9 @@ def instance_view_submissions(instance_id):
 @refbp.route('/admin/instances/view')
 @admin_required
 def instances_view_all():
+
+    lock_db()
+
     instances = Instance.query.all()
     instances = list(filter(lambda e: not e.submission, instances))
 

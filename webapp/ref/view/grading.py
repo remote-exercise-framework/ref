@@ -34,5 +34,9 @@ log = LocalProxy(lambda: current_app.logger)
 @refbp.route('/admin/grading/')
 @grading_assistant_required
 def grading_view_all():
+    exercises = Exercise.all()
+    exercises_by_category = defaultdict(list)
+    for exercise in exercises:
+        exercises_by_category[exercise.category] += [exercise]
 
-    return render_template('grading_view_all.html')
+    return render_template('grading_view_all.html', exercises_by_category=exercises_by_category)

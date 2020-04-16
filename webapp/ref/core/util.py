@@ -1,8 +1,9 @@
 from contextlib import contextmanager
 from functools import wraps
+from multiprocessing import Lock, RLock
 
 import psycopg2
-from flask import (abort, current_app, redirect, render_template, request,
+from flask import (abort, current_app, g, redirect, render_template, request,
                    url_for)
 #http://initd.org/psycopg/docs/errors.html
 from psycopg2.errors import DeadlockDetected, TransactionRollback
@@ -12,6 +13,7 @@ from werkzeug.urls import url_parse
 from ref.core import flash
 from ref.model import SystemSettingsManager
 
+_database_lock = RLock()
 
 def redirect_to_next(default='ref.admin_default_routes'):
     next_page = request.args.get('next')
@@ -59,3 +61,39 @@ def is_deadlock_error(err: OperationalError):
     if ret:
         current_app.logger.warning('Deadlock detected', exc_info=True)
     return ret
+
+# def lock_db():
+#     _database_lock.acquire()
+#     g.db_lock_cnt = g.get('db_lock_cnt', 0) + 1
+
+# def unlock_db():
+#     assert g.get('db_lock_cnt', 0) > 0
+#     g.pop('db_lock_cnt', 0)
+#     _database_lock.release()
+
+# def have_db_lock():
+#     return g.get('db_lock_cnt', 0) > 0
+
+def lock_db(readonly=False):
+    current_app.logger.info(f"Locking database (readonly={readonly})")
+    if readonly:
+        current_app.db.session.execute('select pg_advisory_xact_lock_shared(1337);')
+    else:
+        current_app.db.session.execute('select pg_advisory_xact_lock(1337);')
+
+def unlock_db_and_commit():
+    current_app.db.session.commit()
+
+def unlock_db_and_rollback():
+    current_app.db.session.rollback()
+
+# def unlock_db(readonly=False):
+#     current_app.logger.info(f"Unlocking database (readonly={readonly})")
+#     if readonly:
+#         current_app.db.session.execute('select pg_advisory_unlock_shared(1337);')
+#     else:
+#         current_app.db.session.execute('select pg_advisory_unlock(1337);')
+
+# def unlock_all_db():
+#     current_app.logger.info(f"Releasing all DB locks")
+#     current_app.db.session.execute('select pg_advisory_unlock_all();')
