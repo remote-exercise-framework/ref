@@ -9,8 +9,10 @@ export FORWARDED_ALLOW_IPS="*"
 
 mkdir -p /data/log
 args=""
-if [[ "$DEBUG" == "1" || "$TESTING" == "1" ]]; then
 
+# --disable-logging : Disables loggin of request information ("GET /../index.html...").
+
+if [[ "$DEBUG" == "1" || "$TESTING" == "1" ]]; then
     #--py-autoreload=1 --- Check every second if any python file changed
     uwsgi --http :8000 --disable-logging --master --py-autoreload=1 --processes 4 --manage-script-name --mount "/=ref:create_app()" $args
 else

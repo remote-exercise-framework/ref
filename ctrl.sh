@@ -218,13 +218,13 @@ fi
 
 
 if [[ ! -d "./data/redis-db" || "$(stat -c '%u' './data/redis-db')" != "1001" ]]; then
-    info "=> Fixing redis DB permissinos, requesting super user access..."
+    info "=> Fixing redis DB permissions, requesting super user access..."
     sudo mkdir -p './data/redis-db'
     sudo chown 1001:1001 -R './data/redis-db'
 fi
 
 if [[ ! -d "./data/pgadmin" || "$(stat -c '%u' './data/pgadmin')" != "5050" ]]; then
-    info "=> Fixing pgadmin DB permissinos, requesting super user access..."
+    info "=> Fixing pgadmin DB permissions, requesting super user access..."
     sudo mkdir -p './data/pgadmin'
     sudo chown 5050:5050 -R './data/pgadmin'
 fi
