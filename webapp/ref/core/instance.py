@@ -595,10 +595,15 @@ class InstanceManager():
         self.stop()
         self.umount()
         try:
-            if os.path.exists(self.instance.entry_service.overlay_upper):
-                subprocess.check_call(f'sudo rm -rf {self.instance.entry_service.overlay_upper}/*', shell=True)
+            path = Path(self.instance.entry_service.overlay_upper)
+            if path.is_dir():
+                for path in path.glob('*'):
+                    if path.parts[-1] in ['.ssh']:
+                        continue
+                    subprocess.check_call(f'sudo rm -rf {path.as_posix()}', shell=True)
         except:
             log.error(f'Error during purgeing of persisted data {self.instance}', exc_info=True)
             raise
-        self.mount()
+        finally:
+            self.mount()
         self.start()

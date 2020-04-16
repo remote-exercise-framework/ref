@@ -67,3 +67,19 @@ def submissions_by_instance(instance_id):
     submissions = sorted(submissions, key=lambda e: e.submission_ts, reverse=True)
 
     return render_template('submissions_view_all.html', title=f'Submissions of instance {instance_id}', submissions=submissions)
+
+@refbp.route('/admin/submissions/reset/<int:submission_id>')
+@admin_required
+def submission_reset(submission_id):
+    submission = Submission.get(submission_id)
+
+    if not submission:
+        flash.error(f'Unknown submission ID {submission_id}')
+        abort(400)
+
+    mgr = InstanceManager(submission.submitted_instance)
+    mgr.reset()
+    current_app.db.session.commit()
+    flash.success('Submission resetted!')
+
+    return redirect_to_next()

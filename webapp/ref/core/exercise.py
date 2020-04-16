@@ -17,12 +17,12 @@ import docker
 import itsdangerous
 import yaml
 from flask import current_app
+from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
 
 from ref.model import (Exercise, ExerciseEntryService, ExerciseService,
                        Instance, InstanceEntryService, InstanceService, User)
 from ref.model.enums import ExerciseBuildStatus
-from sqlalchemy.orm import joinedload, raiseload
 
 from .docker import DockerClient
 from .image import ExerciseImageManager
@@ -67,7 +67,7 @@ class ExerciseManager():
         return ret
 
     @staticmethod
-    def _from_yaml(path) -> Exercise:
+    def _from_yaml(cfg_path, cfg_folder) -> Exercise:
         """
         Parses the given yaml config of an exercise and returns an Exercise on success.
         Raises:
@@ -76,7 +76,7 @@ class ExerciseManager():
         exercise = Exercise()
 
         try:
-            with open(path, 'r') as f:
+            with open(cfg_path, 'r') as f:
                 cfg = f.read()
             cfg = yaml.unsafe_load(cfg)
         except Exception as e:
@@ -97,6 +97,16 @@ class ExerciseManager():
         exercise.submission_deadline_start = ExerciseManager._parse_attr(cfg, 'deadline-start', datetime.datetime, required=False, default=None)
 
         exercise.submission_deadline_end = ExerciseManager._parse_attr(cfg, 'deadline-end', datetime.datetime, required=False, default=None)
+
+        exercise.submission_test_enabled = ExerciseManager._parse_attr(cfg, 'submission-test', bool, required=False, default=False)
+        if exercise.submission_test_enabled:
+            test_script_path = Path(cfg_folder) / 'submission-tests'
+            if not test_script_path.is_file():
+                raise ExerciseConfigError('Missing submission-tests file!')
+
+        exercise.max_grading_points = ExerciseManager._parse_attr(cfg, 'grading-points', int, required=False, default=None)
+        if (exercise.max_grading_points is None) != (exercise.submission_deadline_end is None):
+            raise ExerciseConfigError('Either both or none of "grading-points" and "submission_deadline_end" must be set')
 
         if (exercise.submission_deadline_start is None) != (exercise.submission_deadline_end is None):
             raise ExerciseConfigError('Either both or none of deadline-{start,end} must be set!')
@@ -252,7 +262,7 @@ class ExerciseManager():
         if hasattr(path, 'as_posix'):
             path = path.as_posix()
         cfg = os.path.join(path, 'settings.yml')
-        exercise = ExerciseManager._from_yaml(cfg)
+        exercise = ExerciseManager._from_yaml(cfg, path)
         exercise.template_import_path = path
 
         return exercise
