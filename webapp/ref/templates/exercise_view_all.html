@@ -91,7 +91,7 @@ Exercises
                     <td>{{ e.version }}</td>
                     <td>{{ e.build_job_status.value }}</td>
                     <td>
-                        {{ e.instances|length }}
+                        {{ e.active_instances|length }}
                     </td>
                     <td>
                         <div class="btn-group">
@@ -102,7 +102,7 @@ Exercises
                                 <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
                                 {% endif %}
                             {% endif %}
-                            {% if e.instances|length %}
+                            {% if e.active_instances|length %}
                                 <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instances_view_by_exercise', exercise_name=e.short_name|quote_plus, exercise_version=e.version) }}">Instances</a>
                             {% endif %}
                             <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}" data-toggle="tooltip" data-placement="top" title="Tooltip on top">View</a>

@@ -88,3 +88,11 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     @property
     def full_name(self):
         return f'{self.first_name} {self.surname}'
+
+    @property
+    def instances(self):
+        return [i for i in self.exercise_instances if not i.submission]
+
+    @property
+    def submissions(self):
+        return [i for i in self.exercise_instances if i.submission]

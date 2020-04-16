@@ -11,10 +11,10 @@ import docker
 import yaml
 from flask import current_app
 from rq.job import Job
+from sqlalchemy import Column, Integer, PickleType, and_, create_engine, or_
 
 from flask_bcrypt import check_password_hash, generate_password_hash
 from ref import db
-from sqlalchemy import Column, Integer, PickleType, and_, create_engine, or_
 
 from .enums import ExerciseBuildStatus, ExerciseServiceType
 from .util import CommonDbOpsMixin, ModelToStringMixin
@@ -22,29 +22,34 @@ from .util import CommonDbOpsMixin, ModelToStringMixin
 
 class InstanceService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
-    A container that implements a peripheral service, i.e., a service that can
-    be accessed through the InstanceEntryService.
+    An InstanceService is an instance of a ExerciseService and its functionality
+    is entirely defined by an ExerciseService (.exercise_service).
+    Each InstanceService belongs to an Instance and is responsible to keep
+    runtime information of the service it is impelmenting.
     """
 
     __to_str_fields__ = ['id', 'instance_id', 'exercise_service_id', 'container_id']
     __tablename__ = 'instance_service'
-    __table_args__ = (db.UniqueConstraint('id', 'instance_id'), db.UniqueConstraint('id', 'exercise_service_id'))
+
+    # 1. Each instance only uses a specific service once.
+    __table_args__ = (db.UniqueConstraint('instance_id', 'exercise_service_id'), )
 
     id = db.Column(db.Integer, primary_key=True)
 
-    #The exercise service describing this service.
-    exercise_service_id = db.Column(db.Integer, db.ForeignKey('exercise_service.id'))
+    #The exercise service describing this service (backref is exercise_service)
+    exercise_service_id = db.Column(db.Integer, db.ForeignKey('exercise_service.id', ondelete='RESTRICT'), nullable=False)
 
     #The instance this service belongs to.
-    instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id'))
+    instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
 
     #The docker container id of this service.
     container_id = db.Column(db.Text(), unique=True)
 
 class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
-    Container that represents the entrypoint for a specific exercise instance.
-    Such and InstanceEntryService is exposed via SSH and supports data persistance.
+    An InstanceEntryService is an instance of an ExerciseEntryService and
+    serves as the entrypoint for a user.
+    Such an InstanceEntryService is exposed via SSH and supports data persistance.
     """
     __to_str_fields__ = ['id', 'instance_id', 'container_id']
     __tablename__ = 'exercise_instance_entry_service'
@@ -162,10 +167,15 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
                 ret.append(i)
         return ret
 
+    def test():
+        """
+        Retu
+        """
+        pass
 
 class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
-    TODO:
+    A submission represents a specific state of an instance at one point in time (snapshot).
     """
     __to_str_fields__ = ['id', 'origin_instance_id', 'submitted_instance_id']
     __tablename__ = 'submission'
@@ -176,9 +186,46 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     origin_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
     origin_instance = db.relationship("Instance", foreign_keys=[origin_instance_id], back_populates="submissions")
 
-    #Reference to the Instance that represents the state of origin_instance at time the time of Submission creation.
-    submitted_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=True)
+    """
+    Reference to the Instance that represents the state of origin_instance at the time the submission was created.
+    This instance uses the changed data (upper overlay) of the submitted instance as lower layer of its overlayfs.
+    """
+    submitted_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
     submitted_instance = db.relationship("Instance", foreign_keys=[submitted_instance_id], back_populates="submission")
 
-    #Point in time the submission happend
-    submission_ts = db.Column(db.DateTime(), nullable=True)
+    #Point in time the submission was created.
+    submission_ts = db.Column(db.DateTime(), nullable=False)
+
+    #Set if this Submission was graded
+    grading_id = db.Column(db.Integer, db.ForeignKey('grading.id', ondelete='RESTRICT'), nullable=True)
+    grading = db.relationship("Grading", foreign_keys=[grading_id], back_populates="submission")
+
+    test_output = db.Column(db.Text(), nullable=True)
+    test_passed = db.Column(db.Boolean(), nullable=True)
+
+class Grading(CommonDbOpsMixin, ModelToStringMixin, db.Model):
+    __to_str_fields__ = ['id']
+    __tablename__ = 'grading'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    #The graded submission
+    submission = db.relationship("Submission", foreign_keys='Submission.grading_id', uselist=False, back_populates="grading", passive_deletes='all')
+    
+    points_reached = db.Column(db.Integer(), nullable=False)
+    comment = db.Column(db.Text(), nullable=True)
+    
+    #Not that is never shown to the user
+    private_note = db.Column(db.Text(), nullable=True)
+
+    #Reference to the last user that applied changes
+    last_edited_by_id = db.Column(db.Integer(), db.ForeignKey('user.id'), nullable=False)
+    last_edited_by = db.relationship("User", foreign_keys=[last_edited_by_id])
+    update_ts = db.Column(db.DateTime(), nullable=False)
+
+    #Reference to the user that created this submission
+    created_by_id = db.Column(db.Integer(), db.ForeignKey('user.id'), nullable=False)
+    created_by = db.relationship("User", foreign_keys=[created_by_id])
+    created_ts = db.Column(db.DateTime(), nullable=False)
+
+    #edit_history = db.Column(db.PickleType(), nullable=True)

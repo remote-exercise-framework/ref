@@ -98,20 +98,31 @@ class InstanceManager():
         user = self.instance.user
         exercise = self.instance.exercise
 
-        submission = Submission()
-        submission.submission_ts = datetime.datetime.now()
-        submission.origin_instance = self.instance
-
         new_instance = InstanceManager.create_instance(user, exercise)
-        submission.submitted_instance = new_instance
-
-        current_app.db.session.add(submission)
 
         #Copy user data from the original instance as second lower dir to new instance.
+        #NOTE: We are accessing the overlay, make sure nothing is currently mounted!
         src = self.instance.entry_service.overlay_upper
         dst = new_instance.entry_service.overlay_submitted
         cmd = f'sudo cp -arT {src} {dst}'
         subprocess.check_call(cmd, shell=True)
+
+        new_mgr = InstanceManager(new_instance)
+        new_mgr.start()
+
+
+        submission = Submission()
+
+        #Run submission tests and safe result
+        ret, test_out = new_mgr.run_tests()
+        submission.test_output = str(test_out)
+        submission.test_passed = ret == 0
+
+        submission.submission_ts = datetime.datetime.now()
+        submission.origin_instance = self.instance
+        submission.submitted_instance = new_instance
+
+        current_app.db.session.add(submission)
 
         return new_instance
 
@@ -125,6 +136,7 @@ class InstanceManager():
         """
         assert self.instance.exercise.short_name == new_exercise.short_name
         assert self.instance.exercise.version < new_exercise.version
+        assert not self.instance.submission, 'Submissions can not be upgraded'
 
         #Create new instance.
         new_instance = InstanceManager.create_instance(self.instance.user, new_exercise)
@@ -172,6 +184,8 @@ class InstanceManager():
             #the old instance might be corrupted.
             log.error(f'Failed to remove old instance {self.instance}')
             raise
+
+        
 
         return new_instance
 
@@ -522,6 +536,18 @@ class InstanceManager():
                 return False
 
         return True
+
+    def run_tests(self):
+        container = self.dc.container(self.instance.entry_service.container_id)
+        if not container:
+            return 1, 'Failed to access container!'
+        
+        run_test_cmd = f'/usr/local/bin/submission-tests'
+        ret, output = container.exec_run(run_test_cmd)
+        log.info(f'Test output for instance {self.instance} is ret={ret}, out={output}')
+
+        return ret, output
+
 
     def remove(self, bequeath_submissions_to=None):
         """

@@ -6,4 +6,54 @@ Grading
 
 {% block admin_content %}
 
+{% for category, exercises in exercises_by_category.items()  %}
+<div class="card mb-5">
+    <h4 class="card-header">
+        {{ category }}
+    </h4>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+            <th scope="col">Short Name</th>
+            <th scope="col">#Submissions</th>
+            <th scope="col">#Tests Passed</th>
+            <th scope="col">#Graded</th>
+            <th scope="col">avg. points</th>
+            <th scope="col">Deadline</th>
+            <th scope="col">
+            
+            </th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for exercise in exercises %}
+            <tr>
+            {% set submission_cnt = exercise.submission_heads()|length  %}
+            {% set passed_cnt  = exercise.submission_heads()|map(attribute='test_passed')|select|list|length  %}
+            {% set graded_cnt  = exercise.submission_heads()|map(attribute='grading')|select|list|length  %}
+                <td>{{ exercise.short_name  }} (v{{ exercise.version  }})</td>
+                <td>{{ submission_cnt }}</td>
+                <td>{{ passed_cnt  }} </td>
+                <td>{{ graded_cnt }} ({{ submission_cnt - graded_cnt }}  left)</td>
+                {% if graded_cnt == 0 %}
+                <td>-</td>
+                {% else  %}
+                <td>6.66/12</td>
+                {% endif %}
+                {% if exercise.submission_deadline_end %}
+                    <td>{{ moment(exercise.submission_deadline_end).fromNow()  }}</td>
+                {% else %}
+                    <td>No</td>
+                {% endif %}
+                <td>
+                    <a role="button" class="btn btn-outline-success ok-modal" href="">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+
+
 {% endblock %}
