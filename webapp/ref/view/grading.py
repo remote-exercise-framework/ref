@@ -37,6 +37,20 @@ def grading_view_all():
     exercises = Exercise.all()
     exercises_by_category = defaultdict(list)
     for exercise in exercises:
+        if not exercise.has_deadline():
+            continue
         exercises_by_category[exercise.category] += [exercise]
 
     return render_template('grading_view_all.html', exercises_by_category=exercises_by_category)
+
+@refbp.route('/admin/grading/<int:exercise_id>')
+@grading_assistant_required
+def grading_view_exercise(exercise_id):
+    exercise = Exercise.get(exercise_id)
+    if not exercise:
+        flash.error(f'Unknown exercise ID {exercise_id}')
+        return redirect_to_next()
+
+    submissions = exercise.submission_heads()
+
+    return render_template('grading_view_exercise.html', exercise=exercise, submissions=submissions)

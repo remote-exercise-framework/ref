@@ -168,6 +168,10 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     submission_deadline_start = db.Column(db.DateTime(), nullable=True)
 
+    submission_test_enabled = db.Column(db.Boolean(), nullable=False)
+
+    max_grading_points = db.Column(db.Integer, nullable=True)
+
     #Is this Exercise version deployed by default in case an instance is requested?
     #At most one exercise with same short_name can have this flag.
     is_default = db.Column(db.Boolean(), nullable=False)
@@ -250,6 +254,12 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     def deadine_passed(self):
         return self.submission_deadline_end is not None and datetime.datetime.now() > self.submission_deadline_end
+
+    def has_deadline(self):
+        return self.submission_deadline_end is not None
+
+    def has_started(self):
+        return self.submission_deadline_start is not None and datetime.datetime.now() > self.submission_deadline_start
 
     def submission_heads(self):
         """

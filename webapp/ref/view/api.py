@@ -453,7 +453,11 @@ def api_instance_submit():
         log.warning(f'User tried to submit already submitted instance {instance}')
         return error_response('Unable to submit a submitted instance :-/')
 
-    if instance.exercise.submission_deadline_end and datetime.datetime.utcnow() > instance.exercise.submission_deadline_end:
+    if not instance.exercise.has_deadline():
+        log.info(f'User tried to submit instance {instance} without deadline')
+        return error_response(f'Exercises without deadline can not be submitted.')
+
+    if instance.exercise.deadine_passed():
         log.info(f'User tried to submit instance {instance} after deadline :-O')
         deadline = instance.exercise.submission_deadline_end.strftime("%d/%m/%Y %H:%M:%S")
         return error_response(f'Sorry, submission was due at {deadline} UTC')
@@ -463,13 +467,7 @@ def api_instance_submit():
     new_instance = mgr.create_submission()
     log.info(f'Created submission: {new_instance.submission}')
 
-    """
-    - Run tests on submission. If they pass, note down the ts of the event. This ts is then used to assign bonus points / first blood
-    - What happens with passed tests and later exercise upgrades that change the test? 
-    """
-
     mgr.start()
     current_app.db.session.commit()
-
 
     return ok_response('OK')

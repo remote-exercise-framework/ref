@@ -6,6 +6,7 @@ import pickle
 import threading
 import time
 from io import BytesIO
+from pathlib import Path
 
 import docker
 import yaml
@@ -167,11 +168,16 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
                 ret.append(i)
         return ret
 
-    def test():
-        """
-        Retu
-        """
-        pass
+    def is_modified(self):
+        upper_dir = Path(self.entry_service.overlay_upper)
+        modified_files = set()
+        for path in upper_dir.glob('*'):
+            if path.parts[-1] in ['.ssh', '.bash_history']:
+                continue
+            modified_files.add(path)
+        current_app.logger.info(f'Instance {self} has following modified files {modified_files}')
+        return len(modified_files) != 0
+
 
 class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
@@ -202,6 +208,9 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     test_output = db.Column(db.Text(), nullable=True)
     test_passed = db.Column(db.Boolean(), nullable=True)
+
+    def is_modified(self):
+        return self.submitted_instance.is_modified()
 
 class Grading(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id']

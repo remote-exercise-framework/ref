@@ -103,12 +103,11 @@ def cmd_presubmit(args):
     """
     Run a script that is specific to the current task and print its output?
     """
-    """
-    1. Execute some script that is exercise specific and returns
-        - Enivron test passed (e.g., correct file name) test "environ"
-        - Exercise test passed (user provided script successfully spawns a shell) test "result"
-    """
     _run_tests()
+
+def cmd_id(args):
+    print_ok(f'[+] Your ID is {INSTANCE_ID}.')
+    print_ok(f'[+] If you need support, please provide it alongside your request.')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -116,23 +115,30 @@ def main():
     subparsers.required = True
     
     reset_parser = subparsers.add_parser('reset', 
-        help='Revert all modifications applied to this instance.'
+        help='Revert all modifications applied to your instance.'
         )
     reset_parser.set_defaults(func=cmd_reset)
 
     submit_parser = subparsers.add_parser('submit', 
-        help='Submit the current state of the instance for grading.'
+        help='Submit the current state of your instance for grading.'
         )
     submit_parser.set_defaults(func=cmd_submit)
 
     presubmit_parser = subparsers.add_parser('presubmit', 
-        help='Run sanity checks for the current task and provied feedback whether it is working as expected.'
+        help='Run sanity checks for your instance and get feedback whether it is working as expected.'
         )
     presubmit_parser.set_defaults(func=cmd_presubmit)
 
+    presubmit_parser = subparsers.add_parser('id',
+        help='Get your instance ID which you might need for support requests.'
+        )
+    presubmit_parser.set_defaults(func=cmd_id)
 
     args = parser.parse_args()
     args.func(args)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
