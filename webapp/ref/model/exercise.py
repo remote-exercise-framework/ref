@@ -271,7 +271,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             if not instance.submission:
                 continue
             submissions_per_user[instance.user] += [instance]
-        for k, v in submissions_per_user.items():
+        for _, v in submissions_per_user.items():
             ret += [max(v, key=lambda e: e.creation_ts)]
         return [e.submission for e in ret if e.submission]
 
@@ -288,3 +288,10 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         Get all submissions of this exercise.
         """
         return [i.submission for i in self.instances if i.submission]
+
+    def has_graded_submissions(self):
+        submissions = self.submissions
+        for s in submissions:
+            if s.grading:
+                return True
+        return False

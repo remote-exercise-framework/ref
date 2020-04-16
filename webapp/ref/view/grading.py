@@ -25,7 +25,7 @@ from ref.core import (ExerciseConfigError, ExerciseImageManager,
 from ref.core.security import (admin_required, grading_assistant_required,
                                sanitize_path_is_subdir)
 from ref.core.util import redirect_to_next
-from ref.model import ConfigParsingError, Exercise, User
+from ref.model import ConfigParsingError, Exercise, Submission, User
 from ref.model.enums import ExerciseBuildStatus, UserAuthorizationGroups
 from wtforms import Form, IntegerField, SubmitField, validators
 
@@ -54,3 +54,15 @@ def grading_view_exercise(exercise_id):
     submissions = exercise.submission_heads()
 
     return render_template('grading_view_exercise.html', exercise=exercise, submissions=submissions)
+
+@refbp.route('/admin/grading/grade/<int:submission_id>')
+@grading_assistant_required
+def grading_view_submission(submission_id):
+    submission = Submission.get(submission_id)
+    if not submission:
+        flash.error(f'Unknown submission ID {submission_id}')
+        return redirect_to_next()
+
+
+
+    return render_template('grading_grade.html', submission=submission)
