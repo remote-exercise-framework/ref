@@ -63,6 +63,6 @@ def grading_view_submission(submission_id):
         flash.error(f'Unknown submission ID {submission_id}')
         return redirect_to_next()
 
-
+    
 
     return render_template('grading_grade.html', submission=submission)
