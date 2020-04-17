@@ -1,6 +1,9 @@
 import random
 import string
 import subprocess
+import tarfile
+from io import BytesIO, StringIO
+from pathlib import Path
 
 import docker
 from docker import errors
@@ -204,6 +207,31 @@ class DockerClient():
             if k == container.id:
                 return v['IPv4Address']
         return None
+
+    def container_add_file(self, container, path, file_bytes, mode=0o700):
+        current_app.logger.info(f'Adding file {path} to container {container}')
+        
+        if isinstance(path, str):
+            path = Path(path)
+
+        if isinstance(container, str):
+            container_obj = self.container(container)
+            if not container_obj:
+                raise docker.errors.NotFound(f'Failed to find container {container}')
+            container = container_obj
+
+        tar_bytes = BytesIO()
+        tar = tarfile.open(mode = "w", fileobj = tar_bytes)
+        data = BytesIO(file_bytes)
+
+        info = tarfile.TarInfo(name=path.parts[-1])
+        info.size = len(data.getvalue())
+        info.mode = mode
+    
+        tar.addfile(tarinfo=info, fileobj=data)
+        tar.close()
+
+        container.put_archive(path.parent.as_posix(), tar_bytes.getvalue())
 
     def create_container(self, image_name, name=None, auto_remove=False, network_mode='none', volumes=None, cap_add=[], security_opt=[], cpu_period=None, cpu_quota=None, mem_limit=None, read_only=False, hostname=None):
         if not name:

@@ -6,7 +6,9 @@ import os
 import re
 import shutil
 import subprocess
+import tarfile
 import traceback
+from io import BytesIO, StringIO
 from pathlib import Path
 
 import itsdangerous
@@ -308,10 +310,18 @@ class InstanceManager():
             log.info('Container is readonly')
 
     def umount(self):
+        """
+        Unmount the persistance of the Instance.
+        After calling this function the instance must be mounted again
+        or be removed. 
+        """
         log.info(f'Unmounting persistance of {self.instance}')
         if os.path.ismount(self.instance.entry_service.overlay_merged):
             cmd = ['sudo', '/bin/umount', self.instance.entry_service.overlay_merged]
             subprocess.check_call(cmd)
+
+    def is_mounted(self):
+        return os.path.ismount(self.instance.entry_service.overlay_merged)
 
     def start(self):
         """
@@ -319,6 +329,8 @@ class InstanceManager():
         On error an exception is raised. The caller is responsible to
         call stop to revert partital changes done by start.
         """
+        assert self.is_mounted(), 'Instances should always be mounted, except just before they are removed'
+
         #Make sure everything is cleaned up
         self.stop()
 
@@ -362,8 +374,13 @@ class InstanceManager():
         cpu_quota = current_app.config['EXERCISE_CONTAINER_CPU_QUOTA']
         mem_limit = current_app.config['EXERCISE_CONTAINER_MEMORY_LIMIT']
 
+        # This profile allows the personality syscall which is required
+        # to disable ASLR on per exercise basis.
+        # FIXME: Can we remove this if ASLR is anabled? 
         seccomp_profile = [f'seccomp={seccomp_profile}']
+
         entry_container_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-entry-{self.instance.id}'
+        log.info(f'Creating docker container {entry_container_name}')
         container = self.dc.create_container(
             image_name,
             name=entry_container_name,
@@ -379,29 +396,22 @@ class InstanceManager():
         )
         instance_entry_service.container_id = container.id
 
-        #Add users public key to authorized_keys
-        add_key_cmd = f'bash -c "echo {self.instance.user.pub_key_ssh} >> /home/user/.ssh/authorized_keys"'
-        success = container.exec_run(add_key_cmd)
-        log.info(f'Add ssh key ret={success}')
+        container_setup_script = (
+            '#!/bin/bash\n'
+            'set -e\n'
+            f'if ! grep -q "{self.instance.user.pub_key_ssh}" /home/user/.ssh/authorized_keys; then\n'
+                f'bash -c "echo {self.instance.user.pub_key_ssh} >> /home/user/.ssh/authorized_keys"\n'
+            'fi\n'
+            f'echo -n {self.instance.id} > /etc/instance_id && chmod 400 /etc/instance_id\n'
+        )
 
-        #Writes the instance ID to /etc/instance_id, thus scripts running inside the container
-        #can use it when sending request to the web server.
-        add_id_cmd = f'bash -c "echo -n {self.instance.id} > /etc/instance_id && chmod 400 /etc/instance_id"'
-        success = container.exec_run(add_id_cmd)
-        log.info(f'Add id cmd={add_id_cmd} ret={success}')
+        self.dc.container_add_file(container, '/tmp/setup.sh', container_setup_script.encode('utf-8'))
+        success = container.exec_run(f'bash -c "/tmp/setup.sh"')
+        log.info(f'running container setup script. ret={success}')
 
-        #Get an instance specific key the can be used for request authentication.
+        #Get the instance specific key that is used to authenticate requests from the container to web.
         instance_key = self.instance.get_key()
-
-        #FIXME: Ugly
-        #Convert byte array to \xXX encoding, thus we can used it with echo
-        instance_key = re.findall('..', binascii.hexlify(instance_key).decode())
-        instance_key = ['\\x' + e for e in instance_key]
-        instance_key = "".join(instance_key)
-
-        add_key_cmd = f'bash -c "echo -en \'{instance_key}\' > /etc/key && chmod 400 /etc/key"'
-        success = container.exec_run(add_key_cmd)
-        log.info(f'Add key cmd={add_key_cmd} ret={success}')
+        self.dc.container_add_file(container, '/etc/key', instance_key)
 
         #Remove created container from 'none' network
         none_network = self.dc.network('none')
