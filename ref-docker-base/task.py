@@ -50,7 +50,7 @@ def handle_response(resp):
             if 'error' in json:
                 print_err(f'[!] ', json['error'])
             else:
-                print_err('[!] ', 'Unknown error, please contact the staff.')
+                print_err('[!] ', 'Unknown error! Please contact staff.')
             return False
         else:
             print_ok('[+] ', json)
@@ -65,12 +65,12 @@ def check_answer(prompt=None):
 
 
 def cmd_reset(args):
-    print_ok('[+] This operation will delete all data of this instance!')
-    print_ok('[+] Continue? [y/n]', end='')
+    print_ok('[+] This operation will revert all modifications. All your data will be lost and you will have to start from scratch! You have been warned.')
+    print_ok('[+] Are you sure you want to continue? [y/n] ', end='')
     if not check_answer():
         exit(0)
 
-    print_ok('[+] Resetting instance...', flush=True)
+    print_ok('[+] Resetting instance..', flush=True)
     req = {}
     req = finalize_request(req)
     res = requests.post('http://sshserver:8000/api/instance/reset', json=req)
@@ -79,18 +79,18 @@ def cmd_reset(args):
 def _run_tests():
     test_path = '/usr/local/bin/submission-tests'
     if not os.path.isfile(test_path):
-        print_warn('[+] No testsuit found, skipping...')
+        print_warn('[+] No testsuite found! Skipping tests..')
         return True
 
     ret = subprocess.run(test_path, shell=False, check=False)
     return ret.returncode == 0
 
 def cmd_submit(args):
-    print_ok('[+] Submitting instance...', flush=True)
+    print_ok('[+] Submitting instance..', flush=True)
 
     if not _run_tests():
-        print_warn('[!] Some tests failed to run.')
-        print_warn('[!] Still submitt? [y/n]', end='')
+        print_warn('[!] Some tests failed. This can indicate that your solution is erroneous or not complete yet.')
+        print_warn('[!] Are you sure you want to submit? [y/n] ', end='')
         if not check_answer():
             exit(0)
 
@@ -106,8 +106,8 @@ def cmd_presubmit(args):
     _run_tests()
 
 def cmd_id(args):
-    print_ok(f'[+] Your ID is {INSTANCE_ID}.')
-    print_ok(f'[+] If you need support, please provide it alongside your request.')
+    print_ok(f'[+] The current container ID is {INSTANCE_ID}.')
+    print_ok(f'[+] If you need support, please provide this ID alongside your request.')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -115,22 +115,22 @@ def main():
     subparsers.required = True
     
     reset_parser = subparsers.add_parser('reset', 
-        help='Revert all modifications applied to your instance.'
+        help='Revert all modifications applied to your container instance. WARNING: This cannot be undone; all user data will be lost permanently.'
         )
     reset_parser.set_defaults(func=cmd_reset)
 
     submit_parser = subparsers.add_parser('submit', 
-        help='Submit the current state of your instance for grading.'
+        help='Submit the current state of your work for grading. Your whole container is submitted.'
         )
     submit_parser.set_defaults(func=cmd_submit)
 
     presubmit_parser = subparsers.add_parser('presubmit', 
-        help='Run sanity checks for your instance and get feedback whether it is working as expected.'
+        help='Run various checks which verify whether your environment and submission match the solution.'
         )
     presubmit_parser.set_defaults(func=cmd_presubmit)
 
     presubmit_parser = subparsers.add_parser('id',
-        help='Get your instance ID which you might need for support requests.'
+        help='Get your container instance ID. This ID is needed for all support requests.'
         )
     presubmit_parser.set_defaults(func=cmd_id)
 
