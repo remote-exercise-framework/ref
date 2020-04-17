@@ -5,6 +5,7 @@ docker-compose*
 **/__pycache__
 **/*.py[cod]
 **/*$py.class
+**/.mypy_cache
 
 rq-worker
 
