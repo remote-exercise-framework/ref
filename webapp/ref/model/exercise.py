@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import datetime
 import enum
@@ -8,6 +10,7 @@ import time
 import typing
 from collections import defaultdict
 from io import BytesIO
+from pathlib import Path
 
 import docker
 import yaml
@@ -183,15 +186,22 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     build_job_status: ExerciseBuildStatus = db.Column(db.Enum(ExerciseBuildStatus), nullable=False)
 
     #All running instances of this exercise
-    instances = db.relationship('Instance', backref='exercise', lazy=True,  passive_deletes='all')
+    instances: typing.List[Instance] = db.relationship('Instance', backref='exercise', lazy=True,  passive_deletes='all')
 
-    def get_users_instance(self, user):
+    @property
+    def submission_script_content(self):
+        assert self.submission_test_enabled
+        path = Path(self.template_path) / 'submission-tests'
+        data = path.read_text()
+        return data
+
+    def get_users_instance(self, user) -> typing.List[Instance]:
         for instance in self.instances:
             if instance.user == user:
                 return instance
         return None
 
-    def predecessors(self):
+    def predecessors(self) -> typing.List[Exercise]:
         exercises = Exercise.query.filter(
             and_(
                 Exercise.short_name == self.short_name,
@@ -200,14 +210,14 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             ).order_by(Exercise.version.desc()).all()
         return exercises
 
-    def predecessor(self):
+    def predecessor(self) -> Exercise:
         predecessors = self.predecessors()
         if predecessors:
             return predecessors[0]
         else:
             return None
 
-    def successors(self):
+    def successors(self) -> typing.List[Exercise]:
         exercises = Exercise.query.filter(
             and_(
                 Exercise.short_name == self.short_name,
@@ -216,15 +226,29 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             ).order_by(Exercise.version).all()
         return exercises
 
-    def successor(self):
+    def successor(self) -> Exercise:
         successors = self.successors()
         if successors:
             return successors[0]
         else:
             return None
 
+    def head(self) -> Exercise:
+        """
+        Returns the newest version of this exercise.
+        """
+        ret = self.successors() + [self]
+        return max(ret, key=lambda e: e.version, default=None)
+
+    def tail(self) -> Exercise:
+        """
+        Returns the oldest version of this exercise.
+        """
+        ret = self.predecessors() + [self]
+        return min(ret, key=lambda e: e.version, default=None)
+
     @staticmethod
-    def get_default_exercise(short_name, for_update=False):
+    def get_default_exercise(short_name, for_update=False) -> Exercise:
         """
         Returns and locks the default exercise for the given short_name.
         """
@@ -234,7 +258,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return q.one_or_none()
 
     @staticmethod
-    def get_exercise(short_name, version, for_update=False):
+    def get_exercise(short_name, version, for_update=False) -> Exercise:
         exercise = Exercise.query.filter(
             and_(
                 Exercise.short_name == short_name,
@@ -246,22 +270,23 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return exercise.one_or_none()
 
     @staticmethod
-    def get_exercises(short_name):
+    def get_exercises(short_name) -> typing.List[Exercise]:
         exercises = Exercise.query.filter(
             Exercise.short_name == short_name
         )
         return exercises.all()
 
-    def deadine_passed(self):
-        return self.submission_deadline_end is not None and datetime.datetime.now() > self.submission_deadline_end
+    def deadine_passed(self) -> bool:
+        assert self.submission_deadline_end is not None
+        return datetime.datetime.now() > self.submission_deadline_end
 
-    def has_deadline(self):
+    def has_deadline(self) -> bool:
         return self.submission_deadline_end is not None
 
-    def has_started(self):
-        return self.submission_deadline_start is not None and datetime.datetime.now() > self.submission_deadline_start
+    def has_started(self) -> bool:
+        return self.submission_deadline_start is None or datetime.datetime.now() > self.submission_deadline_start
 
-    def submission_heads(self):
+    def submission_heads(self) -> typing.List[Submission]:
         """
         Returns the most recent submission for this exercise for each user.
         """
@@ -289,9 +314,16 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         return [i.submission for i in self.instances if i.submission]
 
-    def has_graded_submissions(self):
+    def has_submissions(self):
+        return self.submissions
+
+    def has_graded_submissions(self) -> bool:
         submissions = self.submissions
         for s in submissions:
             if s.grading:
                 return True
         return False
+
+    def avg_points(self):
+        submissions = [e.grading for e in self.submission_heads() if e.grading]
+        return sum([g.points_reached for g in submissions]) / len(submissions)

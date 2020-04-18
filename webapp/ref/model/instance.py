@@ -212,6 +212,8 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     def is_modified(self):
         return self.submitted_instance.is_modified()
 
+    
+
 class Grading(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id']
     __tablename__ = 'grading'

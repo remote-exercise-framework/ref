@@ -59,3 +59,5 @@ WTForms==2.2.1
 zipp==2.2.0
 flask-moment
 Flask-Limiter
+ansi2html
+pygments

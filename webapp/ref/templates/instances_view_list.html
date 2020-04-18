@@ -54,10 +54,17 @@ Instances
                                 {% if i.submissions %}
                                 <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.submissions_by_instance', instance_id=i.id, next=request.path) }}">Submissions</a>
                                 {% endif  %}
+                                
                                 {% if i.new_exercise %}
                                     <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_update', instance_id=i.id, next=request.path) }}">Update</a>
                                 {% endif %}
-                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id, next=request.path) }}">Delete</a>
+                                {% if i.running %}
+                                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_stop', instance_id=i.id, next=request.path) }}">Stop</a>
+                                {% endif %}
+                                
+                                {% if settings.SUBMISSION_ALLOW_DELETE.value %}
+                                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id, next=request.path) }}">Delete</a>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>

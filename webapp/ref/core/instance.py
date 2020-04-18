@@ -565,9 +565,6 @@ class InstanceManager():
         Kill the instance and remove all associated persisted data.
         NOTE: After callin this function, the instance must be removed from the DB.
         """
-        #Do not delete instances that belong to a submission and were graded.
-        assert not self.instance.submission or not self.instance.submission.grading 
-
         log.info(f'Deleting instance {self.instance}')
         self.stop()
         self.umount()
@@ -595,6 +592,9 @@ class InstanceManager():
         submission = self.instance.submission
         if submission:
             current_app.db.session.delete(submission)
+            #Delete the grading object
+            if submission.grading:
+                current_app.db.session.delete(submission.grading)
 
         current_app.db.session.delete(self.instance.entry_service)
         current_app.db.session.delete(self.instance)
