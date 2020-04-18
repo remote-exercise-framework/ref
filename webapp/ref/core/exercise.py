@@ -115,12 +115,9 @@ class ExerciseManager():
             if exercise.submission_deadline_start >= exercise.submission_deadline_end:
                 raise ExerciseConfigError('Deadline start must be smaller then deadline end.')
 
-        predecessor = exercise.predecessor()
-        if predecessor:
-            if exercise.submission_deadline_end is not None:
-                if predecessor.submission_deadline_end != exercise.submission_deadline_end and predecessor.has_graded_submissions():
-                    raise ExerciseConfigError('Deadline changes are not allowed for already graded exercises')
-
+        for e in exercise.predecessors():
+            if e.has_graded_submissions() and e.submission_deadline_end != exercise.submission_deadline_end:
+                raise ExerciseConfigError('Changing the deadline of an already graded exercise is not allowed!')
 
         #Set defaults
         exercise.is_default = False
