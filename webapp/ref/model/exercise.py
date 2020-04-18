@@ -308,11 +308,14 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return [i for i in self.instances if not i.submission]
 
     @property
-    def submissions(self) -> typing.List[Submission]:
+    def submissions(self, user=None) -> typing.List[Submission]:
         """
         Get all submissions of this exercise.
         """
-        return [i.submission for i in self.instances if i.submission]
+        ret = [i.submission for i in self.instances if i.submission]
+        if user:
+            ret = [e for e in ret if e.user == user]
+        return ret
 
     def has_submissions(self):
         return self.submissions

@@ -120,6 +120,13 @@ if [[ $# -lt 1 ]]; then
     exit 1
 fi
 
+if [[ ! -f "ssh-wrapper/openssh-portable/README.md"  ]]; then
+    error "Please checkout the OpenSSH submodule with the following command:"
+    error "git submodule update --init --recursive"
+    error "For further notice, consult the README.md."
+    exit 1
+fi
+
 if ! has_binary "docker"; then
     error "Please install docker!"
     exit 1
