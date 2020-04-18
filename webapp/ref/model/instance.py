@@ -212,7 +212,14 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     def is_modified(self):
         return self.submitted_instance.is_modified()
 
-    
+    def successors(self):
+        submissions = self.origin_instance.submissions
+        current_app.logger.info(f'x={submissions}')
+        return [s for s in submissions if s.submission_ts > self.submission_ts]
+
+
+
+
 
 class Grading(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id']

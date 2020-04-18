@@ -70,6 +70,10 @@ def grading_view_submission(submission_id):
         flash.error(f'Unknown submission ID {submission_id}')
         return redirect_to_next()
 
+    if submission.successors():
+        flash.error('There is a more recent submission of the origin instance.')
+        return redirect_to_next()
+
     grading: Grading = submission.grading
     exercise: Exercise = submission.submitted_instance.exercise    
     form = GradingForm(request.form)
