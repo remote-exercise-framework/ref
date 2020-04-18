@@ -43,22 +43,22 @@ def start_and_return_instance(instance: Instance):
     In case some operation fails, the function returns a description of the error
     using error_response().
     """
-    log.info('Start for instance {instance} was requested.')
+    log.info(f'Start of instance {instance} was requested.')
 
     #Check if the instances exercise image is build
     if not ExerciseImageManager(instance.exercise).is_build():
-        log.error(f'User {instance.user} has an instance ({instance}) of an exercise that is not build. Possibly someone deleted the docker image?')
-        return error_response('Inconsistent build state, please notify the system administrator')
+        log.error(f'User {instance.user} has an instance ({instance}) of an exercise that is not built. Possibly someone deleted the docker image?')
+        return error_response('Inconsistent build state! Please notify the system administrator immediately')
 
     instance_manager = InstanceManager(instance)
     if not instance_manager.is_running():
-        log.info(f'Instance ({instance}) is not running, starting...')
+        log.info(f'Instance ({instance}) is not running. Starting..')
         instance_manager.start()
 
     try:
         ip = instance_manager.get_entry_ip()
     except:
-        log.error('Failed to get IP of container, stopping instance')
+        log.error('Failed to get IP of container. Stopping instance..')
         instance_manager.stop()
         raise
 
@@ -99,7 +99,7 @@ def handle_instance_introspection_request(exercise_name, pubkey):
         raise Exception(m)
 
     if not user.is_admin:
-        log.warning(f'Only admins are allowed to request specific instances')
+        log.warning(f'Only administrators are allowed to request specific instances')
         raise Exception('Insufficient permissions')
 
     if not instance:
@@ -120,7 +120,7 @@ def api_provision():
     """
     content = request.get_json(force=True, silent=True)
     if not content:
-        log.warning('Got provision request without JSON body')
+        log.warning('Received provision request without JSON body')
         return error_response('Request is missing JSON body')
 
     #Check for valid signature and valid request type
@@ -156,11 +156,11 @@ def api_provision():
         user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
         if not user:
             log.warning('Unable to find user with provided publickey')
-            return error_response('Unknown public-key')
+            return error_response('Unknown public key')
 
     #If we are in maintenance, reject connections from normal users.
     if current_app.config['MAINTENANCE_ENABLED'] or SystemSettingsManager.MAINTENANCE_ENABLED.value and not user.is_admin:
-        log.info('Rejecting connection since maintenance mode is enabled and user is no admin')
+        log.info('Rejecting connection since maintenance mode is enabled and user is not an administrator')
         return error_response('-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------')
 
     #Check whether a admin requested access to a specififc instance
@@ -175,9 +175,9 @@ def api_provision():
     exercise_version = None
     if '@' in exercise_name:
         if not SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value:
-            return error_response('Non default provisioning not allowed')
+            return error_response('Settings: Non-default provisioning is not allowed')
         if not user.is_admin:
-            return error_response('Non default provisioning is only allowed for admins')
+            return error_response('Insufficient permissions: Non-default provisioning is only allowed for admins')
         exercise_name = exercise_name.split('@')
         exercise_version = exercise_name[1]
         exercise_name = exercise_name[0]
@@ -186,7 +186,7 @@ def api_provision():
         user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
         if not user:
             log.warning('Unable to find user with provided publickey')
-            return error_response('Unknown public-key')
+            return error_response('Unknown public key')
 
         if exercise_version is not None:
             requested_exercise = Exercise.get_exercise(exercise_name, exercise_version, for_update=True)
@@ -303,7 +303,7 @@ def api_getuserinfo():
         return ok_response(resp)
     else:
         log.info('User not found')
-        return error_response("Failed to find user with given pubkey")
+        return error_response("Failed to find user associated to given pubkey")
 
 @refbp.route('/api/header', methods=('GET', 'POST'))
 def api_get_header():
@@ -328,7 +328,7 @@ def _sanitize_container_request(request, max_age=60) -> str:
     content = request.get_json(force=True, silent=True)
     if not content:
         log.warning('Got request without JSON body')
-        raise ('Request is missing JSON body')
+        raise Exception('Request is missing JSON body')
 
     if not isinstance(content, str):
         log.warning(f'Invalid type {type(content)}')
@@ -390,10 +390,10 @@ def api_instance_reset():
     try:
         instance_id = int(instance_id)
     except ValueError:
-        log.warning(f'Invalid instance id {instance_id}', exc_info=True)
-        return error_response('Invalid instance ID')
+        log.warning(f'Invalid container instance id {instance_id}', exc_info=True)
+        return error_response('Invalid container instance ID')
 
-    log.info(f'Got reset request for instance_id={instance_id}')
+    log.info(f'Received reset request for instance_id={instance_id}')
 
     #Lock the instance and the user
     with retry_on_deadlock():
@@ -433,7 +433,7 @@ def api_instance_submit():
         instance_id = int(instance_id)
     except ValueError:
         log.warning(f'Invalid instance id {instance_id}', exc_info=True)
-        return error_response('Invalid instance ID')
+        return error_response('Invalid container instance ID')
 
     log.info(f'Got submit request for instance_id={instance_id}')
 
@@ -450,17 +450,17 @@ def api_instance_submit():
             return error_response('Invalid request')
 
     if instance.submission:
-        log.warning(f'User tried to submit already submitted instance {instance}')
-        return error_response('Unable to submit a submitted instance :-/')
+        log.warning(f'User tried to submit instance that is already submitted: {instance}')
+        return error_response('Unable to submit: Container instance is already submitted')
 
     if not instance.exercise.has_deadline():
         log.info(f'User tried to submit instance {instance} without deadline')
-        return error_response(f'Exercises without deadline can not be submitted.')
+        return error_response(f'Unable to submit: This is an un-graded, open-end exercise rather than an graded assignment. Use "task check" to receive feedback.')
 
     if instance.exercise.deadine_passed():
         log.info(f'User tried to submit instance {instance} after deadline :-O')
         deadline = instance.exercise.submission_deadline_end.strftime("%d/%m/%Y %H:%M:%S")
-        return error_response(f'Sorry, submission was due at {deadline} UTC')
+        return error_response(f'Unable to submit: The submission deadline already passed (was due before {deadline} UTC)')
 
     mgr = InstanceManager(instance)
     mgr.stop()
