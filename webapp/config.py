@@ -66,6 +66,7 @@ class DebugConfig(ReleaseConfig):
     debug = True
     DEBUG = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
+    TEMPLATES_AUTO_RELOAD = True
 
     #SQLALCHEMY_ECHO = True
     #LOGIN_DISABLED = False
