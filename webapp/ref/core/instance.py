@@ -117,7 +117,8 @@ class InstanceManager():
 
         #Run submission tests and safe result
         ret, test_out = new_mgr.run_tests()
-        submission.test_output = str(test_out)
+
+        submission.test_output = test_out.decode()
         submission.test_passed = ret == 0
 
         submission.submission_ts = datetime.datetime.now()
