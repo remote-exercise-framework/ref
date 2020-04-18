@@ -40,11 +40,16 @@
     {% endif %}
 {%- endmacro %}
 
-{% macro render_textarea(field, label_visible=true, rows=8, style="") -%}
+{% macro render_textarea(field, label_visible=true, rows=8, style="", readonly=False) -%}
+    {% if readonly %}
+        {% set readonly = 'readonly' %}
+    {% else %}
+        {% set readonly = '' %}
+    {% endif %}
     {% if field.type != 'HiddenField' and label_visible %}
         <label for="{{ field.id }}">{{ field.label }}</label>
     {% endif %}
-    <textarea class="form-control" id="{{ field.id  }}" name="{{ field.id }}" rows="{{ rows }}" style="{{ style }}" >{{ field.data or "" }}</textarea>
+    <textarea class="form-control" id="{{ field.id  }}" name="{{ field.id }}" rows="{{ rows }}" style="{{ style }}" {{readonly}}>{{ field.data or "" }}</textarea>
     {% if field.errors %}
         {% for e in field.errors %}
             <div class="alert alert-danger" role="alert">{{ e }}</div>
@@ -86,5 +91,3 @@
                     value="{{ field.id }}">{{ field.label.text }}
             </button>
 {%- endmacro %}
-
-

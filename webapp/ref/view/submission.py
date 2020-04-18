@@ -17,6 +17,7 @@ from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
 from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
 from werkzeug.urls import url_parse
+from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
@@ -26,7 +27,6 @@ from ref.core.util import redirect_to_next
 from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
                        Instance, Submission, SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
-from wtforms import Form, IntegerField, SubmitField, validators
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -49,11 +49,9 @@ def submission_delete(submission_id):
         flash.error('It is not allowed to delete submissions')
         return redirect_to_next()
 
-    with retry_on_deadlock():
-        submission = Submission.query.filter(Submission.id == submission_id).with_for_update().one_or_none()
-        instance = Instance.query.filter(Instance.id == submission.submitted_instance_id).with_for_update().one_or_none()
+    submission = Submission.query.filter(Submission.id == submission_id).with_for_update().one_or_none()
+    instance = Instance.query.filter(Instance.id == submission.submitted_instance_id).with_for_update().one_or_none()
 
-    current_app.db.session.delete(submission)
     instance_mgr = InstanceManager(instance)
     instance_mgr.remove()
 

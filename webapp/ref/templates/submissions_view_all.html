@@ -30,7 +30,9 @@
                     <td>
                         <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ submission.submitted_instance.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">SSH</a>
                         <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.group_view_users', group_id=0, next=request.path) }}">Files</a>
-                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.submission_delete', submission_id=submission.id, next=request.path) }}">Delete</a>
+                        {% if settings.SUBMISSION_ALLOW_DELETE.value %}
+                            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.submission_delete', submission_id=submission.id, next=request.path) }}">Delete</a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

@@ -6,59 +6,63 @@ Grading
 
 {% block admin_content %}
 
-{% for category, exercises in exercises_by_category.items()  %}
-<div class="card mb-5">
-    <h4 class="card-header">
-        {{ category }}
-    </h4>
-    <table class="table table-hover">
-        <thead>
-            <tr>
-            <th scope="col">Short Name</th>
-            <th scope="col">#Submissions</th>
-            <th scope="col">#Tests Passed</th>
-            <th scope="col">#Graded</th>
-            <th scope="col">avg. points</th>
-            <th scope="col">Deadline</th>
-            <th scope="col">
-            
-            </th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for exercise in exercises %}
-            <tr>
-            {% set submission_cnt = exercise.submission_heads()|length  %}
-            {% set passed_cnt  = exercise.submission_heads()|map(attribute='test_passed')|select|list|length  %}
-            {% set graded_cnt  = exercise.submission_heads()|map(attribute='grading')|select|list|length  %}
-            {% set max_points = exercise.max_grading_points %}
-                <td>{{ exercise.short_name  }} (v{{ exercise.version  }})</td>
-                <td>{{ submission_cnt }}</td>
-                {% if exercise.submission_test_enabled %}
-                    <td>{{ passed_cnt  }} </td>
-                {% else %}
-                    <td>Disabled</td>
-                {% endif %}
-                <td>{{ graded_cnt }} ({{ submission_cnt - graded_cnt }}  left)</td>
-                {% if graded_cnt == 0 %}
-                <td>- / {{ max_points }}</td>
-                {% else  %}
-                <td>6.66/ {{ max_points  }}</td>
-                {% endif %}
-                {% if exercise.submission_deadline_end %}
-                    <td>{{ moment(exercise.submission_deadline_end).fromNow()  }}</td>
-                {% else %}
-                    <td>No</td>
-                {% endif %}
-                <td>
-                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.grading_view_exercise', exercise_id=exercise.id) }}">View</a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% endfor %}
+{% if exercises_by_category %}
+    {% for category, exercises in exercises_by_category.items()  %}
+    <div class="card mb-5">
+        <h4 class="card-header">
+            {{ category }}
+        </h4>
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th scope="col">Short Name</th>
+                    <th scope="col">#Submissions</th>
+                    <th scope="col">#Tests Passed</th>
+                    <th scope="col">#Graded</th>
+                    <th scope="col">avg. points</th>
+                    <th scope="col">Deadline</th>
+                    <th scope="col">
+                        
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exercise in exercises %}
+                    {% set submission_cnt = exercise.submission_heads()|length  %}
+                    {% set passed_cnt  = exercise.submission_heads()|map(attribute='test_passed')|select|list|length  %}
+                    {% set graded_cnt  = exercise.submission_heads()|map(attribute='grading')|select|list|length  %}
+                    {% set max_points = exercise.max_grading_points %}
+                    <tr class="table-{{ 'success' if submission_cnt == graded_cnt else 'danger'  }}">
+                        <td>{{ exercise.short_name  }} (v{{ exercise.version  }})</td>
+                        <td>{{ submission_cnt }}</td>
+                        {% if exercise.submission_test_enabled %}
+                        <td>{{ passed_cnt  }} </td>
+                        {% else %}
+                        <td>Disabled</td>
+                        {% endif %}
+                        <td>{{ graded_cnt }} ({{ submission_cnt - graded_cnt }}  left)</td>
+                        {% if graded_cnt == 0 %}
+                        <td>- / {{ max_points }}</td>
+                        {% else  %}
+                        <td> {{ exercise.avg_points()|round(2) }} / {{ max_points  }}</td>
+                        {% endif %}
+                        {% if exercise.submission_deadline_end %}
+                        <td>{{ moment(exercise.submission_deadline_end).fromNow()  }}</td>
+                        {% else %}
+                        <td>No</td>
+                        {% endif %}
+                        <td>
+                            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.grading_view_exercise', exercise_id=exercise.id) }}">View</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
 
+{% else %}
+    <h6 class="text-center">No Data</h6>
+{% endif %}
 
 {% endblock %}

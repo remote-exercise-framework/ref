@@ -17,27 +17,34 @@ from flask import (Blueprint, Flask, abort, current_app, jsonify, redirect,
                    render_template, request, url_for)
 from sqlalchemy import and_, or_
 from werkzeug.local import LocalProxy
+from wtforms import Form, IntegerField, StringField, SubmitField, validators
 
-from flask_login import login_required
+from flask_login import current_user, login_required
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, flash)
 from ref.core.security import (admin_required, grading_assistant_required,
                                sanitize_path_is_subdir)
 from ref.core.util import redirect_to_next
-from ref.model import ConfigParsingError, Exercise, Submission, User
+from ref.model import ConfigParsingError, Exercise, Grading, Submission, User
 from ref.model.enums import ExerciseBuildStatus, UserAuthorizationGroups
-from wtforms import Form, IntegerField, SubmitField, validators
 
 log = LocalProxy(lambda: current_app.logger)
+
+class GradingForm(Form):
+    points = IntegerField('Points', validators=[validators.NumberRange(min=0)])
+    notes = StringField('Notes')
+    save = SubmitField('Save')
+    reset = SubmitField('Reset')
+
 
 @refbp.route('/admin/grading/')
 @grading_assistant_required
 def grading_view_all():
-    exercises = Exercise.all()
+    exercises: typing.List[Exercise] = Exercise.all()
     exercises_by_category = defaultdict(list)
     for exercise in exercises:
-        if not exercise.has_deadline():
+        if not exercise.has_deadline() or not exercise.has_submissions():
             continue
         exercises_by_category[exercise.category] += [exercise]
 
@@ -55,7 +62,7 @@ def grading_view_exercise(exercise_id):
 
     return render_template('grading_view_exercise.html', exercise=exercise, submissions=submissions)
 
-@refbp.route('/admin/grading/grade/<int:submission_id>')
+@refbp.route('/admin/grading/grade/<int:submission_id>',  methods=('GET', 'POST'))
 @grading_assistant_required
 def grading_view_submission(submission_id):
     submission = Submission.get(submission_id)
@@ -63,6 +70,44 @@ def grading_view_submission(submission_id):
         flash.error(f'Unknown submission ID {submission_id}')
         return redirect_to_next()
 
-    
+    grading: Grading = submission.grading
+    exercise: Exercise = submission.submitted_instance.exercise    
+    form = GradingForm(request.form)
 
-    return render_template('grading_grade.html', submission=submission)
+    is_new_grading = False
+    if not grading:
+        grading = Grading()
+        grading.submission = submission
+        is_new_grading = True
+
+    render = lambda: render_template(
+        'grading_grade.html',
+        exercise=exercise,
+        submission=submission,
+        form=form
+        )
+
+    if form.save.data and form.validate():
+        if not exercise.deadine_passed():
+            flash.error(f'Unable to grade submission before deadline is passed!')
+            return render()
+
+        if form.points.data > exercise.max_grading_points:
+            form.points.errors = [f'Points are greater than the maximum of {exercise.max_grading_points}']
+        grading.points_reached = form.points.data
+        grading.private_note = form.notes.data
+        grading.last_edited_by = current_user
+        grading.update_ts = datetime.datetime.utcnow()
+
+        if is_new_grading:
+            grading.created_by = current_user
+            grading.created_ts = datetime.datetime.utcnow()
+            current_app.db.session.add(grading)
+
+        current_app.db.session.add(grading)
+        current_app.db.session.commit()
+    else:
+        form.points.data = '' if grading.points_reached is None else grading.points_reached
+        form.notes.data = '' if grading.private_note is None else grading.private_note
+
+    return render()

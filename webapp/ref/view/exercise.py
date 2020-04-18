@@ -188,6 +188,11 @@ def exercise_do_import(cfg_path):
             flash.error(e)
         return render()
 
+    for e in exercise.predecessors():
+        #Make sure all exercises of the same type have the same end deadline
+        e.submission_deadline_end = exercise.submission_deadline_end
+        db.session.add(e)
+
     ExerciseManager.create(exercise)
     db.session.add_all([exercise.entry_service, exercise])
     db.session.commit()

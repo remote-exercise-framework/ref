@@ -62,8 +62,10 @@ def validate_matriculation_number(form, field):
         raise ValidationError('Invalid matriculation number: checksum failure')
 
 def validate_pubkey(form, field):
+    if field.data is None or field.data == '':
+        return
     try:
-        key = RSA.importKey(field.data)
+        RSA.importKey(field.data)
     except:
         raise ValidationError('Invalid Public-Key.')
 
@@ -106,7 +108,7 @@ class GetKeyForm(Form):
     password = PasswordField('Password', validators=[validators.DataRequired()])
     password_rep = PasswordField('Password (Repeat)', validators=[validators.DataRequired()])
 
-    pubkey = StringField('Public-Key (if empty, a key-pair is generated for you)', validators=[validators.Optional(), validate_pubkey])
+    pubkey = StringField('Public-Key (if empty, a key-pair is generated for you)', validators=[validate_pubkey])
 
     submit = SubmitField('Get Key')
 

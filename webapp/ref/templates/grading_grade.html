@@ -1,13 +1,106 @@
 {% extends "admin_base.html" %}
+{% import "wtf_bootstrap_utils.html" as wtf_utils %}
 
 {% block title %}
-Grading
+Grading for exercise {{ exercise.short_name }}
 {% endblock %}
 
 {% block admin_content %}
+
+## CSS taken from the ansi2html python library (modified).
+<style type="text/css">
+  .ansi2html-content { display: inline; white-space: pre-wrap; word-wrap: break-word; }
+  .body_foreground { }
+  .body_foreground > .bold,.bold > .body_foreground, body.body_foreground > pre > .bold { color: #FFFFFF; font-weight: normal; }
+  .inv_foreground { color: #000000; }
+  .inv_background { background-color: #AAAAAA; }
+  .ansi31 { color: #aa0000; }
+  .ansi32 { color: #00aa00; }
+</style>
+
+{% set instance = submission.submitted_instance %}
+{% set user = instance.user  %}
+{% set deadline_passed = exercise.deadine_passed()  %}
+
+{% if exercise.submission_test_enabled  %}
 <div class="card mb-5">
     <h4 class="card-header">
-        Submissions
+        Test Result <div class="float-right">
+          {% if submission.test_passed %}
+          <span class="badge badge-success">Success</span> 
+          {% else %}
+          <span class="badge badge-danger">Failed</span>
+          {% endif %}
+        </div>
     </h4>
+    <div class="card-body">
+      <div class="row">
+        <div class="col", id="aaa">
+          <body class="body_foreground body_background"  >
+            <pre class="ansi2html-content">
+{{ submission.test_output|ansi2html|safe }}
+            </pre>
+          </body>
+        </div>
+      </div>
+    </div>
 </div>
+{% endif %}
+
+<div class="card mb-5">
+  <h4 class="card-header">
+      Files <div class="float-right">
+        <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ instance.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">Copy SSH Command</a>
+      </div>  
+  </h4>
+</div>
+
+<div class="card mb-5">
+  <h4 class="card-header">
+      Grading Details
+  </h4>
+  <div class="row">
+    <div class="col", id="aaa" style="margin-left: 5pt; margin-top: 5pt;">
+      <h5>Submitter</h5>
+      <dl class="row">
+        <dt class="col-sm-3">Full Name</dt>
+        <dd class="col-sm-9">{{ user.full_name  }}</dd>
+        <dt class="col-sm-3">Mat. Num</dt>
+        <dd class="col-sm-9">{{ user.mat_num  }}</dd>
+        <dt class="col-sm-3">Nickname</dt>
+        <dd class="col-sm-9">{{ user.nickname  }}</dd>
+        <dt class="col-sm-3">Course of Studies</dt>
+        <dd class="col-sm-9">{{ user.course_of_studies.value  }}</dd>
+    </dl>
+
+    <h5>Exercise</h5>
+    <dl class="row">
+      <dt class="col-sm-3">Category</dt>
+      <dd class="col-sm-9">{{ exercise.category  }}</dd>
+      <dt class="col-sm-3">Name</dt>
+      <dd class="col-sm-9">{{ exercise.short_name  }}</dd>
+      <dt class="col-sm-3">Version</dt>
+      <dd class="col-sm-9">{{ exercise.version  }}</dd>
+      <dt class="col-sm-3">Max. Points</dt>
+      <dd class="col-sm-9">{{ exercise.max_grading_points  }}</dd>
+    </dl>
+    </div>
+
+
+
+    
+    <div class="col", id="aaa" style="margin-left: 5pt; margin-top: 5pt;">
+      <form autocomplete="off" method="POST" action="#show-keys">
+        {{ form.csrf_token }}
+        {{ wtf_utils.render_field(form.points, "number") }}
+        {{ wtf_utils.render_textarea(form.notes) }}
+        {{ wtf_utils.render_submit(form.save) }}
+        {{ wtf_utils.render_submit(form.reset) }}
+      </form>
+    </div>
+    </div>
+  </div>
+</div>
+
+
 {% endblock %}
