@@ -4,7 +4,10 @@ ARG DOCKER_GROUP_ID
 
 # Install dependencies
 WORKDIR /tmp/
-RUN apt-get update && apt-get install -y docker docker.io git python3 sudo dnsutils
+RUN apt-get update && apt-get install -y docker docker.io git python3 sudo dnsutils wget netcat
+
+RUN wget https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
+    && chmod 555 /usr/bin/wait-for
 
 COPY requirements.txt /tmp/
 RUN pip install -r requirements.txt && rm requirements.txt

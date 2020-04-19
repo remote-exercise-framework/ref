@@ -10,6 +10,10 @@ export FORWARDED_ALLOW_IPS="*"
 mkdir -p /data/log
 args=""
 
+echo "[+] Waiting for the DB container..."
+wait-for -t 30 db:5432
+echo "[+] DB is up, starting webserver."
+
 # --disable-logging : Disables loggin of request information ("GET /../index.html...").
 
 if [[ "$DEBUG" == "1" || "$TESTING" == "1" ]]; then
