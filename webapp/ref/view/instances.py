@@ -16,6 +16,7 @@ from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
 from werkzeug.local import LocalProxy
 from werkzeug.urls import url_parse
+from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
@@ -24,7 +25,6 @@ from ref.core.util import lock_db, redirect_to_next
 from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
                        Instance, SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
-from wtforms import Form, IntegerField, SubmitField, validators
 
 lerr = lambda msg: current_app.logger.error(msg)
 linfo = lambda msg: current_app.logger.info(msg)
@@ -218,28 +218,6 @@ def instance_delete(instance_id):
 
     return redirect_to_next()
 
-def _get_file_list(dir_path, base_dir_path):
-    files = []
-
-    # Append previous folder if dir_path is not the base_dir_path
-    if dir_path.strip('/') != base_dir_path.strip('/'):
-        relative_path = str(os.path.join(dir_path, '..')).replace(base_dir_path, '')
-        files.append({
-            'path': relative_path,
-            'is_file': False
-        })
-
-    # Iterate over all files and folders in the current dir_path
-    for path in Path(dir_path).glob('*'):
-        is_file = path.is_file()
-        relative_path = str(path).replace(base_dir_path, '')
-        files.append({
-            'path': relative_path,
-            'is_file': is_file
-        })
-
-    return files
-
 @refbp.route('/admin/instances/<int:instance_id>/review', methods = ['GET'])
 @admin_required
 def instance_review(instance_id):
@@ -248,107 +226,7 @@ def instance_review(instance_id):
         return Response('Instance not existing', status=400)
 
     instance_directory = instance.entry_service.overlay_merged
-
-    files = _get_file_list(instance_directory, instance_directory)
-
     title = f'Review Instance ({instance_id})'
-    file_load_url = url_for('ref.instance_review_load_file', instance_id=instance_id)
-    save_url = url_for('ref.instance_review_save_file', instance_id=instance_id)
 
-    return render_template('instances_review.html', title=title, files=files, file_load_url=file_load_url, save_url=save_url)
 
-@refbp.route('/admin/instances/<int:instance_id>/review/load-file', methods = ['POST'])
-@admin_required
-def instance_review_load_file(instance_id):
-    instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
-    if instance is None:
-        return Response('Instance not existing', status=400)
-
-    instance_directory = instance.entry_service.overlay_merged
-
-    # Determine filename from payload
-    payload = request.values
-    filename = payload.get('filename', None)
-
-    if filename is None:
-        return Response('', status=400)
-
-    # .resolve
-    file_path_parts = filename.split('/')
-    if file_path_parts[-1] == '..':
-        filename = '/'.join(file_path_parts[:-2])
-
-    absolute_filename_path = os.path.join(instance_directory, filename.strip('/'))
-
-    # Make sure that the absolute path is not outside of the instance directory TODO: make secure
-    if not instance_directory in absolute_filename_path:
-        return Response('', status=400)
-
-    response = None
-    if Path(absolute_filename_path).is_file():
-        # If the current path belongs to a file, return the file content.
-        content = None
-        try:
-            with open(absolute_filename_path, 'r') as f:
-                content = f.read()
-        except:
-            return Response('Error while reading file', status=400)
-
-        # Determine file extension.
-        filename, file_extension = os.path.splitext(absolute_filename_path)
-
-        response = {
-            'type': 'file',
-            'content': content,
-            'extension': file_extension
-        }
-
-    elif Path(absolute_filename_path).is_dir():
-        # If the current path belongs to a directory, determine all files in it
-        files = _get_file_list(absolute_filename_path, instance_directory)
-        file_load_url = url_for('ref.instance_review_load_file', instance_id=instance_id)
-
-        response = {
-            'type': 'dir',
-            'content': render_template('components/file_tree.html', files=files, file_load_url=file_load_url)
-        }
-
-    else:
-        return Response('', status=400)
-
-    return Response(json.dumps(response), mimetype='application/json')
-
-@refbp.route('/admin/instances/<int:instance_id>/review/save-file', methods = ['POST'])
-@admin_required
-def instance_review_save_file(instance_id):
-    instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
-    if instance is None:
-        return Response('Instance not existing', status=400)
-
-    instance_directory = instance.entry_service.overlay_merged
-
-    # Get filename and content from payload
-    payload = request.values
-    filename = payload.get('filename', None)
-    content = payload.get('content', None)
-
-    # If filename or content is missing, return 400 (Bad request)
-    if content is None or filename is None:
-        return Response('Missing arguments', status=400)
-
-    absolute_filename_path = os.path.join(instance_directory, filename.strip('/'))
-
-    if Path(absolute_filename_path).is_file():
-        try:
-            # Write content to file if file exists
-            with open(absolute_filename_path, 'w') as f:
-                f.write(content)
-        except Exception as e:
-            log.warning('Failed to save file', exc_info=True)
-            rendered_alert = render_template('components/alert.html', error_message=str(e))
-            return Response(rendered_alert, status=500)
-
-    else:
-        return Response('', status=400)
-
-    return Response(content, mimetype='text/plain')
+    return render_template('instances_review.html', title=title, file_browser_path=instance_directory)
