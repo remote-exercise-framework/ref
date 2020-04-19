@@ -307,7 +307,6 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         return [i for i in self.instances if not i.submission]
 
-    @property
     def submissions(self, user=None) -> typing.List[Submission]:
         """
         Get all submissions of this exercise.
@@ -318,10 +317,10 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return ret
 
     def has_submissions(self):
-        return self.submissions
+        return self.submissions()
 
     def has_graded_submissions(self) -> bool:
-        submissions = self.submissions
+        submissions = self.submissions()
         for s in submissions:
             if s.grading:
                 return True
