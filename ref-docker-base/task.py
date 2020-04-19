@@ -111,7 +111,7 @@ def cmd_id(_):
     print_ok(f'[+] Instance ID: {INSTANCE_ID}.')
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog="task")
     subparsers = parser.add_subparsers(dest='command')
     subparsers.required = True
 
