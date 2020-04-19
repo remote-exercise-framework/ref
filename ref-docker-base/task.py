@@ -2,14 +2,11 @@
 
 import argparse
 import os
-import socket
 import subprocess
 import sys
-import time
-import traceback
 
 import requests
-from colorama import Back, Fore, Style
+from colorama import Fore, Style
 from itsdangerous import TimedSerializer
 
 sys.path.append('/usr/local/lib/python3.7/site-packages')
@@ -26,13 +23,13 @@ def print_err(*args, **kwargs):
 with open('/etc/key', 'rb') as f:
     KEY = f.read()
 
-with open('/etc/instance_id', 'r') as f:
+with open('/etc/instance_id', 'r') as f: # type: ignore
     INSTANCE_ID = int(f.read())
 
 def finalize_request(req):
-    s = TimedSerializer(KEY, salt='from-container-to-web')
+    signer = TimedSerializer(KEY, salt='from-container-to-web')
     req['instance_id'] = INSTANCE_ID
-    req = s.dumps(req)
+    req = signer.dumps(req)
     return req
 
 def handle_response(resp):
@@ -64,13 +61,13 @@ def check_answer(prompt=None):
     return data == 'y' or data == 'yes' or data == 'true'
 
 
-def cmd_reset(args):
-    print_ok('[+] This operation will revert all modifications. All your data will be lost and you will have to start from scratch! You have been warned.')
-    print_ok('[+] Are you sure you want to continue? [y/n] ', end='')
+def cmd_reset(_):
+    print_warn('[!] This operation will revert all modifications.\n    All your data will be lost and you will have to start from scratch!\n    You have been warned.')
+    print_warn('[!] Are you sure you want to continue? [y/n] ', end='')
     if not check_answer():
         exit(0)
 
-    print_ok('[+] Resetting instance..', flush=True)
+    print_ok('[+] Resetting instance now. In case of success, you will be disconnected from the instance.', flush=True)
     req = {}
     req = finalize_request(req)
     res = requests.post('http://sshserver:8000/api/instance/reset', json=req)
@@ -85,54 +82,58 @@ def _run_tests():
     ret = subprocess.run(test_path, shell=False, check=False)
     return ret.returncode == 0
 
-def cmd_submit(args):
+def cmd_submit(_):
     print_ok('[+] Submitting instance..', flush=True)
 
     if not _run_tests():
-        print_warn('[!] Some tests failed. This can indicate that your solution is erroneous or not complete yet.')
+        print_warn('[!] Failing tests may indicate that your solution is erroneous or not complete yet.')
         print_warn('[!] Are you sure you want to submit? [y/n] ', end='')
         if not check_answer():
             exit(0)
-
+    else:
+        print_ok('[+] Are you sure you want to submit? [y/n] ', end='')
+        if not check_answer():
+            exit(0)
+    print_ok("[+] Submitting now. In case of success, you will be disconnected from the instance.")
     req = {}
     req = finalize_request(req)
     res = requests.post('http://sshserver:8000/api/instance/submit', json=req)
     handle_response(res)
 
-def cmd_presubmit(args):
+def cmd_check(_):
     """
     Run a script that is specific to the current task and print its output?
     """
     _run_tests()
 
-def cmd_id(args):
-    print_ok(f'[+] The current container ID is {INSTANCE_ID}.')
+def cmd_id(_):
     print_ok(f'[+] If you need support, please provide this ID alongside your request.')
+    print_ok(f'[+] Instance ID: {INSTANCE_ID}.')
 
 def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command')
     subparsers.required = True
-    
-    reset_parser = subparsers.add_parser('reset', 
-        help='Revert all modifications applied to your container instance. WARNING: This cannot be undone; all user data will be lost permanently.'
+
+    reset_parser = subparsers.add_parser('reset',
+        help='Revert all modifications applied to your instance. WARNING: This cannot be undone; all user data will be lost permanently.'
         )
     reset_parser.set_defaults(func=cmd_reset)
 
-    submit_parser = subparsers.add_parser('submit', 
-        help='Submit the current state of your work for grading. Your whole container is submitted.'
+    submit_parser = subparsers.add_parser('submit',
+        help='Submit the current state of your work for grading. Your whole instance is submitted.'
         )
     submit_parser.set_defaults(func=cmd_submit)
 
-    presubmit_parser = subparsers.add_parser('presubmit', 
+    check_parser = subparsers.add_parser('check',
         help='Run various checks which verify whether your environment and submission match the solution.'
         )
-    presubmit_parser.set_defaults(func=cmd_presubmit)
+    check_parser.set_defaults(func=cmd_check)
 
-    presubmit_parser = subparsers.add_parser('id',
-        help='Get your container instance ID. This ID is needed for all support requests.'
+    check_parser = subparsers.add_parser('id',
+        help='Get your instance ID. This ID is needed for all support requests.'
         )
-    presubmit_parser.set_defaults(func=cmd_id)
+    check_parser.set_defaults(func=cmd_id)
 
     args = parser.parse_args()
     args.func(args)
