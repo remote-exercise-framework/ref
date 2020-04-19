@@ -1,5 +1,6 @@
 {% extends "admin_base.html" %}
 {% import "wtf_bootstrap_utils.html" as wtf_utils %}
+{% import "file_browser/file_browser.html" as file_browser with context%}
 
 {% block title %}
 Grading for exercise {{ exercise.short_name }}
@@ -51,8 +52,9 @@ Grading for exercise {{ exercise.short_name }}
   <h4 class="card-header">
       Files <div class="float-right">
         <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ instance.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">Copy SSH Command</a>
-      </div>  
+      </div>
   </h4>
+      {{ file_browser.view(file_browser_path) }}
 </div>
 
 <div class="card mb-5">

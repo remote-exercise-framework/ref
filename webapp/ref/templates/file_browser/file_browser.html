@@ -1,0 +1,126 @@
+{% macro view(path) -%}
+
+{% set token  = file_browser_sign_path(path) %}
+{% set files  = file_browser_ls(path) %}
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <h4 class="card-header">
+                Instance files
+            </h4>
+            <div class="card-body" id="file-tree">
+                {% include 'file_browser/file_tree.html'  %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div class="card card-editor">
+            <h4 class="card-header">
+                Editor
+                <small id="loaded-file">No file loaded</small>
+            </h4>
+            <div id="editor-wrapper">
+                <div id="editor"></div>
+            </div>
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <select class="custom-select" id="syntax-highlighting">
+                    <option value="plain_text">Plain Text</option>
+                    <option value="assembly_x86">Assembly</option>
+                    <option value="sh">Bash/Shell</option>
+                    <option value="c_cpp">C/C++</option>
+                    <option value="makefile">Makefile</option>
+                    <option value="python">Python</option>
+                    <option value="yaml">YAML</option>
+                </select>
+
+                <span class="badge badge-success" id="saved-highlight">Saved</span>
+
+                <button class="btn btn-success" id="save-changes" data-url="{{ save_url }}">Save Changes</button>
+            </div>
+        </div>
+
+        <div id="error-log"></div>
+
+    </div>
+</div>
+
+<script src="https://pagecdn.io/lib/ace/1.4.6/ace.js" integrity="sha256-CVkji/u32aj2TeC+D13f7scFSIfphw2pmu4LaKWMSY8=" crossorigin="anonymous"></script>
+<script>
+    $(function() {
+
+        var editor = ace.edit("editor");
+        editor.setTheme("ace/theme/chrome");
+        editor.session.setMode("ace/mode/plain_text");
+
+        var token = '{{ token }}'
+
+        var extensionMapper = {
+            '.asm': 'assembly_x86',
+            '.c': 'c_cpp',
+            '.cpp': 'c_cpp',
+            '.h': 'c_cpp',
+            '.py': 'python',
+            '.sh': 'sh',
+            '.yaml': 'yaml',
+            '.yml': 'yaml',
+        }
+
+        $(document).on('click', '.load-file', function () {
+            var fileName = $(this).data('filename'),
+                url = $(this).attr('href');
+
+            $.post(url, { 'path': fileName, 'token': token}, function (response) {
+                console.log(response)
+                if (response.type == 'file') {
+                    // Handle loaded file
+                    $('#loaded-file').text(fileName);
+                    editor.setValue(response.content, -1);
+
+                    var mode = extensionMapper[response.extension];
+                    if (!mode) {
+                        mode = 'plain_text';
+                    }
+
+                    editor.session.setMode('ace/mode/' + mode);
+                    $('select#syntax-highlighting').val(mode);
+
+                } else if (response.type == 'dir') {
+                    // Handle loaded directory
+                    $('#file-tree').html(response.content);
+                }
+
+            });
+
+            return false;
+        });
+
+        $('#syntax-highlighting').change(function () {
+            var mode = $(this).val();
+            editor.session.setMode('ace/mode/' + mode);
+        });
+
+        $('#save-changes').click(function () {
+            var content = editor.getValue(),
+                fileName = $('#loaded-file').text(),
+                url = "{{ url_for('ref.file_browser_save_file') }}";
+
+            $.post(url, {
+                'path': fileName,
+                'content': content,
+                'token': token
+            }, function (data) {
+                $('#saved-highlight').addClass('show');
+                setTimeout(function () {
+                    $('#saved-highlight').removeClass('show');
+                }, 1000);
+            })
+            .fail(function (error) {
+                $('#error-log').html(error.responseText);
+            });
+        });
+    });
+</script>
+
+
+{%- endmacro %}

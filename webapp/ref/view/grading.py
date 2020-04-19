@@ -88,7 +88,8 @@ def grading_view_submission(submission_id):
         'grading_grade.html',
         exercise=exercise,
         submission=submission,
-        form=form
+        form=form,
+        file_browser_path=submission.submitted_instance.entry_service.overlay_merged
         )
 
     if form.save.data and form.validate():
