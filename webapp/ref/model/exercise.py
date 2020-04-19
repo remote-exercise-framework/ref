@@ -191,7 +191,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     @property
     def submission_script_content(self):
         assert self.submission_test_enabled
-        path = Path(self.template_path) / 'submission-tests'
+        path = Path(self.template_path) / 'submission_tests'
         data = path.read_text()
         return data
 

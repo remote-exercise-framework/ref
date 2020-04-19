@@ -74,7 +74,7 @@ def cmd_reset(_):
     handle_response(res)
 
 def _run_tests():
-    test_path = '/usr/local/bin/submission-tests'
+    test_path = '/usr/local/bin/submission_tests'
     if not os.path.isfile(test_path):
         print_warn('[+] No testsuite found! Skipping tests..')
         return True

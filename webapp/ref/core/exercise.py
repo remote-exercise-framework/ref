@@ -100,9 +100,9 @@ class ExerciseManager():
 
         exercise.submission_test_enabled = ExerciseManager._parse_attr(cfg, 'submission-test', bool, required=False, default=False)
         if exercise.submission_test_enabled:
-            test_script_path = Path(cfg_folder) / 'submission-tests'
+            test_script_path = Path(cfg_folder) / 'submission_tests'
             if not test_script_path.is_file():
-                raise ExerciseConfigError('Missing submission-tests file!')
+                raise ExerciseConfigError('Missing submission_tests file!')
 
         exercise.max_grading_points = ExerciseManager._parse_attr(cfg, 'grading-points', int, required=False, default=None)
         if (exercise.max_grading_points is None) != (exercise.submission_deadline_end is None):

@@ -32,10 +32,10 @@ RUN chown root:root .ssh/authorized_keys \
     && chmod 444 .ssh/authorized_keys
 
 COPY sshd_config /etc/ssh/sshd_config
-COPY submission-tests /usr/local/bin/submission-tests
+COPY submission_tests /usr/local/bin/submission_tests
 
-RUN chown root:root /usr/local/bin/submission-tests \
-    && chmod 700 /usr/local/bin/submission-tests
+RUN chown root:root /usr/local/bin/submission_tests \
+    && chmod 700 /usr/local/bin/submission_tests
 
 # Replace /bin/sh with a shell that does not drop privileges
 # in case euid != uid.

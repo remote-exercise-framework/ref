@@ -126,10 +126,10 @@ class ExerciseImageManager():
         flag_cmds = ExerciseImageManager.__build_flag_docker_cmd(exercise.entry_service)
 
         #Copy submission test suit into image (if any)
-        if os.path.isfile(f'{exercise.template_path}/submission-tests'):
+        if os.path.isfile(f'{exercise.template_path}/submission_tests'):
             flag_cmds += [
-                'COPY submission-tests /usr/local/bin/submission-tests',
-                'RUN chown root:root /usr/local/bin/submission-tests && chmod 700 /usr/local/bin/submission-tests'
+                'COPY submission_tests /usr/local/bin/submission_tests',
+                'RUN chown root:root /usr/local/bin/submission_tests && chmod 700 /usr/local/bin/submission_tests'
                 ]
 
         dockerfile = ExerciseImageManager.__build_template(
