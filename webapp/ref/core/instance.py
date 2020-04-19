@@ -126,6 +126,7 @@ class InstanceManager():
         submission.submitted_instance = new_instance
 
         current_app.db.session.add(submission)
+        current_app.db.session.add(self.instance)
 
         return new_instance
 

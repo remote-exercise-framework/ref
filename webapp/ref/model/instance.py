@@ -214,7 +214,6 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     def successors(self):
         submissions = self.origin_instance.submissions
-        current_app.logger.info(f'x={submissions}')
         return [s for s in submissions if s.submission_ts > self.submission_ts]
 
 
