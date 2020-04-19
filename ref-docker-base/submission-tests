@@ -1,7 +1,22 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
+
+from pathlib import Path
+from typing import List, Optional
+
+import os
+import subprocess
 import sys
 
 from colorama import Back, Fore, Style
+
+
+"""
+This script is executed each time a studen creates a submission.
+It is used to determine whether the submission works as expected or not.
+"""
+
+SUCCESS = True
+FAILURE = False
 
 
 def print_ok(*args, **kwargs):
@@ -13,42 +28,101 @@ def print_warn(*args, **kwargs):
 def print_err(*args, **kwargs):
     print(Fore.RED, *args, Style.RESET_ALL, **kwargs, sep='')
 
+################################################################
 
-"""
-This script is executed each time a studen creates a submission.
-It is used to determine whether the submission works as expected or not.
-"""
+def run(cmd: List[str], check_returncode: bool = False, timeout: int = 60) -> Optional[str]:
+    """
+    Execute a command (with default timeout of 60s)
+    """
+    output: Optional[str] = None
+    try:
+        p = subprocess.run(cmd, check=check_returncode, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                           timeout=timeout)
+        output = p.stdout.decode().strip()
+    except subprocess.TimeoutExpired:
+        print_err(f"[!] Unexpected timeout for: {' '.join(cmd)} (after {timeout}s)")
+    except subprocess.CalledProcessError as err:
+        print_err(f"[!] Unexpected error: {err}")
+    return output
 
-def test_environment():
+
+def run_pylint(python_files: List[Path]) -> bool:
+    """
+    Run pylint with custom config on user code (only interesting if submission contains .py files)
+    """
+    lint_output = run(["pylint", "--exit-zero", "--rcfile", "/etc/pylintrc"] +
+                      [str(f.resolve()) for f in python_files])
+    if lint_output is None:
+        return FAILURE
+    if lint_output != "":
+        print_warn("[!] pylint's syntax and coding style checks failed:")
+        print_warn('    ' + '\n    '.join(lint_output.split('\n')))
+        return FAILURE
+    print_ok("[+] pylint's syntax and coding style checks passed")
+    return SUCCESS
+
+def run_mypy(python_files: List[Path]) -> bool:
+    """
+    Run mypy with custom config on user code (only interesting if submission contains typed .py files)
+    """
+    lint_output = run(["mypy", "--config-file", "/etc/mypyrc"] + [str(f.resolve()) for f in python_files])
+    if lint_output is None:
+        return FAILURE
+    if lint_output != "":
+        print_warn("[!] mypy's type checks failed:")
+        print_warn('    ' + '\n    '.join(lint_output.split('\n')))
+        return FAILURE
+    print_ok("[+] mypy's type checks passed")
+    return SUCCESS
+
+def check_all_python_files() -> bool:
+    """
+    Run checks only suited for Python files (mypy + pylint)
+    """
+    tests_passed = True
+    python_files = [f for f in Path("/home/user").glob("**/*.py") if not f.name.startswith(".")]
+    if not python_files:
+        return tests_passed
+    print_ok(f'[+] Testing {len(python_files)} Python source code files')
+    tests_passed &= run_pylint(python_files)
+    tests_passed &= run_mypy(python_files)
+    return tests_passed
+
+
+def test_environment() -> bool:
     """
     Test whether all files that should be submitted are in place.
     """
-    print_ok('[+] Testing environment...')
+    tests_passed = True
+    print_ok('[+] Testing environment..')
 
     #Test if there is a file exploit.py?
 
     print_ok('[+] Environment looks good, test passed!')
-    return True
+    return tests_passed
 
 
-def test_submission():
-    """successfully
+def test_submission() -> bool:
+    """
     Test if the submitted code successfully solves the exercise.
     """
     if not test_environment():
-        return False
+        return FAILURE
+    tests_passed = True
+
+    tests_passed &= check_all_python_files()
 
     #Run exploit.py strace?
     #Make sure to drop privileges before running
 
-    return True
+    return tests_passed
 
 
 if __name__ == "__main__":
-    print_ok('[+] Running tests...')
+    print_ok('[+] Running tests..')
     if not test_submission():
         print_err('[!] Some tests failed! Please review your submission to avoid penalties during grading.')
         exit(2)
     else:
-        print_ok('[+] Good job, all tests passed. Ready to submit!')
+        print_ok('[+] All tests passed! Good job :) Ready to submit!')
         exit(0)

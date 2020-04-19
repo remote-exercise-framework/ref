@@ -71,6 +71,10 @@ RUN wget -O /home/user/.gdbinit-gef.py -q https://github.com/hugsy/gef/raw/maste
     && echo source /home/user/.gdbinit-gef.py >> /home/user/.gdbinit \
     && chown user:user /home/user/.gdbinit
 
+# Setup mypy and pylint
+RUN python3 -m pip install -U mypy pylint
+COPY pylintrc /etc/pylintrc
+COPY mypyrc /etc/mypyrc
 
 # Install and provide alias to source reset-env script resetting the environment
 COPY reset-env /bin/
@@ -91,3 +95,4 @@ RUN apt update && apt install -y \
 
 RUN pip install --upgrade pwntools
 RUN pip3 install --upgrade pwntools ipython itsdangerous colorama
+
