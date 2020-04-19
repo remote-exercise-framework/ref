@@ -62,9 +62,7 @@ Instances
                                     <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_stop', instance_id=i.id, next=request.path) }}">Stop</a>
                                 {% endif %}
                                 
-                                {% if settings.SUBMISSION_ALLOW_DELETE.value %}
-                                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id, next=request.path) }}">Delete</a>
-                                {% endif %}
+                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id, next=request.path) }}">Delete</a>
                             </div>
                         </td>
                     </tr>
