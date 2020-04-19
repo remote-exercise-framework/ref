@@ -58,11 +58,11 @@ def start_and_return_instance(instance: Instance):
     try:
         ip = instance_manager.get_entry_ip()
     except:
-        log.error('Failed to get IP of container. Stopping instance..')
+        log.error('Failed to get IP of instance. Stopping instance..')
         instance_manager.stop()
         raise
 
-    log.info(f'IP of user container is {ip}')
+    log.info(f'IP of user instance is {ip}')
 
     resp = {
         'ip': ip,
@@ -390,8 +390,8 @@ def api_instance_reset():
     try:
         instance_id = int(instance_id)
     except ValueError:
-        log.warning(f'Invalid container instance id {instance_id}', exc_info=True)
-        return error_response('Invalid container instance ID')
+        log.warning(f'Invalid instance id {instance_id}', exc_info=True)
+        return error_response('Invalid instance ID')
 
     log.info(f'Received reset request for instance_id={instance_id}')
 
@@ -433,7 +433,7 @@ def api_instance_submit():
         instance_id = int(instance_id)
     except ValueError:
         log.warning(f'Invalid instance id {instance_id}', exc_info=True)
-        return error_response('Invalid container instance ID')
+        return error_response('Invalid instance ID')
 
     log.info(f'Got submit request for instance_id={instance_id}')
 
@@ -451,7 +451,7 @@ def api_instance_submit():
 
     if instance.submission:
         log.warning(f'User tried to submit instance that is already submitted: {instance}')
-        return error_response('Unable to submit: Container instance is already submitted')
+        return error_response('Unable to submit: Instance is already submitted')
 
     if not instance.exercise.has_deadline():
         log.info(f'User tried to submit instance {instance} without deadline')
