@@ -40,7 +40,6 @@ Grading of exercise {{ exercise.short_name }} - v{{ exercise.version }}
                     <td>{{ modified }}</td>
                     <td>
                         <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ instance.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">SSH</a>
-                        <a role="button" class="btn btn-outline-success" href="">Files</a>
                         <a role="button" class="btn btn-outline-{{ 'success' if deadline_passed else 'danger'  }}" href="{{ url_for('ref.grading_view_submission', submission_id=submission.id, next=request.path)  }}">Grade</a>
                         <a role="button" class="btn btn-outline-{{ 'success' if modified else 'danger'  }}" href="{{ url_for('ref.submission_reset', submission_id=submission.id, next=request.path)  }}">Reset</a>
 
