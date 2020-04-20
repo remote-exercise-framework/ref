@@ -128,6 +128,12 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     #If this instance is part of a subission, this field points to the Submission. If this field is set, submissions must be empty.
     submission = db.relationship("Submission", foreign_keys='Submission.submitted_instance_id', uselist=False, back_populates="submitted_instance", passive_deletes='all')
 
+    def get_latest_submission(self) -> 'Submission':
+        assert not self.submission
+        if not self.submissions:
+            return None
+        return max(self.submissions, key=lambda e: e.submission_ts)
+
     def get_key(self) -> bytes:
         secret_key = current_app.config['SECRET_KEY']
         instance_key = hashlib.sha256()

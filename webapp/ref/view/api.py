@@ -20,6 +20,7 @@ from werkzeug.local import Local, LocalProxy
 from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
+from ref.core import AnsiColorUtil as ansi
 from ref.core import (ExerciseImageManager, ExerciseManager, InstanceManager,
                       datetime_to_local_tz, datetime_to_string, flash,
                       retry_on_deadlock)
@@ -77,9 +78,10 @@ def start_and_return_instance(instance: Instance):
         )
     else:
         ts = datetime_to_local_tz(latest_submission.submission_ts)
+        since_in_str = arrow.get(ts).humanize()
         ts = ts.strftime('%A, %B %dth @ %H:%M')
         welcome_message += (
-            f'Last submitted: {ts}\n'
+            f'Last submitted: {ts} ({since_in_str})\n'
             '-> Diff submission with current files `task diff`\n'
         )
 
@@ -88,9 +90,10 @@ def start_and_return_instance(instance: Instance):
         since_in_str = arrow.get(ts).humanize()
         deadline = ts.strftime('%A, %B %dth @ %H:%M')
         if exercise.deadine_passed():
-            welcome_message += f'Deadline for this task passed on {deadline} ({since_in_str})\n'
+            msg = f'Deadline passed on {deadline} ({since_in_str})\n'
+            welcome_message += ansi.red(msg)
         else:
-            welcome_message += f'Deadline for this task is {deadline} ({since_in_str})\n'
+            welcome_message += f'Deadline is {deadline} ({since_in_str})\n'
     else:
         welcome_message += 'This task has no deadline\n'
 
