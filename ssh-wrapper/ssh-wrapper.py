@@ -2,8 +2,8 @@
 
 """
 This script is executed each time a SSH connection is successfully established
-to the SSH server. The main task of this script is to determine the IP address
-of the task container of the connected user. 
+to the SSH server. The main task of this script is to determine the IP address of the container
+that belongs to the connected user and to forward the SSH session to this container.
 """
 
 import os
@@ -87,11 +87,14 @@ def do_post(url, json, expected_status=(200, )) -> typing.Tuple[int, typing.Dict
 
     return handle_response(resp, expected_status=expected_status)
 
-def sign(m):
+def sign(m) -> str:
     s = Serializer(SECRET_KEY)
     return s.dumps(m)
 
-def get_header():
+def get_header() -> str:
+    """
+    Returns the welcome header.
+    """
     req = {}
     req = sign(req)
 
@@ -100,6 +103,9 @@ def get_header():
     
 
 def get_user_info(pubkey):
+    """
+    Returns information about the user that belongs to the given public key.
+    """
     req = {
         'pubkey': pubkey
     }
@@ -108,9 +114,13 @@ def get_user_info(pubkey):
     _, ret = do_post('http://web:8000/api/getuserinfo', json=req)
     return ret
 
-def get_container(username, pubkey):
+def get_container(exercise_name, pubkey):
+    """
+    Returns information about the container for the given exercise
+    that belongs to the user with the passed public key.
+    """
     req = {
-        'username': username,
+        'exercise_name': exercise_name,
         'pubkey': pubkey
     }
     req = sign(req)
