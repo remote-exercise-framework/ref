@@ -4,5 +4,5 @@ from .exercise import ExerciseConfigError, ExerciseManager
 from .image import ExerciseImageManager
 from .instance import InstanceManager
 from .security import admin_required, grading_assistant_required
-from .util import (datetime_to_local_tz, retry_on_deadlock,
+from .util import (datetime_to_local_tz, datetime_to_string, retry_on_deadlock,
                    unavailable_during_maintenance)

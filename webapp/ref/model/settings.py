@@ -3,12 +3,12 @@ import uuid
 from enum import Enum
 
 from flask import current_app
+from sqlalchemy.orm import backref
 
 from flask_bcrypt import check_password_hash, generate_password_hash
 from flask_login import UserMixin
 from ref import db
 from ref.model.enums import CourseOfStudies
-from sqlalchemy.orm import backref
 
 from .util import CommonDbOpsMixin, ModelToStringMixin
 

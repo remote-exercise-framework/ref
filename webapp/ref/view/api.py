@@ -20,7 +20,7 @@ from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
 from ref.core import (ExerciseImageManager, ExerciseManager, InstanceManager,
-                      flash, retry_on_deadlock)
+                      datetime_to_string, flash, retry_on_deadlock)
 from ref.core.util import lock_db
 from ref.model import (ConfigParsingError, Exercise, Instance, SystemSetting,
                        SystemSettingsManager, User)
@@ -459,8 +459,8 @@ def api_instance_submit():
 
     if instance.exercise.deadine_passed():
         log.info(f'User tried to submit instance {instance} after deadline :-O')
-        deadline = instance.exercise.submission_deadline_end.strftime("%d/%m/%Y %H:%M:%S")
-        return error_response(f'Unable to submit: The submission deadline already passed (was due before {deadline} UTC)')
+        deadline = datetime_to_string(instance.exercise.submission_deadline_end)
+        return error_response(f'Unable to submit: The submission deadline already passed (was due before {deadline})')
 
     mgr = InstanceManager(instance)
     mgr.stop()
