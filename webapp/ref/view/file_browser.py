@@ -31,7 +31,7 @@ from ref.model.enums import ExerciseBuildStatus
 
 log = LocalProxy(lambda: current_app.logger)
 
-def _get_file_list(dir_path, base_dir_path):
+def _get_file_list(dir_path, base_dir_path, list_hidden_files=True):
     files = []
     base_dir_path = base_dir_path.rstrip('/')
 
@@ -52,6 +52,11 @@ def _get_file_list(dir_path, base_dir_path):
             'is_file': is_file
         })
 
+    log.info(files)
+    if not list_hidden_files:
+        files = [f for f in files if not Path(f['path']).parts[-1].startswith('.') or f['path'].endswith('..')]
+
+    log.info(files)
     return files
 
 @refbp.context_processor
@@ -81,8 +86,17 @@ def file_browser_load_file():
     path = data.get('path', None)
     #A token that proves the authenticity of the request
     token = data.get('token', None)
+    hide_hidden_files = data.get('hide_hidden_files', None)
 
-    if path is None or token is None:
+    log.info(f'hide_hidden_files={hide_hidden_files}')
+
+    if path is None or token is None or hide_hidden_files is None:
+        return abort(400)
+
+    try:
+        hide_hidden_files = hide_hidden_files == 'true'
+    except:
+        log.warning('', exc_info=True)
         return abort(400)
 
     #Check the signature
@@ -132,7 +146,7 @@ def file_browser_load_file():
 
     elif Path(final_path).is_dir():
         # If the current path belongs to a directory, determine all files in it
-        files = _get_file_list(final_path.as_posix(), path_prefix.as_posix())
+        files = _get_file_list(final_path.as_posix(), path_prefix.as_posix(), list_hidden_files=not hide_hidden_files)
         file_load_url = url_for('ref.file_browser_load_file')
 
         response = {
@@ -147,7 +161,7 @@ def file_browser_load_file():
 
 
 @refbp.route('/admin/file-browser/save-file', methods = ['POST'])
-@admin_required
+@grading_assistant_required
 def file_browser_save_file():
     rendered_alert = render_template('file_browser/alert.html', error_message='Saving is currently not supported!')
     return Response(rendered_alert, status=500)
