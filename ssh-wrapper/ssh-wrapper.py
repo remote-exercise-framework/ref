@@ -11,6 +11,7 @@ import socket
 import sys
 import time
 import traceback
+import typing
 
 sys.path.append('/usr/local/lib/python3.7/site-packages')
 try:
@@ -35,7 +36,15 @@ with open('/etc/request_key', 'rb') as f:
 
 CONTAINER_STARTUP_TIMEOUT = 10
 
-def handle_response(resp, expected_status=(200, )):
+def handle_response(resp, expected_status=(200, )) -> typing.Tuple[int, typing.Dict]:
+    """
+    Process a response of a "requests" request.
+    If the response has a status code not in expected_status,
+    the program is terminated and an error message is displayed
+    to the user. If the status code is in expected_status and the
+    response contains a JSON body, a tuple status_code, json_body
+    is returned.
+    """
     status_code = resp.status_code
     json = None
 
@@ -61,7 +70,15 @@ def handle_response(resp, expected_status=(200, )):
             print_err(f'[!] ', 'Unknown error! Please contact staff')
         exit(1)
 
-def do_post(url, json, expected_status=(200, )):
+def do_post(url, json, expected_status=(200, )) -> typing.Tuple[int, typing.Dict]:
+    """
+    Do a POST request on `url` and pass `json` as request data.
+    If the target answer with a status code not in expected_status,
+    the program is terminated and an error message is displayed
+    to the user. If the status code is found in expected_status,
+    and the response contains a JSON body, a tuple status_code, json_body
+    is returned.
+    """
     try:
         resp = requests.post(url, json=json)
     except Exception as e:
@@ -70,12 +87,14 @@ def do_post(url, json, expected_status=(200, )):
 
     return handle_response(resp, expected_status=expected_status)
 
-def get_header():
-    req = {
-    }
-
+def sign(m):
     s = Serializer(SECRET_KEY)
-    req = s.dumps(req)
+    return s.dumps(m)
+
+def get_header():
+    req = {}
+    req = sign(req)
+
     _, ret = do_post('http://web:8000/api/header', json=req)
     return ret
     
@@ -84,9 +103,8 @@ def get_user_info(pubkey):
     req = {
         'pubkey': pubkey
     }
+    req = sign(req)
 
-    s = Serializer(SECRET_KEY)
-    req = s.dumps(req)
     _, ret = do_post('http://web:8000/api/getuserinfo', json=req)
     return ret
 
@@ -95,36 +113,42 @@ def get_container(username, pubkey):
         'username': username,
         'pubkey': pubkey
     }
+    req = sign(req)
 
-    s = Serializer(SECRET_KEY)
-    req = s.dumps(req)
     _, ret = do_post('http://web:8000/api/provision', json=req)
     return ret
 
 def main():
-    #The username that was provided by the client as login name.
+    #The username that was provided by the client as login name (ssh [name]@192...).
     real_user = os.environ['REAL_USER']
 
-    #The username that is used to execute this script
-    # user = os.environ['USER']
-
-    #Path to the user auth file that contains the pub-key that was used for authentication.
+    #Path to a file that contains the pub-key that was used for authentication (created by sshd)
     user_auth_path = os.environ['SSH_USER_AUTH']
 
+    #Get the SSH-Key in OpenSSH format
     with open(user_auth_path, 'r') as f:
         pubkey = f.read()
         pubkey = " ".join(pubkey.split(' ')[1:]).rstrip()
 
+    #Get infos about the user that owns the given key.
     resp = get_user_info(pubkey)
+
+    #Real name of the user/student
     real_name = resp['name']
 
+    #Welcome header (e.g., OSSec as ASCII-Art)
     resp = get_header()
     print(resp)
 
-
+    #Greet the connected user
     print(f'Hello {real_name}!\nTrying to connect to task "{real_user}"...')
+
+
+    #Get the details needed to connect to the users container. 
     resp = get_container(real_user, pubkey)
 
+    #Welcome message specific to this container.
+    #E.g., submission status, time until deadline...
     msg = resp['welcome_message']
     print(msg)
 
@@ -154,7 +178,7 @@ def main():
 
     if result != 0:
         print('Failed to connect. Please try again.', flush=True)
-        print('If the problems persist, please contact your system administrator.', flush=True)
+        print('If the problem persist, please contact your system administrator.', flush=True)
         exit(1)
 
     os.execvp('/usr/bin/ssh', cmd)
