@@ -31,7 +31,7 @@ from ref.model.enums import ExerciseBuildStatus
 
 log = LocalProxy(lambda: current_app.logger)
 
-def _get_file_list(dir_path, base_dir_path, list_hidden_files=True):
+def _get_file_list(dir_path, base_dir_path, list_hidden_files=False):
     files = []
     base_dir_path = base_dir_path.rstrip('/')
 
