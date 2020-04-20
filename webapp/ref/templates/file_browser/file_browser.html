@@ -53,7 +53,9 @@
         editor.setTheme("ace/theme/chrome");
         editor.session.setMode("ace/mode/plain_text");
 
-        var token = '{{ token }}'
+        var hide_hidden_files = true;
+        var current_path = null;
+        var token = '{{ token }}';
 
         var extensionMapper = {
             '.asm': 'assembly_x86',
@@ -66,12 +68,13 @@
             '.yml': 'yaml',
         }
 
-        $(document).on('click', '.load-file', function () {
-            var fileName = $(this).data('filename'),
-                url = $(this).attr('href');
+        function load_file(fileName) {
+            let url = "{{ url_for('ref.file_browser_load_file')  }}";
 
-            $.post(url, { 'path': fileName, 'token': token}, function (response) {
+            $.post(url, { 'path': fileName, 'token': token, 'hide_hidden_files': hide_hidden_files}, function (response) {
                 console.log(response)
+                current_path = fileName;
+
                 if (response.type == 'file') {
                     // Handle loaded file
                     $('#loaded-file').text(fileName);
@@ -88,9 +91,20 @@
                 } else if (response.type == 'dir') {
                     // Handle loaded directory
                     $('#file-tree').html(response.content);
+                    $('#show_hidden_files_cb')[0].checked = !hide_hidden_files;
+                    $('#show_hidden_files_cb').change(function(e) {
+                        hide_hidden_files = !e.target.checked;
+                        load_file(current_path)
+                    });
                 }
-
             });
+        }
+
+
+        $(document).on('click', '.load-file', function () {
+            var fileName = $(this).data('filename');
+
+            load_file(fileName)
 
             return false;
         });
@@ -118,6 +132,11 @@
             .fail(function (error) {
                 $('#error-log').html(error.responseText);
             });
+        });
+
+        $('#show_hidden_files_cb').change(function(e) {
+            hide_hidden_files = !e.target.checked;
+            load_file(current_path)
         });
     });
 </script>
