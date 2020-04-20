@@ -16,8 +16,18 @@ sys.path.append('/usr/local/lib/python3.7/site-packages')
 try:
     import requests
     from itsdangerous import Serializer
+    from colorama import Fore, Style
 except:
     raise
+
+def print_ok(*args, **kwargs):
+    print(Fore.GREEN, *args, Style.RESET_ALL, **kwargs, sep='')
+
+def print_warn(*args, **kwargs):
+    print(Fore.YELLOW, *args, Style.RESET_ALL, **kwargs, sep='')
+
+def print_err(*args, **kwargs):
+    print(Fore.RED, *args, Style.RESET_ALL, **kwargs, sep='')
 
 #Secret used to sign messages send from the SSH server to the webserver
 with open('/etc/request_key', 'rb') as f:
@@ -25,21 +35,50 @@ with open('/etc/request_key', 'rb') as f:
 
 CONTAINER_STARTUP_TIMEOUT = 10
 
+def handle_response(resp, expected_status=(200, )):
+    status_code = resp.status_code
+    json = None
+
+    json_error = None
+    try:
+        json = resp.json()
+    except ValueError:
+        json_error = f'[!] Missing JSON body (status={status_code})'
+    except Exception:
+        json_error = f'[!] Internal Error (status={status_code})'
+
+    if json_error:
+        #Answers always have to contain JSON
+        print_err(json_error)
+        exit(1)
+
+    if status_code in expected_status:
+        return status_code, json
+    else:
+        if 'error' in json:
+            print_err(f'[!] ', json['error'])
+        else:
+            print_err(f'[!] ', 'Unknown error! Please contact staff')
+        exit(1)
+
+def do_post(url, json, expected_status=(200, )):
+    try:
+        resp = requests.post(url, json=json)
+    except Exception as e:
+        print_err(f'[!] Unknown error. Please contact the staff!\n{e}.')
+        exit(1)
+
+    return handle_response(resp, expected_status=expected_status)
+
 def get_header():
     req = {
     }
 
     s = Serializer(SECRET_KEY)
     req = s.dumps(req)
-    res = requests.post('http://web:8000/api/header', json=req)
-
-    try:
-        json = res.json()
-        return 200, json
-    except ValueError:
-        return 400, 'Missing JSON body'
-    except Exception:
-        return 400, 'Internal Error'
+    _, ret = do_post('http://web:8000/api/header', json=req)
+    return ret
+    
 
 def get_user_info(pubkey):
     req = {
@@ -48,15 +87,8 @@ def get_user_info(pubkey):
 
     s = Serializer(SECRET_KEY)
     req = s.dumps(req)
-    res = requests.post('http://web:8000/api/getuserinfo', json=req)
-
-    try:
-        json = res.json()
-        return 200, json
-    except ValueError:
-        return 400, 'Missing JSON body'
-    except Exception:
-        return 400, 'Internal Error'
+    _, ret = do_post('http://web:8000/api/getuserinfo', json=req)
+    return ret
 
 def get_container(username, pubkey):
     req = {
@@ -66,15 +98,8 @@ def get_container(username, pubkey):
 
     s = Serializer(SECRET_KEY)
     req = s.dumps(req)
-    res = requests.post('http://web:8000/api/provision', json=req)
-
-    try:
-        json = res.json()
-        return res.status_code, json
-    except ValueError:
-        return 400, 'Missing JSON body'
-    except Exception:
-        return 400, 'Internal Error'
+    _, ret = do_post('http://web:8000/api/provision', json=req)
+    return ret
 
 def main():
     #The username that was provided by the client as login name.
@@ -90,31 +115,15 @@ def main():
         pubkey = f.read()
         pubkey = " ".join(pubkey.split(' ')[1:]).rstrip()
 
-    status_code, resp = get_user_info(pubkey)
-    if status_code != 200:
-        if isinstance(resp, str):
-            print(resp)
-        else:
-            print(resp['error'])
-        exit(1)
-
+    resp = get_user_info(pubkey)
     real_name = resp['name']
-    status_code, resp = get_header()
-    if status_code != 200:
-        print(f'Error: {resp}')
-        exit(1)
+
+    resp = get_header()
     print(resp)
 
 
     print(f'Hello {real_name}!\nTrying to connect to task "{real_user}"...')
-    status_code, resp = get_container(real_user, pubkey)
-
-    if status_code != 200:
-        if isinstance(resp, str):
-            print(resp)
-        else:
-            print(resp['error'])
-        exit(1)
+    resp = get_container(real_user, pubkey)
 
     msg = resp['welcome_message']
     print(msg)
