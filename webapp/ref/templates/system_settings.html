@@ -30,8 +30,15 @@ System Settings
                     {{ wtf_utils.render_field(general_settings.maintenance_enabled, "checkbox") }}
                 </div>
             </div>
-            
-            {{ general_settings.csrf_token }}
+
+            <div class="col-md-12">
+                <label for="{{ general_settings.timezone.id }}">{{ general_settings.timezone.label }}</label>
+                <div class="form-group">
+                    {{ general_settings.timezone() }}
+                </div>
+            </div>
+
+                {{ general_settings.csrf_token }}
                 {{ wtf_utils.render_submit(general_settings.submit) }}
         </form>
     </div>

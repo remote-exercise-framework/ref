@@ -24,6 +24,9 @@ User Deatils
     <dd class="col-sm-9">{{ user.mat_num }}</dd>
     <dt class="col-sm-3">Course</dt>
     <dd class="col-sm-9">{{ user.course_of_studies.value }}</dd>
+    <dt class="col-sm-3">Date of regestration</dt>
+    <dd class="col-sm-9">{{ moment(user.registered_date).format() }}</dd>
+
     <dt class="col-sm-3">Authorization Groups</dt><dd class="col-sm-9"></dd>
     {% for g in user.auth_groups %}
         <dt class="col-sm-3"></dt>

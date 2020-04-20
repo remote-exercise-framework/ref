@@ -1,8 +1,10 @@
 from contextlib import contextmanager
+from datetime import datetime
 from functools import wraps
 from multiprocessing import Lock, RLock
 
 import psycopg2
+from dateutil import tz
 from flask import (abort, current_app, g, redirect, render_template, request,
                    url_for)
 #http://initd.org/psycopg/docs/errors.html
@@ -97,3 +99,10 @@ def unlock_db_and_rollback():
 # def unlock_all_db():
 #     current_app.logger.info(f"Releasing all DB locks")
 #     current_app.db.session.execute('select pg_advisory_unlock_all();')
+
+def datetime_to_local_tz(ts: datetime):
+    from_zone = tz.gettz('UTC')
+    to_zone = tz.gettz(SystemSettingsManager.TIMEZONE.value)
+
+    utc = ts.replace(tzinfo=from_zone)
+    return utc.astimezone(to_zone)

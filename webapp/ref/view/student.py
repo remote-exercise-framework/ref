@@ -9,6 +9,9 @@ from psycopg2.errors import DeadlockDetected
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
+from wtforms import (BooleanField, Form, IntegerField, PasswordField,
+                     RadioField, SelectField, SelectMultipleField, StringField,
+                     SubmitField, TextField, ValidationError, validators)
 
 from ref import db, refbp
 from ref.core import admin_required, flash, unavailable_during_maintenance
@@ -17,9 +20,6 @@ from ref.core.util import (is_deadlock_error, lock_db, on_integrity_error,
                            set_transaction_deferable_readonly)
 from ref.model import SystemSettingsManager, User, UserGroup
 from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
-from wtforms import (BooleanField, Form, IntegerField, PasswordField,
-                     RadioField, SelectField, SelectMultipleField, StringField,
-                     SubmitField, TextField, ValidationError, validators)
 
 #mat_regex = r"^1080[0-2][0-9][1-2][0-9]{5}$"
 mat_regex = r"^[0-9]+$"
