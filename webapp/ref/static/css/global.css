@@ -2,6 +2,10 @@
 /* rub link blue:   #0058AD*/
 /* rub green:       #8dae25 */
 
+.ace_editor {
+	z-index: 0;
+}
+
 .rub-blue {
     background-color: #17365c;
 }
