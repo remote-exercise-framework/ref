@@ -7,13 +7,17 @@ of the task container of the connected user.
 """
 
 import os
-import time
 import socket
-import traceback
 import sys
+import time
+import traceback
+
 sys.path.append('/usr/local/lib/python3.7/site-packages')
-import requests
-from itsdangerous import Serializer
+try:
+    import requests
+    from itsdangerous import Serializer
+except:
+    raise
 
 #Secret used to sign messages send from the SSH server to the webserver
 with open('/etc/request_key', 'rb') as f:
@@ -111,6 +115,9 @@ def main():
         else:
             print(resp['error'])
         exit(1)
+
+    msg = resp['welcome_message']
+    print(msg)
 
     ip = resp['ip']
     cmd = ['/usr/bin/ssh', '-t', '-o', ' StrictHostKeyChecking=no', '-i', '/home/sshserver/.ssh/container-key', '-p', '13370', '-l', 'user', ip]

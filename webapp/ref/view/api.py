@@ -8,6 +8,7 @@ import typing
 from collections import namedtuple
 from pathlib import Path
 
+import arrow
 import docker
 import redis
 import rq
@@ -20,7 +21,8 @@ from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
 from ref.core import (ExerciseImageManager, ExerciseManager, InstanceManager,
-                      datetime_to_string, flash, retry_on_deadlock)
+                      datetime_to_local_tz, datetime_to_string, flash,
+                      retry_on_deadlock)
 from ref.core.util import lock_db
 from ref.model import (ConfigParsingError, Exercise, Instance, SystemSetting,
                        SystemSettingsManager, User)
@@ -62,11 +64,42 @@ def start_and_return_instance(instance: Instance):
         instance_manager.stop()
         raise
 
+    exercise: Exercise = instance.exercise
+
+    #Message that is printed before the user is dropped into the container shell.
+    welcome_message = '\n'
+
+    latest_submission = instance.get_latest_submission()
+    if not latest_submission:
+        welcome_message += (
+            'Last submitted: TASK NOT SUBMITTED\n'
+            ' -> Submit with `task submit`\n'
+        )
+    else:
+        ts = datetime_to_local_tz(latest_submission.submission_ts)
+        ts = ts.strftime('%A, %B %dth @ %H:%M')
+        welcome_message += (
+            f'Last submitted: {ts}\n'
+            '-> Diff submission with current files `task diff`\n'
+        )
+
+    if exercise.has_deadline():
+        ts = datetime_to_local_tz(exercise.submission_deadline_end)
+        since_in_str = arrow.get(ts).humanize()
+        deadline = ts.strftime('%A, %B %dth @ %H:%M')
+        if exercise.deadine_passed():
+            welcome_message += f'Deadline for this task passed on {deadline} ({since_in_str})\n'
+        else:
+            welcome_message += f'Deadline for this task is {deadline} ({since_in_str})\n'
+    else:
+        welcome_message += 'This task has no deadline\n'
+
     log.info(f'IP of user instance is {ip}')
 
     resp = {
         'ip': ip,
-        'cmd': instance.exercise.entry_service.cmd
+        'cmd': instance.exercise.entry_service.cmd,
+        'welcome_message': welcome_message
     }
 
     return ok_response(resp)
