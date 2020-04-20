@@ -98,8 +98,8 @@ def handle_instance_introspection_request(exercise_name, pubkey):
         log.warning(m)
         raise Exception(m)
 
-    if not user.is_admin:
-        log.warning(f'Only administrators are allowed to request specific instances')
+    if not user.is_admin and not user.is_grading_assistant:
+        log.warning(f'Only administrators and grading assistants are allowed to request access to specific instances.')
         raise Exception('Insufficient permissions')
 
     if not instance:
