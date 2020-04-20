@@ -56,7 +56,11 @@ def handle_response(resp):
 def check_answer(prompt=None):
     if prompt:
         print(prompt, end='')
-    data = input()
+    try:
+        data = input()
+    except EOFError:
+        print_err('[!] No answer provided, exiting.')
+        exit(1)
     data = data.lower()
     return data == 'y' or data == 'yes' or data == 'true'
 
