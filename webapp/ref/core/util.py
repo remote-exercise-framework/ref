@@ -106,3 +106,8 @@ def datetime_to_local_tz(ts: datetime):
 
     utc = ts.replace(tzinfo=from_zone)
     return utc.astimezone(to_zone)
+
+def datetime_to_string(ts: datetime):
+    if ts.tzinfo is None:
+        ts = datetime_to_local_tz(ts)
+    return ts.strftime("%d/%m/%Y %H:%M:%S")
