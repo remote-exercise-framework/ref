@@ -99,6 +99,7 @@ class ExerciseManager():
         exercise.submission_deadline_end = ExerciseManager._parse_attr(cfg, 'deadline-end', datetime.datetime, required=False, default=None)
 
         exercise.submission_test_enabled = ExerciseManager._parse_attr(cfg, 'submission-test', bool, required=False, default=False)
+
         if exercise.submission_test_enabled:
             test_script_path = Path(cfg_folder) / 'submission_tests'
             if not test_script_path.is_file():

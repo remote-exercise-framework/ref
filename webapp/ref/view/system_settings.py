@@ -6,15 +6,16 @@ from flask import (Blueprint, Flask, Response, current_app, redirect,
                    render_template, request, url_for)
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.local import LocalProxy
+from wtforms import (BooleanField, Form, IntegerField, PasswordField,
+                     RadioField, SelectField, StringField, SubmitField,
+                     TextField, validators)
 
+import pytz
 from ref import db, refbp
 from ref.core import admin_required, flash
 from ref.core.util import redirect_to_next
 from ref.model import SystemSettingsManager, User, UserGroup
 from ref.model.enums import CourseOfStudies
-from wtforms import (BooleanField, Form, IntegerField, PasswordField,
-                     RadioField, SelectField, StringField, SubmitField,
-                     TextField, validators)
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -26,6 +27,7 @@ class GeneralSettings(Form):
     course_name = TextField('Course Name')
     allow_submission_deletion = BooleanField('Allow admins to delete submissions')
     maintenance_enabled = BooleanField('Enable maintenance mode: Disallow any new access by non admin users. Already established connections are not closed')
+    timezone = SelectField('Timezone that is used for datetime representation in case no timezone information is provided by the client.', choices=[(e, e) for e in pytz.all_timezones])
 
 class GroupSettings(Form):
     group_size = IntegerField('Max. group size')
@@ -49,10 +51,12 @@ def view_system_settings():
         SystemSettingsManager.COURSE_NAME.value = general_settings.course_name.data
         SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value = general_settings.allow_submission_deletion.data
         SystemSettingsManager.MAINTENANCE_ENABLED.value = general_settings.maintenance_enabled.data
+        SystemSettingsManager.TIMEZONE.value = general_settings.timezone.data
     else:
         general_settings.course_name.data = SystemSettingsManager.COURSE_NAME.value
         general_settings.allow_submission_deletion.data = SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value
         general_settings.maintenance_enabled.data = SystemSettingsManager.MAINTENANCE_ENABLED.value
+        general_settings.timezone.data = SystemSettingsManager.TIMEZONE.value
 
     #Group settings belong here
     group_settings = GroupSettings(request.form, prefix='group_settings')

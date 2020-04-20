@@ -16,6 +16,7 @@ from flask import (Blueprint, Flask, current_app, jsonify, make_response,
                    redirect, render_template, request, url_for)
 from itsdangerous import Serializer, TimedSerializer
 from werkzeug.local import Local, LocalProxy
+from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
 from ref.core import (ExerciseImageManager, ExerciseManager, InstanceManager,
@@ -24,7 +25,6 @@ from ref.core.util import lock_db
 from ref.model import (ConfigParsingError, Exercise, Instance, SystemSetting,
                        SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
-from wtforms import Form, IntegerField, SubmitField, validators
 
 log = LocalProxy(lambda: current_app.logger)
 
