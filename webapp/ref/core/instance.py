@@ -618,4 +618,3 @@ class InstanceManager():
             raise
         finally:
             self.mount()
-        self.start()

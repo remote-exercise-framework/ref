@@ -503,7 +503,6 @@ def api_instance_submit():
     new_instance = mgr.create_submission()
     log.info(f'Created submission: {new_instance.submission}')
 
-    mgr.start()
     current_app.db.session.commit()
 
     return ok_response('OK')
