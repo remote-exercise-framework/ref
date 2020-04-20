@@ -4,6 +4,7 @@ from functools import wraps
 from multiprocessing import Lock, RLock
 
 import psycopg2
+from colorama import Fore, Style
 from dateutil import tz
 from flask import (abort, current_app, g, redirect, render_template, request,
                    url_for)
@@ -111,3 +112,15 @@ def datetime_to_string(ts: datetime):
     if ts.tzinfo is None:
         ts = datetime_to_local_tz(ts)
     return ts.strftime("%d/%m/%Y %H:%M:%S")
+
+class AnsiColorUtil():
+
+    @staticmethod
+    def green(s):
+        return Fore.GREEN + s + Style.RESET_ALL
+    @staticmethod
+    def yellow(s):
+        return Fore.YELLOW + s + Style.RESET_ALL
+    @staticmethod
+    def red(s):
+        return Fore.RED + s + Style.RESET_ALL
