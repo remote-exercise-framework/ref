@@ -47,22 +47,29 @@ Instances
                         {% endif %}
                         <td>{{ i.running }}</td>
                         <td>
-                            <div class="btn-group">
+                            <div class="btn-group" role="group">
                                 <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ i.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">SSH</a>
                                 <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.instances_view_details', instance_id=i.id, next=request.path) }}">View</a>
                                 <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_review', instance_id=i.id, next=request.path) }}">Files</a>
-                                {% if i.submissions %}
-                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.submissions_by_instance', instance_id=i.id, next=request.path) }}">Submissions</a>
-                                {% endif  %}
                                 
-                                {% if i.new_exercise %}
-                                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_update', instance_id=i.id, next=request.path) }}">Update</a>
-                                {% endif %}
-                                {% if i.running %}
-                                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_stop', instance_id=i.id, next=request.path) }}">Stop</a>
-                                {% endif %}
-                                
-                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_delete', instance_id=i.id, next=request.path) }}">Delete</a>
+                                <div class="btn-group" role="group">
+                                    <a id="btnGroupDrop1" type="button" class="btn btn-outline-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        ...
+                                    </a>
+                                    <div class="dropdown-menu" aria-labelledby="btnGroupDrop1">
+                                        {% if i.submissions %}
+                                        <a class="dropdown-item" href="{{ url_for('ref.submissions_by_instance', instance_id=i.id, next=request.path) }}">Submissions</a>
+                                        {% endif  %}
+                                        {% if i.new_exercise %}
+                                            <a class="dropdown-item" href="{{ url_for('ref.instance_update', instance_id=i.id, next=request.path) }}">Update</a>
+                                        {% endif %}
+                                        {% if i.running %}
+                                            <a class="dropdown-item" href="{{ url_for('ref.instance_stop', instance_id=i.id, next=request.path) }}">Stop</a>
+                                        {% endif %}
+                                        
+                                        <a class="dropdown-item confirm" href="{{ url_for('ref.instance_delete', instance_id=i.id, next=request.path) }}">Delete</a>
+                                    </div>
+                                </div>
                             </div>
                         </td>
                     </tr>
