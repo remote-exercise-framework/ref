@@ -45,6 +45,7 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     #The exercise this entry service belongs to
     exercise_id: int = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'), nullable=False)
+    exercise: 'Exercise' = db.relationship("Exercise", foreign_keys=[exercise_id], back_populates="entry_service")
 
     #Path inside the container that is persistet
     persistance_container_path: str = db.Column(db.Text(), nullable=True)
@@ -100,6 +101,7 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     #Backref is exercise
     exercise_id: int = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'), nullable=False)
+    exercise: 'Exercise' = db.relationship("Exercise", foreign_keys=[exercise_id], back_populates="services")
 
     files: List[str] = db.Column(PickleType(), nullable=True)
     build_cmd: List[str] = db.Column(db.PickleType(), nullable=True)
@@ -111,7 +113,7 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     allow_internet: bool = db.Column(db.Boolean(), nullable=True, default=False)
 
-    instances: List[Instance] = db.relationship("InstanceService", backref="exercise_service", lazy=True, passive_deletes='all')
+    instances: List[Instance] = db.relationship("InstanceService", back_populates="exercise_service", lazy=True, passive_deletes='all')
 
     flag_path: str = db.Column(db.Text(), nullable=True)
     flag_value: str = db.Column(db.Text(), nullable=True)
@@ -139,10 +141,10 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     id: int = db.Column(db.Integer, primary_key=True)
 
     #The services that defnies the entrypoint of this exercise
-    entry_service: ExerciseEntryService = db.relationship("ExerciseEntryService", uselist=False, backref="exercise",  passive_deletes='all')
+    entry_service: ExerciseEntryService = db.relationship("ExerciseEntryService", uselist=False, back_populates="exercise",  passive_deletes='all')
 
     #Additional services that are mapped into the network for this exercise.
-    services: List[ExerciseService] = db.relationship('ExerciseService', backref='exercise', lazy=True, passive_deletes='all')
+    services: List[ExerciseService] = db.relationship('ExerciseService', back_populates='exercise', lazy=True, passive_deletes='all')
 
     #Folder the template was initially imported from
     template_import_path: str = db.Column(db.Text(), nullable=False, unique=False)
@@ -185,7 +187,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     build_job_status: ExerciseBuildStatus = db.Column(db.Enum(ExerciseBuildStatus), nullable=False)
 
     #All running instances of this exercise
-    instances: List[Instance] = db.relationship('Instance', backref='exercise', lazy=True,  passive_deletes='all')
+    instances: List[Instance] = db.relationship('Instance', back_populates='exercise', lazy=True,  passive_deletes='all')
 
     def get_users_instance(self, user) -> List[Instance]:
         for instance in self.instances:

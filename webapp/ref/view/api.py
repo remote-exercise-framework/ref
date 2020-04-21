@@ -515,7 +515,7 @@ def api_instance_submit():
 
 @refbp.route('/api/instance/diff', methods=('GET', 'POST'))
 @limiter.limit('6 per minute')
-def api_instance_reset():
+def api_instance_diff():
     """
     Reset the instance with the given instance ID.
     This function expects the following signed data structure:
