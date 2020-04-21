@@ -13,8 +13,8 @@ from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, ValidationError, validators)
 
-from ref import db, refbp
-from ref.core import admin_required, flash, unavailable_during_maintenance
+from ref import db, limiter, refbp
+from ref.core import admin_required, flash
 from ref.core.util import (is_deadlock_error, lock_db, on_integrity_error,
                            redirect_to_next,
                            set_transaction_deferable_readonly)
@@ -123,7 +123,6 @@ class RestoreKeyForm(Form):
     submit = SubmitField('Restore')
 
 @refbp.route('/student/download/pubkey/<string:signed_mat>')
-@unavailable_during_maintenance
 def student_download_pubkey(signed_mat):
     """
     Returns the public key of the given matriculation number as
@@ -134,7 +133,6 @@ def student_download_pubkey(signed_mat):
         mat_num = signer.loads(signed_mat, max_age=60*10)
     except Exception :
         log.warning('Invalid signature', exc_info=True)
-        flash.error('Provided token is invalid')
         abort(400)
 
     student = User.query.filter(User.mat_num == mat_num).one_or_none()
@@ -149,7 +147,6 @@ def student_download_pubkey(signed_mat):
         abort(400)
 
 @refbp.route('/student/download/privkey/<string:signed_mat>')
-@unavailable_during_maintenance
 def student_download_privkey(signed_mat):
     """
     Returns the private key of the given matriculation number as
@@ -160,7 +157,6 @@ def student_download_privkey(signed_mat):
         mat_num = signer.loads(signed_mat, max_age=60*10)
     except Exception:
         log.warning('Invalid signature', exc_info=True)
-        flash.error('Provided token is invalid')
         abort(400)
 
     student = User.query.filter(User.mat_num == mat_num).one_or_none()
@@ -175,7 +171,7 @@ def student_download_privkey(signed_mat):
         abort(400)
 
 @refbp.route('/student/getkey', methods=('GET', 'POST'))
-@unavailable_during_maintenance
+@limiter.limit('16 per minute;1024 per day')
 def student_getkey():
     """
     Endpoint used to genereate a public/private key pair used by the students
@@ -286,7 +282,7 @@ def student_getkey():
     return render()
 
 @refbp.route('/student/restoreKey', methods=('GET', 'POST'))
-@unavailable_during_maintenance
+@limiter.limit('16 per minute;1024 per day')
 def student_restorekey():
     """
     This endpoint allows a user to restore its key using its matriculation number

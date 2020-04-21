@@ -17,8 +17,10 @@ class ExerciseServiceType(Enum):
     ENTRY = 'Entry Service'
     PERIPHERAL = 'Peripheral Service'
 
-
 class UserAuthorizationGroups(Enum):
+    """
+    Groups used for permission checks.
+    """
     ADMIN = 'Admin'
     GRADING_ASSISTANT = 'Grading Assistant'
     STUDENT = 'Student'

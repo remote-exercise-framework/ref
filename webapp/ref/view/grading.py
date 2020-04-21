@@ -81,7 +81,6 @@ def grading_view_submission(submission_id):
     is_new_grading = False
     if not grading:
         grading = Grading()
-        grading.submission = submission
         is_new_grading = True
 
     render = lambda: render_template(
@@ -105,6 +104,7 @@ def grading_view_submission(submission_id):
         grading.update_ts = datetime.datetime.utcnow()
 
         if is_new_grading:
+            grading.submission = submission
             grading.created_by = current_user
             grading.created_ts = datetime.datetime.utcnow()
             current_app.db.session.add(grading)

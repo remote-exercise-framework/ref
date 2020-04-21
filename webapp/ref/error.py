@@ -5,10 +5,10 @@ import uuid
 from binascii import hexlify
 from functools import wraps
 
-from flask import current_app, render_template
+from flask import current_app, jsonify, render_template, request
 from werkzeug.exceptions import (BadRequest, Forbidden, Gone,
                                  InternalServerError, MethodNotAllowed,
-                                 NotFound)
+                                 NotFound, TooManyRequests)
 
 error_handlers = []
 
@@ -60,7 +60,7 @@ def too_many_requests(e, json=False):
 def internal_error(e):
     code = uuid.uuid4()
     logging.error(Exception(f"Code: {code}", e), exc_info=True)
-    if current_app.config['DEBUG']:
+    if current_app.debug:
         raise e
 
     text = f'Internal Server Error: If the problem persists, please contact the server administrator and provide the following error code {code}'
