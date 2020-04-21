@@ -7,6 +7,7 @@ import threading
 import time
 from io import BytesIO
 from pathlib import Path
+from typing import TYPE_CHECKING, Collection, List
 
 import docker
 import yaml
@@ -18,8 +19,12 @@ from flask_bcrypt import check_password_hash, generate_password_hash
 from ref import db
 
 from .enums import ExerciseBuildStatus
+from .user import User
 from .util import CommonDbOpsMixin, ModelToStringMixin
 
+#Avoid cyclic dependencies for type hinting
+if TYPE_CHECKING:
+    from .exercise import Exercise, ExerciseEntryService, ExerciseService
 
 class InstanceService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
@@ -35,16 +40,18 @@ class InstanceService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     # 1. Each instance only uses a specific service once.
     __table_args__ = (db.UniqueConstraint('instance_id', 'exercise_service_id'), )
 
-    id = db.Column(db.Integer, primary_key=True)
+    id: int = db.Column(db.Integer, primary_key=True)
 
     #The exercise service describing this service (backref is exercise_service)
-    exercise_service_id = db.Column(db.Integer, db.ForeignKey('exercise_service.id', ondelete='RESTRICT'), nullable=False)
+    exercise_service_id: int = db.Column(db.Integer, db.ForeignKey('exercise_service.id', ondelete='RESTRICT'), nullable=False)
+    exercise_service: 'ExerciseService' = db.relationship('ExerciseService', foreign_keys=[exercise_service_id], back_populates="instances")
 
     #The instance this service belongs to.
-    instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
+    instance_id: int = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
+    instance: 'Instance' = db.relationship('Instance', foreign_keys=[instance_id], back_populates="peripheral_services")
 
     #The docker container id of this service.
-    container_id = db.Column(db.Text(), unique=True)
+    container_id: int = db.Column(db.Text(), unique=True)
 
 class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
@@ -54,16 +61,17 @@ class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     __to_str_fields__ = ['id', 'instance_id', 'container_id']
     __tablename__ = 'exercise_instance_entry_service'
-    id = db.Column(db.Integer, primary_key=True)
+    id: int = db.Column(db.Integer, primary_key=True)
 
     #The instance this entry service belongs to
-    instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
+    instance_id: int = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
+    instance: 'Instance' = db.relationship('Instance', foreign_keys=[instance_id], back_populates="entry_service")
 
     #ID of the docker container.
-    container_id = db.Column(db.Text(), unique=True)
+    container_id: int = db.Column(db.Text(), unique=True)
 
     @property
-    def overlay_submitted(self):
+    def overlay_submitted(self) -> str:
         """
         Directory that is used as lower dir besides the "base" files of the exercise.
         This directory can be used to store submitted files.
@@ -71,7 +79,7 @@ class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return f'{self.instance.persistance_path}/entry-submitted'
 
     @property
-    def overlay_upper(self):
+    def overlay_upper(self) -> str:
         """
         Path to the directory that contains the persisted user data.
         This directory is used as the 'upper' directory for overlayfs.
@@ -79,14 +87,14 @@ class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return f'{self.instance.persistance_path}/entry-upper'
 
     @property
-    def overlay_work(self):
+    def overlay_work(self) -> str:
         """
         Path to the working directory used by overlayfs for persistance.
         """
         return f'{self.instance.persistance_path}/entry-work'
 
     @property
-    def overlay_merged(self):
+    def overlay_merged(self) -> str:
         """
         Path to the directory that contains the merged content of the upper and lower directory.
         """
@@ -100,33 +108,35 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id', 'exercise', 'entry_service', 'user', 'network_id', 'peripheral_services_internet_network_id', 'peripheral_services_network_id']
     __tablename__ = 'exercise_instance'
 
-    id = db.Column(db.Integer, primary_key=True)
+    id: int = db.Column(db.Integer, primary_key=True)
 
-    entry_service = db.relationship("InstanceEntryService", uselist=False, backref="instance", passive_deletes='all')
-    peripheral_services = db.relationship('InstanceService', backref='instance', lazy=True,  passive_deletes='all')
+    entry_service: InstanceEntryService = db.relationship("InstanceEntryService", uselist=False, back_populates="instance", passive_deletes='all')
+    peripheral_services: List[InstanceService] = db.relationship('InstanceService', back_populates='instance', lazy=True,  passive_deletes='all')
 
     #The network the entry service is connected to the ssh server by
-    network_id = db.Column(db.Text(), unique=True)
+    network_id: str = db.Column(db.Text(), unique=True)
 
     #Network the entry service is connected to the peripheral services
-    peripheral_services_internet_network_id = db.Column(db.Text(), nullable=True, unique=True)
-    peripheral_services_network_id = db.Column(db.Text(), nullable=True, unique=True)
+    peripheral_services_internet_network_id: str = db.Column(db.Text(), nullable=True, unique=True)
+    peripheral_services_network_id: str = db.Column(db.Text(), nullable=True, unique=True)
 
     #Exercise this instance belongs to (backref name is exercise)
-    exercise_id = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'),
+    exercise_id: int = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'),
         nullable=False)
+    exercise: 'Exercise' = db.relationship('Exercise', foreign_keys=[exercise_id], back_populates="instances")
 
     #Student this instance belongs to (backref name is user)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'),
+    user_id: int = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'),
         nullable=False)
+    user: 'User' = db.relationship('User', foreign_keys=[user_id], back_populates="exercise_instances")
 
-    creation_ts = db.Column(db.DateTime(), nullable=True)
+    creation_ts: datetime.datetime = db.Column(db.DateTime(), nullable=True)
 
     #All submission of this instance. If this list is empty, the instance was never submitted.
-    submissions = db.relationship('Submission', foreign_keys='Submission.origin_instance_id', back_populates='origin_instance', lazy=True, passive_deletes='all')
+    submissions: List['Submission']  = db.relationship('Submission', foreign_keys='Submission.origin_instance_id', back_populates='origin_instance', lazy=True, passive_deletes='all')
 
     #If this instance is part of a subission, this field points to the Submission. If this field is set, submissions must be empty.
-    submission = db.relationship("Submission", foreign_keys='Submission.submitted_instance_id', uselist=False, back_populates="submitted_instance", passive_deletes='all')
+    submission: List['Submission'] = db.relationship("Submission", foreign_keys='Submission.submitted_instance_id', uselist=False, back_populates="submitted_instance", passive_deletes='all')
 
     def get_latest_submission(self) -> 'Submission':
         assert not self.submission
@@ -143,11 +153,14 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return instance_key
 
     @property
-    def long_name(self):
+    def long_name(self) -> str:
+        """
+        Name and version of the exercise this instance is based on.
+        """
         return f'{self.exercise.short_name}-v{self.exercise.version}'
 
     @property
-    def persistance_path(self):
+    def persistance_path(self) -> str:
         """
         Path used to store all data that belongs to this instance.
         """
@@ -157,7 +170,7 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return self.exercise.persistence_path + f'/instances/{self.id}'
 
     @staticmethod
-    def get_instances_by_exercise(short_name, version=None):
+    def get_instances_by_exercise(short_name, version=None) -> List['Instance']:
         instances = Instance.query.all()
         ret = []
         for i in instances:
@@ -166,7 +179,7 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return ret
 
     @staticmethod
-    def get_by_user(user_id):
+    def get_by_user(user_id) -> 'Instance':
         ret = []
         instances = Instance.all()
         for i in instances:
@@ -174,7 +187,7 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
                 ret.append(i)
         return ret
 
-    def is_modified(self):
+    def is_modified(self) -> bool:
         upper_dir = Path(self.entry_service.overlay_upper)
         modified_files = set()
         for path in upper_dir.glob('*'):
@@ -195,61 +208,59 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     #Reference to the Instance that was submitted. Hence, submitted_instance is a snapshot of origin_instance.
-    origin_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
-    origin_instance = db.relationship("Instance", foreign_keys=[origin_instance_id], back_populates="submissions")
+    origin_instance_id: int = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
+    origin_instance: Instance = db.relationship("Instance", foreign_keys=[origin_instance_id], back_populates="submissions")
 
     """
     Reference to the Instance that represents the state of origin_instance at the time the submission was created.
     This instance uses the changed data (upper overlay) of the submitted instance as lower layer of its overlayfs.
     """
-    submitted_instance_id = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
-    submitted_instance = db.relationship("Instance", foreign_keys=[submitted_instance_id], back_populates="submission")
+    submitted_instance_id: int = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
+    submitted_instance: Instance = db.relationship("Instance", foreign_keys=[submitted_instance_id], back_populates="submission")
 
     #Point in time the submission was created.
-    submission_ts = db.Column(db.DateTime(), nullable=False)
+    submission_ts: datetime.datetime = db.Column(db.DateTime(), nullable=False)
 
     #Set if this Submission was graded
-    grading_id = db.Column(db.Integer, db.ForeignKey('grading.id', ondelete='RESTRICT'), nullable=True)
-    grading = db.relationship("Grading", foreign_keys=[grading_id], back_populates="submission")
+    grading_id: int = db.Column(db.Integer, db.ForeignKey('grading.id', ondelete='RESTRICT'), nullable=True)
+    grading: 'Grading' = db.relationship("Grading", foreign_keys=[grading_id], back_populates="submission")
 
     
-    test_output = db.Column(db.Text(), nullable=True)
-    test_passed = db.Column(db.Boolean(), nullable=True)
+    test_output: str = db.Column(db.Text(), nullable=True)
+    test_passed: bool = db.Column(db.Boolean(), nullable=True)
 
-    def is_modified(self):
+    def is_modified(self) -> bool:
         return self.submitted_instance.is_modified()
 
-    def successors(self):
+    def successors(self) -> List['Submission']:
+        """
+        Get all Submissions that belong to the same origin and have higher
+        (where created later) creation timestamp then this Submission.
+        """
         submissions = self.origin_instance.submissions
         return [s for s in submissions if s.submission_ts > self.submission_ts]
-
-
-
-
 
 class Grading(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id']
     __tablename__ = 'grading'
 
-    id = db.Column(db.Integer, primary_key=True)
+    id: int = db.Column(db.Integer, primary_key=True)
 
     #The graded submission
-    submission = db.relationship("Submission", foreign_keys='Submission.grading_id', uselist=False, back_populates="grading", passive_deletes='all')
+    submission: List[Submission] = db.relationship("Submission", foreign_keys='Submission.grading_id', uselist=False, back_populates="grading", passive_deletes='all')
     
-    points_reached = db.Column(db.Integer(), nullable=False)
-    comment = db.Column(db.Text(), nullable=True)
+    points_reached: int = db.Column(db.Integer(), nullable=False)
+    comment: str = db.Column(db.Text(), nullable=True)
     
     #Not that is never shown to the user
-    private_note = db.Column(db.Text(), nullable=True)
+    private_note: str = db.Column(db.Text(), nullable=True)
 
     #Reference to the last user that applied changes
-    last_edited_by_id = db.Column(db.Integer(), db.ForeignKey('user.id'), nullable=False)
-    last_edited_by = db.relationship("User", foreign_keys=[last_edited_by_id])
-    update_ts = db.Column(db.DateTime(), nullable=False)
+    last_edited_by_id: int = db.Column(db.Integer(), db.ForeignKey('user.id'), nullable=False)
+    last_edited_by: User = db.relationship("User", foreign_keys=[last_edited_by_id])
+    update_ts: datetime.datetime = db.Column(db.DateTime(), nullable=False)
 
     #Reference to the user that created this submission
-    created_by_id = db.Column(db.Integer(), db.ForeignKey('user.id'), nullable=False)
-    created_by = db.relationship("User", foreign_keys=[created_by_id])
-    created_ts = db.Column(db.DateTime(), nullable=False)
-
-    #edit_history = db.Column(db.PickleType(), nullable=True)
+    created_by_id: int = db.Column(db.Integer(), db.ForeignKey('user.id'), nullable=False)
+    created_by: User = db.relationship("User", foreign_keys=[created_by_id])
+    created_ts: datetime.datetime = db.Column(db.DateTime(), nullable=False)
