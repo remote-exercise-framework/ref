@@ -17,7 +17,7 @@ from sqlalchemy import Column, Integer, PickleType, and_, create_engine, or_
 from flask_bcrypt import check_password_hash, generate_password_hash
 from ref import db
 
-from .enums import ExerciseBuildStatus, ExerciseServiceType
+from .enums import ExerciseBuildStatus
 from .util import CommonDbOpsMixin, ModelToStringMixin
 
 
