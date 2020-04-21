@@ -28,8 +28,11 @@ def errorhandler(code_or_exception):
     return decorator
 
 def render_error_template(e, code, json=False):
-    if json:
-        return {'message': e}, code
+    if request.path.startswith('/api'):
+        msg = jsonify(
+            {'error': str(e)}
+        )
+        return msg, code
     return render_template('error.html',
                            smiley=random.choice(smileys_sad),
                            text=e,
