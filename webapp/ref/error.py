@@ -51,6 +51,10 @@ def forbidden(e, json=False):
 def bad_request(e, json=False):
     return render_error_template(e, BadRequest.code, json)
 
+@errorhandler(TooManyRequests.code)
+def too_many_requests(e, json=False):
+    return render_error_template(e, TooManyRequests.code, json)
+
 @errorhandler(Exception)
 @errorhandler(InternalServerError.code)
 def internal_error(e):
