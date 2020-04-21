@@ -96,7 +96,7 @@ function copy_text(id) {
             <button type="button" class="btn btn-outline-primary" onclick="copy_text('pubkey-textarea');">Copy</button>
         </div>
         <br>
-        <textarea class="form-control" id="pubkey-textarea" rows="10" readonly>{{pubkey|safe}}</textarea>
+        <textarea class="form-control" id="pubkey-textarea" rows="10" style="font-family: monospace" readonly>{{pubkey|safe}}</textarea>
     </div>
 
 {% endif %}
@@ -113,7 +113,7 @@ function copy_text(id) {
             <a href="{{ url_for('ref.student_download_privkey', signed_mat=signed_mat) }}" class="btn btn-outline-primary" role="button">Download</a>
             <button type="button" class="btn btn-outline-primary" onclick="copy_text('privkey-textarea');">Copy</button>
         </div><br>
-        <textarea class="form-control" id="privkey-textarea" rows="10" readonly>{{privkey|safe}}</textarea>
+        <textarea class="form-control" id="privkey-textarea" rows="10" style="font-family: monospace" readonly>{{privkey|safe}}</textarea>
     </div>
 
 {% endif %}
