@@ -197,7 +197,7 @@ class ExerciseManager():
             service.disable_aslr = ExerciseManager._parse_attr(service_values, 'disable-aslr', bool, required=False, default=False)
 
             service.files = ExerciseManager._parse_attr(service_values, 'files', list, required=False, default=None)
-            if entry.files:
+            if service.files:
                 for f in service.files:
                     if not isinstance(f, str):
                         raise ExerciseConfigError(f'Files must be a list of strings {service.files}')

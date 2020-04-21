@@ -10,7 +10,7 @@ from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
 
 from .docker import DockerClient
-from .exercise import Exercise, ExerciseBuildStatus
+from .exercise import Exercise, ExerciseBuildStatus, ExerciseService
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -50,6 +50,9 @@ class ExerciseImageManager():
         """
         Returns a dynamically build docker file as string.
         """
+        assert isinstance(injected_cmds, list)
+        assert isinstance(cmd, list)
+
         with app.app_context():
             base = app.config['BASE_IMAGE_NAME']
         template = f'FROM {base}\n'
@@ -75,7 +78,7 @@ class ExerciseImageManager():
             template += f'CMD ['
             for w in cmd:
                 template += f'"{w}", '
-            template.rstrip(' ,')
+            template = template.rstrip(', ')
 
         template += ']'
 
