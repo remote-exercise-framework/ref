@@ -19,7 +19,7 @@ from itsdangerous import Serializer, TimedSerializer
 from werkzeug.local import Local, LocalProxy
 from wtforms import Form, IntegerField, SubmitField, validators
 
-from ref import db, refbp
+from ref import db, limiter, refbp
 from ref.core import AnsiColorUtil as ansi
 from ref.core import (ExerciseImageManager, ExerciseManager, InstanceManager,
                       datetime_to_local_tz, datetime_to_string, flash,
@@ -145,6 +145,7 @@ def handle_instance_introspection_request(exercise_name, pubkey):
     return start_and_return_instance(instance)
 
 @refbp.route('/api/provision', methods=('GET', 'POST'))
+@limiter.exempt
 def api_provision():
     """
     Request a instance of a specific exercise for a certain user.
@@ -174,15 +175,15 @@ def api_provision():
     #Parse request args
 
     #The public key the user used to authenticate
-    pubkey = content.get('pubkey')
+    pubkey = content.get('pubkey', None)
     if not pubkey:
         log.warning('Missing pubkey')
         return error_response('Invalid request')
 
     #The user name used for authentication
-    exercise_name = content.get('username')
+    exercise_name = content.get('exercise_name', None)
     if not exercise_name:
-        log.warning('Missing username')
+        log.warning('Missing exercise_name')
         return error_response('Invalid request')
 
     log.info(f'Got request from pubkey={pubkey:32}, exercise_name={exercise_name}')
@@ -263,6 +264,7 @@ def api_provision():
     return ret
 
 @refbp.route('/api/getkeys', methods=('GET', 'POST'))
+@limiter.exempt
 def api_getkeys():
     """
     Returns all public-keys that are allowed to login into the SSH entry server.
@@ -301,6 +303,7 @@ def api_getkeys():
 
 
 @refbp.route('/api/getuserinfo', methods=('GET', 'POST'))
+@limiter.exempt
 def api_getuserinfo():
     """
     Returns info of the user that is associated with the provided public-key.
@@ -342,6 +345,7 @@ def api_getuserinfo():
         return error_response("Failed to find user associated to given pubkey")
 
 @refbp.route('/api/header', methods=('GET', 'POST'))
+@limiter.exempt
 def api_get_header():
     """
     Returns the header that is display when a user connects.
@@ -409,6 +413,7 @@ def _sanitize_container_request(request, max_age=60) -> str:
 
 
 @refbp.route('/api/instance/reset', methods=('GET', 'POST'))
+@limiter.limit('3 per minute; 24 per day')
 def api_instance_reset():
     """
     Reset the instance with the given instance ID.
@@ -451,6 +456,7 @@ def api_instance_reset():
 
 
 @refbp.route('/api/instance/submit', methods=('GET', 'POST'))
+@limiter.limit('3 per minute; 24 per day')
 def api_instance_submit():
     """
     Creates a submission of the instance with the given instance ID.
@@ -502,6 +508,43 @@ def api_instance_submit():
     mgr.stop()
     new_instance = mgr.create_submission()
     log.info(f'Created submission: {new_instance.submission}')
+
+    current_app.db.session.commit()
+
+    return ok_response('OK')
+
+@refbp.route('/api/instance/diff', methods=('GET', 'POST'))
+@limiter.limit('6 per minute')
+def api_instance_reset():
+    """
+    Reset the instance with the given instance ID.
+    This function expects the following signed data structure:
+    {
+        'instance_id': <ID>
+    }
+    """
+    try:
+        content = _sanitize_container_request(request)
+    except Exception as e:
+        return error_response(str(e))
+
+    instance_id = content.get('instance_id')
+    try:
+        instance_id = int(instance_id)
+    except ValueError:
+        log.warning(f'Invalid instance id {instance_id}', exc_info=True)
+        return error_response('Invalid instance ID')
+
+    log.info(f'Received diff request for instance_id={instance_id}')
+
+    instance = Instance.get(instance_id)
+
+    if not instance:
+        log.warning(f'Invalid instance id {instance_id}')
+        return error_response('Invalid request')
+
+    user = instance.user
+
 
     current_app.db.session.commit()
 
