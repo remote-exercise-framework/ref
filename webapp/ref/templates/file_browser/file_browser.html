@@ -73,7 +73,6 @@
 
             $.post(url, { 'path': fileName, 'token': token, 'hide_hidden_files': hide_hidden_files}, function (response) {
                 console.log(response)
-                current_path = fileName;
 
                 if (response.type == 'file') {
                     // Handle loaded file
@@ -89,6 +88,7 @@
                     $('select#syntax-highlighting').val(mode);
 
                 } else if (response.type == 'dir') {
+                    current_path = fileName;
                     // Handle loaded directory
                     $('#file-tree').html(response.content);
                     $('#show_hidden_files_cb')[0].checked = !hide_hidden_files;
