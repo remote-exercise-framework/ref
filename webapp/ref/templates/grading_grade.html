@@ -22,6 +22,7 @@ Grading for exercise {{ exercise.short_name }}
 {% set instance = submission.submitted_instance %}
 {% set user = instance.user  %}
 {% set deadline_passed = exercise.deadine_passed()  %}
+{% set grading = submission.grading  %}
 
 {% if exercise.submission_test_enabled  %}
 <div class="card mb-5">
@@ -63,33 +64,44 @@ Grading for exercise {{ exercise.short_name }}
   </h4>
   <div class="row">
     <div class="col", id="aaa" style="margin-left: 5pt; margin-top: 5pt;">
-      <h5>Submitter</h5>
+        <h5>Submitter</h5>
+        <dl class="row">
+          <dt class="col-sm-3">Full Name</dt>
+          <dd class="col-sm-9">{{ user.full_name  }}</dd>
+          <dt class="col-sm-3">Mat. Num</dt>
+          <dd class="col-sm-9">{{ user.mat_num  }}</dd>
+          <dt class="col-sm-3">Nickname</dt>
+          <dd class="col-sm-9">{{ user.nickname  }}</dd>
+          <dt class="col-sm-3">Course of Studies</dt>
+          <dd class="col-sm-9">{{ user.course_of_studies.value  }}</dd>
+        </dl>
+
+      <h5>Exercise</h5>
       <dl class="row">
-        <dt class="col-sm-3">Full Name</dt>
-        <dd class="col-sm-9">{{ user.full_name  }}</dd>
-        <dt class="col-sm-3">Mat. Num</dt>
-        <dd class="col-sm-9">{{ user.mat_num  }}</dd>
-        <dt class="col-sm-3">Nickname</dt>
-        <dd class="col-sm-9">{{ user.nickname  }}</dd>
-        <dt class="col-sm-3">Course of Studies</dt>
-        <dd class="col-sm-9">{{ user.course_of_studies.value  }}</dd>
-    </dl>
+        <dt class="col-sm-3">Category</dt>
+        <dd class="col-sm-9">{{ exercise.category  }}</dd>
+        <dt class="col-sm-3">Name</dt>
+        <dd class="col-sm-9">{{ exercise.short_name  }}</dd>
+        <dt class="col-sm-3">Version</dt>
+        <dd class="col-sm-9">{{ exercise.version  }}</dd>
+        <dt class="col-sm-3">Max. Points</dt>
+        <dd class="col-sm-9">{{ exercise.max_grading_points  }}</dd>
+      </dl>
 
-    <h5>Exercise</h5>
-    <dl class="row">
-      <dt class="col-sm-3">Category</dt>
-      <dd class="col-sm-9">{{ exercise.category  }}</dd>
-      <dt class="col-sm-3">Name</dt>
-      <dd class="col-sm-9">{{ exercise.short_name  }}</dd>
-      <dt class="col-sm-3">Version</dt>
-      <dd class="col-sm-9">{{ exercise.version  }}</dd>
-      <dt class="col-sm-3">Max. Points</dt>
-      <dd class="col-sm-9">{{ exercise.max_grading_points  }}</dd>
-    </dl>
+      {% if grading %}
+        <h5>Grading last modifies by</h5>
+        <dl class="row">
+          <dt class="col-sm-3">Mat. Num.</dt>
+          <dd class="col-sm-9">{{ grading.last_edited_by.mat_num  }}</dd>
+          <dt class="col-sm-3">Full Name</dt>
+          <dd class="col-sm-9">{{ grading.last_edited_by.full_name  }}</dd>
+          <dt class="col-sm-3">Date</dt>
+          <dd class="col-sm-9">{{ moment(grading.update_ts).format() }} ({{  moment(grading.update_ts).fromNow() }}) </dd>
+        </dl>
+      {% endif %}
+
+      
     </div>
-
-
-
     
     <div class="col", id="aaa" style="margin-left: 5pt; margin-top: 5pt;">
       <form autocomplete="off" method="POST" action="#show-keys">
@@ -99,7 +111,6 @@ Grading for exercise {{ exercise.short_name }}
         {{ wtf_utils.render_submit(form.save) }}
         {{ wtf_utils.render_submit(form.reset) }}
       </form>
-    </div>
     </div>
   </div>
 </div>
