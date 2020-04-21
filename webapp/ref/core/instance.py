@@ -19,7 +19,7 @@ from ref.model import (Instance, InstanceEntryService, InstanceService,
                        Submission, User)
 
 from .docker import DockerClient
-from .exercise import Exercise
+from .exercise import Exercise, ExerciseService
 
 log = LocalProxy(lambda: current_app.logger)
 
