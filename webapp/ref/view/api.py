@@ -73,7 +73,7 @@ def start_and_return_instance(instance: Instance):
     latest_submission = instance.get_latest_submission()
     if not latest_submission:
         welcome_message += (
-            'Last submitted: TASK NOT SUBMITTED\n'
+            'Last submitted: - (No submission found)\n'
             ' -> Submit with `task submit`\n'
         )
     else:
@@ -82,7 +82,7 @@ def start_and_return_instance(instance: Instance):
         ts = ts.strftime('%A, %B %dth @ %H:%M')
         welcome_message += (
             f'Last submitted: {ts} ({since_in_str})\n'
-            '-> Diff submission with current files `task diff`\n'
+            '-> Diff submission and current files with `task diff`\n'
         )
 
     if exercise.has_deadline():
