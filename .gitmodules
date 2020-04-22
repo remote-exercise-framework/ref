@@ -1,3 +1,6 @@
 [submodule "ssh-wrapper/openssh-portable"]
 	path = ssh-wrapper/openssh-portable
 	url = git@git.noc.ruhr-uni-bochum.de:SysSec-Teaching/ref-openssh-portable.git
+[submodule "ref-docker-base/ref-utils"]
+	path = ref-docker-base/ref-utils
+	url = git@git.noc.ruhr-uni-bochum.de:SysSec-Teaching/ref-utils.git

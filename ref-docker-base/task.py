@@ -6,19 +6,10 @@ import subprocess
 import sys
 
 import requests
-from colorama import Fore, Style
+from ref_utils import print_ok, print_warn, print_err
+
 from itsdangerous import TimedSerializer
 
-sys.path.append('/usr/local/lib/python3.7/site-packages')
-
-def print_ok(*args, **kwargs):
-    print(Fore.GREEN, *args, Style.RESET_ALL, **kwargs, sep='')
-
-def print_warn(*args, **kwargs):
-    print(Fore.YELLOW, *args, Style.RESET_ALL, **kwargs, sep='')
-
-def print_err(*args, **kwargs):
-    print(Fore.RED, *args, Style.RESET_ALL, **kwargs, sep='')
 
 with open('/etc/key', 'rb') as f:
     KEY = f.read()

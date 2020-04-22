@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 
-from colorama import Back, Fore, Style
+from ref_utils import print_ok, print_warn, print_err, drop_privileges
 
 
 """
@@ -19,17 +19,9 @@ SUCCESS = True
 FAILURE = False
 
 
-def print_ok(*args, **kwargs):
-    print(Fore.GREEN, *args, Style.RESET_ALL, **kwargs, sep='')
-
-def print_warn(*args, **kwargs):
-    print(Fore.YELLOW, *args, Style.RESET_ALL, **kwargs, sep='')
-
-def print_err(*args, **kwargs):
-    print(Fore.RED, *args, Style.RESET_ALL, **kwargs, sep='')
-
 ################################################################
 
+@drop_privileges
 def run(cmd: List[str], check_returncode: bool = False, timeout: int = 60) -> Optional[str]:
     """
     Execute a command (with default timeout of 60s)
@@ -44,7 +36,6 @@ def run(cmd: List[str], check_returncode: bool = False, timeout: int = 60) -> Op
     except subprocess.CalledProcessError as err:
         print_err(f"[!] Unexpected error: {err}")
     return output
-
 
 def run_pylint(python_files: List[Path]) -> bool:
     """

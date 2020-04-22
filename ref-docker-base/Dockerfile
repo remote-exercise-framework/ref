@@ -1,3 +1,12 @@
+FROM ubuntu:18.04 as ref_utils_builder
+COPY ref-utils /home/ref-utils
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt update && \
+    apt install -y python3 python3-pip python3-setuptools && \
+    python3 -m pip install -U pip setuptools wheel && \
+    cd /home/ref-utils && \
+    python3 setup.py bdist_wheel
+
 FROM ubuntu:18.04
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -65,6 +74,13 @@ RUN groupadd -g 7799 admin  && useradd -g 7799 -u 7799 -s /bin/false admin  && \
     groupadd -g 8003 admin2 && useradd -g 8003 -u 8003 -s /bin/false admin2
 
 RUN echo "user:user" | chpasswd
+
+# Import and install ref-utils
+COPY --from=ref_utils_builder /home/ref-utils/dist/ref_utils-*-py3-none-any.whl /tmp
+RUN python3 -m pip install -U pip setuptools wheel && \
+    python3 -m pip install colorama && \
+    python3 -m pip install -U /tmp/ref_utils-*-py3-none-any.whl && \
+    rm -f /tmp/ref_utils-*-py3-none-any.whl
 
 # Install gef
 RUN wget -O /home/user/.gdbinit-gef.py -q https://github.com/hugsy/gef/raw/master/gef.py \
