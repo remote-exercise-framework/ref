@@ -92,14 +92,9 @@ RUN python3 -m pip install -U mypy pylint
 COPY pylintrc /etc/pylintrc
 COPY mypyrc /etc/mypyrc
 
-# Install and provide alias to source reset-env script resetting the environment
-COPY reset-env /bin/
-RUN echo 'alias reset-env="source /bin/reset-env"' >> /etc/profile
 # Unset variables only set by GDB
 RUN echo "unset environment LINES" >> .gdbinit && \
-    echo "unset environment COLUMNS" >> .gdbinit && \
-    echo "unset environment _" >> .gdbinit
-
+    echo "unset environment COLUMNS" >> .gdbinit
 
 # Install convenience packages the users might want to use
 RUN apt update && apt install -y \
