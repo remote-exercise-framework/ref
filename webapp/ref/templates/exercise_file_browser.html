@@ -1,0 +1,12 @@
+{% extends "admin_base.html" %}
+{% import "file_browser/file_browser.html" as file_browser with context%}
+
+{% block title %}
+{{ title }}
+{% endblock %}
+
+{% block admin_content_fluid %}
+
+{{ file_browser.view(file_browser_path) }}
+
+{% endblock %}
