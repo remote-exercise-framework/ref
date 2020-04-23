@@ -305,10 +305,10 @@ def student_restorekey():
                 privkey = student.priv_key
                 return render()
             else:
-                form.password.errors += ['Wrong password']
+                form.password.errors += ['Wrong password or matriculation number unknown.']
                 return render()
         else:
-            form.mat_num.errors += ['Unknown matriculation number']
+            form.password.errors += ['Wrong password or matriculation number unknown.']
             return render()
 
     return render()
