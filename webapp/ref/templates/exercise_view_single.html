@@ -1,4 +1,6 @@
 <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    {{ moment.include_moment() }}
+
     <div class="modal-content">
         <div class="modal-header">
             <h5 class="modal-title" id="exampleModalLongTitle">{{ exercise.short_name }}</h5>
@@ -21,8 +23,10 @@
                 <dd class="col-sm-9">{{ exercise.max_grading_points }}</dd>
                 <dt class="col-sm-3">Submission Tests Enabled</dt>
                 <dd class="col-sm-9">{{ exercise.submission_test_enabled }}</dd>
-                <dt class="col-sm-3">Deadline</dt>
-                <dd class="col-sm-9">{{ exercise.submission_deadline  }} UTC</dd>
+                <dt class="col-sm-3">Deadline Start</dt>
+                <dd class="col-sm-9">{{ moment(exercise.submission_deadline_start).format()  }}</dd>
+                <dt class="col-sm-3">Deadline End</dt>
+                <dd class="col-sm-9">{{ moment(exercise.submission_deadline_end).format()  }}</dd>
                 <dt class="col-sm-3">Build Status</dt>
                 <dd class="col-sm-9">{{ exercise.build_job_status }}</dd>
                 <dt class="col-sm-3">Build Result</dt><dd class="col-sm-9"></dd>
@@ -43,21 +47,18 @@
                 <dt class="col-sm-3">Files</dt><dd class="col-sm-9"></dd>
                 {% if exercise.entry_service.files %}
                     {% for l in exercise.entry_service.files %}
-                        <dt class="col-sm-3"></dt><dd class="col-sm-9">- {{ l }}</dd>
+                        <dt class="col-sm-3"></dt><dd class="col-sm-9">{{ l }}</dd>
                     {% endfor %}
                 {% else %}
                     <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
                 {% endif %}
 
                 <dt class="col-sm-3">Build Command</dt><dd class="col-sm-9"></dd>
-                {% if exercise.entry_service.build_cmd %}
-                    {% for l in exercise.entry_service.build_cmd %}
-                        <dt class="col-sm-3"></dt><dd class="col-sm-9">- {{ l }}</dd>
-                    {% endfor %}
-                {% else %}
-                    <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
-                {% endif %}
-
+                <textarea class="col-sm-12 form-control" rows="8" style="font-family: monospace" readonly>
+                    {% if exercise.entry_service.build_cmd %}
+                        {{ exercise.entry_service.build_cmd|join('\n')  }}                    
+                    {% endif %}
+                </textarea>
 
                 <dt class="col-sm-3">ASLR Disabled</dt>
                 <dd class="col-sm-9">{{ exercise.entry_service.disable_aslr }}</dd>
