@@ -31,6 +31,7 @@ def errorhandler(code_or_exception):
     return decorator
 
 def render_error_template(e, code):
+    current_app.logger.info(f'Generating error message for error {e}')
     if is_api_request():
         msg = jsonify(
             {'error': str(e)}
@@ -62,7 +63,7 @@ def too_many_requests(e):
 @errorhandler(InternalServerError.code)
 def internal_error(e):
     code = uuid.uuid4()
-    logging.error(Exception(f"Code: {code}", e), exc_info=True)
+    current_app.logger.error(f"InternalServerError: {e}", exc_info=True)
 
     text = f'Internal Error: If the problem persists, please contact the server administrator and provide the following error code {code}'
     return render_error_template(text, InternalServerError.code)

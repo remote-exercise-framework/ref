@@ -52,11 +52,9 @@ def _get_file_list(dir_path, base_dir_path, list_hidden_files=False):
             'is_file': is_file
         })
 
-    log.info(files)
     if not list_hidden_files:
         files = [f for f in files if not Path(f['path']).parts[-1].startswith('.') or f['path'].endswith('..')]
 
-    log.info(files)
     return files
 
 @refbp.context_processor

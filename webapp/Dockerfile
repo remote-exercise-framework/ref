@@ -25,7 +25,7 @@ RUN pip install -e .
 
 
 RUN chown -R user /app
-USER user
+#USER user
 
 # Run
 #EXPOSE 8000

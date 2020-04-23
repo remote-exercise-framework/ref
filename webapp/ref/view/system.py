@@ -5,6 +5,7 @@ from flask import current_app, redirect, render_template
 from ref import db, refbp
 from ref.core import DockerClient, admin_required
 from ref.core.util import redirect_to_next
+from ref.model import InstanceEntryService, InstanceService
 
 
 @dataclass
@@ -57,6 +58,11 @@ def _is_connected_to_sshserver(container):
 
     return ssh_container.id in containers
 
+def _is_in_db(container_id):
+    return (
+        InstanceService.query.filter(InstanceService.container_id == container_id).one_or_none()
+        or InstanceEntryService.query.filter(InstanceEntryService.container_id == container_id).one_or_none()
+        )
 
 def _get_dangling_container():
     dangling_container = []
@@ -67,7 +73,7 @@ def _get_dangling_container():
         if not container.name.startswith(current_app.config['DOCKER_RESSOURCE_PREFIX']):
             continue
 
-        if _is_connected_to_sshserver(container.id):
+        if _is_in_db(container.id) and _is_connected_to_sshserver(container.id):
             #Check if it is connected to the ssh server
             continue
 
