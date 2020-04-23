@@ -26,14 +26,9 @@
                 <dt class="col-sm-3">Build Status</dt>
                 <dd class="col-sm-9">{{ exercise.build_job_status }}</dd>
                 <dt class="col-sm-3">Build Result</dt><dd class="col-sm-9"></dd>
-                {% if exercise.build_job_result %}
-                    {% for l in exercise.build_job_result.split('\n') %}
-                        <dt class="col-sm-3"></dt><dd class="col-sm-9">{{ l }}</dd>
-                    {% endfor %}
-                {% else %}
-                    <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
-                {% endif %}
-
+                <textarea class="col-sm-12 form-control" rows="40" style="font-family: monospace" readonly>
+                    {{ exercise.build_job_result }}
+                </textarea>
             </dl>
 
             <h5>Entry Service</h5>

@@ -109,7 +109,9 @@ Exercises
                                     {% if e.active_instances|length %}
                                         <a class="dropdown-item"  href="{{ url_for('ref.instances_view_by_exercise', exercise_name=e.short_name|quote_plus, exercise_version=e.version) }}">Instances</a>
                                     {% endif %}
-                                        <a class="dropdown-item ok-modal"  href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}" data-toggle="tooltip" data-placement="top" title="Tooltip on top">View</a>
+                        
+                                    <a class="dropdown-item"  href="{{ url_for('ref.exercise_browse', exercise_id=e.id) }}">Browse</a>
+                                    <a class="dropdown-item ok-modal"  href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}">View</a>
                                     {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
                                         <a class="dropdown-item"  href="{{ url_for('ref.exercise_build', exercise_id=e.id, next=request.path) }}">Build</a>
                                     {% endif %}

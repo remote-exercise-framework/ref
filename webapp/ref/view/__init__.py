@@ -1,6 +1,7 @@
 from .api import api_get_header, api_getkeys, api_getuserinfo, api_provision
-from .exercise import (admin_default_routes, exercise_build, exercise_diff,
-                       exercise_do_import, exercise_view, exercise_view_all)
+from .exercise import (admin_default_routes, exercise_browse, exercise_build,
+                       exercise_diff, exercise_do_import, exercise_view,
+                       exercise_view_all)
 from .file_browser import file_browser_load_file
 from .grading import (grading_view_all, grading_view_exercise,
                       grading_view_submission)

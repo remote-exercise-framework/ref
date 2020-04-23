@@ -349,6 +349,20 @@ def exercise_view(exercise_id):
 
     return render_template('exercise_view_single.html', exercise=exercise)
 
+@refbp.route('/admin/exercise/<int:exercise_id>/browse', methods = ['GET'])
+@admin_required
+def exercise_browse(exercise_id):
+    exercise: Exercise = Exercise.query.filter(Exercise.id == exercise_id).one_or_none()
+    if exercise is None:
+        abort(400)
+
+    exercise_path = exercise.template_path
+    title = f'Exercise ({exercise_id})'
+
+
+    return render_template('exercise_file_browser.html', title=title, file_browser_path=exercise_path)
+
+
 @refbp.route('/admin', methods=('GET', 'POST'))
 @admin_required
 def admin_default_routes():
