@@ -78,7 +78,7 @@ def is_deadlock_error(err: OperationalError):
 #     return g.get('db_lock_cnt', 0) > 0
 
 def lock_db(readonly=False):
-    current_app.logger.info(f"Locking database (readonly={readonly})")
+    #current_app.logger.info(f"Locking database (readonly={readonly})")
     if readonly:
         current_app.db.session.execute('select pg_advisory_xact_lock_shared(1337);')
     else:

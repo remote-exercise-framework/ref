@@ -1,6 +1,7 @@
 import datetime
 import uuid
 
+from flask import current_app
 from sqlalchemy.orm import backref
 
 from flask_bcrypt import check_password_hash, generate_password_hash

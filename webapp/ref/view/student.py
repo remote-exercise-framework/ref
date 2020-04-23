@@ -428,12 +428,9 @@ def student_edit(user_id):
             user.invalidate_session()
         user.auth_groups = list(new_auth_groups)
 
-        try:
-            current_app.db.session.add(user)
-            current_app.db.session.commit()
-            flash.success('Updated!')
-        except IntegrityError:
-            on_integrity_error()
+        current_app.db.session.add(user)
+        current_app.db.session.commit()
+        flash.success('Updated!')
         
         return render_template('user_edit.html', form=form)
     else:
