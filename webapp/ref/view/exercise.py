@@ -17,6 +17,7 @@ from flask import (Blueprint, Flask, abort, current_app, jsonify, redirect,
                    render_template, request, url_for)
 from sqlalchemy import and_, or_
 from werkzeug.local import LocalProxy
+from wtforms import Form, IntegerField, SubmitField, validators
 
 from flask_login import login_required
 from ref import db, refbp
@@ -26,7 +27,6 @@ from ref.core.security import sanitize_path_is_subdir
 from ref.core.util import redirect_to_next
 from ref.model import ConfigParsingError, Exercise, User
 from ref.model.enums import ExerciseBuildStatus
-from wtforms import Form, IntegerField, SubmitField, validators
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -270,7 +270,7 @@ def exercise_view_all():
 
     for k in categories:
         #sort by name and then by version
-        categories[k] = sorted(categories[k], key=lambda e: e.short_name + str(e.version))
+        categories[k] = sorted(categories[k], key=lambda e: (e.short_name, e.version))
 
     return render()
 
