@@ -290,7 +290,7 @@ def exercise_delete(exercise_id):
         return redirect_to_next()
 
     if exercise.instances:
-        flash.error("Exercise has associated instances, unable to delete!")
+        flash.error("Exercise has associated instances or submissions, unable to delete!")
         return redirect_to_next()
 
     if exercise.build_job_status == ExerciseBuildStatus.BUILDING:
