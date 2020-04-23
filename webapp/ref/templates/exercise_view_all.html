@@ -114,7 +114,7 @@ Exercises
                                         <a class="dropdown-item"  href="{{ url_for('ref.exercise_build', exercise_id=e.id, next=request.path) }}">Build</a>
                                     {% endif %}
                                     {% if e.build_job_status.value not in ['BUILDING'] %}
-                                        <a class="dropdown-item" href="{{ url_for('ref.exercise_delete', exercise_id=e.id, next=request.path) }}">Delete</a>
+                                        <a class="dropdown-item confirm" href="{{ url_for('ref.exercise_delete', exercise_id=e.id, next=request.path) }}">Delete</a>
                                     {% endif %}
                                 </div>
                             </div>
