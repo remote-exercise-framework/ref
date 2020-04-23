@@ -78,6 +78,7 @@ Exercises
                     <tr>
                     <th scope="col">Short Name</th>
                     <th scope="col">Version</th>
+                    <th scope="col">Points</th>
                     <th scope="col">Status</th>
                     <th scope="col">#Instances</th>
                     <th scope="col"></th>
@@ -89,6 +90,7 @@ Exercises
                 <tr>
                     <td>{{ e.short_name }}</td>
                     <td>{{ e.version }}</td>
+                    <td>{{ e.max_grading_points }}</td>
                     <td>{{ e.build_job_status.value }}</td>
                     <td>
                         {{ e.active_instances|length }}
