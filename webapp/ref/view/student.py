@@ -39,6 +39,22 @@ log = LocalProxy(lambda: current_app.logger)
 def field_to_str(form, field):
     return str(field.data)
 
+def validate_password(form, field):
+    password = field.data
+
+    MIN_LEN = 8
+
+    if len(password) < MIN_LEN:
+        raise ValidationError(f'Password must be at least {MIN_LEN} characters long.')
+
+    digit = re.search(r"\d", password) is not None
+    upper = re.search(r"[A-Z]", password) is not None
+    lower = re.search(r"[a-z]", password) is not None
+    special = re.search(r"[ !#$%&'()*+,-./[\\\]^_`{|}~"+r'"]', password) is not None
+
+    if sum([digit, upper, lower, special]) < 3:
+        raise ValidationError(f'Password not strong enough. Try to use a mix of digits, upper- and lowercase letters.')
+
 def validate_matriculation_number(form, field):
     """
     Checksums matriculation number. Raises ValidationError if not a valid matriculation number.
@@ -105,8 +121,8 @@ class GetKeyForm(Form):
     nickname = StringField('Nickname', validators=[validators.DataRequired()])
     group_name = StringField('Group', validators=[validators.Optional(), validators.Regexp(group_regex)])
 
-    password = PasswordField('Password', validators=[validators.DataRequired()])
-    password_rep = PasswordField('Password (Repeat)', validators=[validators.DataRequired()])
+    password = PasswordField('Password', validators=[validators.DataRequired(), validate_password])
+    password_rep = PasswordField('Password (Repeat)', validators=[validators.DataRequired(), validate_password])
 
     pubkey = StringField('Public-Key (if empty, a key-pair is generated for you)', validators=[validate_pubkey])
 
