@@ -93,17 +93,17 @@ def start_and_return_instance(instance: Instance):
         if instance.is_modified():
             welcome_message += ansi.red('This submission was modified!\nUse `task reset` to restore the initially submitted state.\n')
 
-        if exercise.has_deadline():
-            ts = datetime_to_local_tz(exercise.submission_deadline_end)
-            since_in_str = arrow.get(ts).humanize()
-            deadline = ts.strftime('%A, %B %dth @ %H:%M')
-            if exercise.deadine_passed():
-                msg = f'Deadline passed on {deadline} ({since_in_str})\n'
-                welcome_message += ansi.red(msg)
-            else:
-                welcome_message += f'Deadline is {deadline} ({since_in_str})\n'
+    if exercise.has_deadline():
+        ts = datetime_to_local_tz(exercise.submission_deadline_end)
+        since_in_str = arrow.get(ts).humanize()
+        deadline = ts.strftime('%A, %B %dth @ %H:%M')
+        if exercise.deadine_passed():
+            msg = f'Deadline passed on {deadline} ({since_in_str})\n'
+            welcome_message += ansi.red(msg)
         else:
-            welcome_message += 'This task has no deadline\n'
+            welcome_message += f'Deadline is {deadline} ({since_in_str})\n'
+    else:
+        welcome_message += 'This task has no deadline\n'
 
 
     log.info(f'IP of user instance is {ip}')
