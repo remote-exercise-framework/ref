@@ -51,7 +51,7 @@ class InstanceService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     instance: 'Instance' = db.relationship('Instance', foreign_keys=[instance_id], back_populates="peripheral_services")
 
     #The docker container id of this service.
-    container_id: int = db.Column(db.Text(), unique=True)
+    container_id: str = db.Column(db.Text(), unique=True)
 
 class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
@@ -196,6 +196,9 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             modified_files.add(path)
         current_app.logger.info(f'Instance {self} has following modified files {modified_files}')
         return len(modified_files) != 0
+
+    def is_submission(self) -> bool:
+        return self.submission
 
 
 class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):

@@ -6,10 +6,9 @@ import subprocess
 import sys
 
 import requests
-from ref_utils import print_ok, print_warn, print_err
-
 from itsdangerous import TimedSerializer
 
+from ref_utils import print_err, print_ok, print_warn
 
 with open('/etc/key', 'rb') as f:
     KEY = f.read()
@@ -125,10 +124,15 @@ def main():
         )
     check_parser.set_defaults(func=cmd_check)
 
-    check_parser = subparsers.add_parser('id',
+    id_parser = subparsers.add_parser('id',
         help='Get your instance ID. This ID is needed for all support requests.'
         )
-    check_parser.set_defaults(func=cmd_id)
+    id_parser.set_defaults(func=cmd_id)
+
+    # diff_parser = subparsers.add_parser('diff',
+    #     help='Get your instance ID. This ID is needed for all support requests.'
+    #     )
+    # diff_parser.set_defaults(func=cmd_diff)
 
     args = parser.parse_args()
     args.func(args)

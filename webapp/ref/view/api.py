@@ -3,6 +3,7 @@ import hashlib
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import typing
 from collections import namedtuple
@@ -13,8 +14,8 @@ import docker
 import redis
 import rq
 import yaml
-from flask import (Blueprint, Flask, current_app, jsonify, make_response,
-                   redirect, render_template, request, url_for)
+from flask import (Blueprint, Flask, abort, current_app, jsonify,
+                   make_response, redirect, render_template, request, url_for)
 from itsdangerous import Serializer, TimedSerializer
 from werkzeug.local import Local, LocalProxy
 from wtforms import Form, IntegerField, SubmitField, validators
@@ -61,7 +62,7 @@ def start_and_return_instance(instance: Instance):
     try:
         ip = instance_manager.get_entry_ip()
     except:
-        log.error('Failed to get IP of instance. Stopping instance..')
+        log.error('Failed to get IP of instance. Stopping instance..', exc_info=True)
         instance_manager.stop()
         raise
 
@@ -70,32 +71,40 @@ def start_and_return_instance(instance: Instance):
     #Message that is printed before the user is dropped into the container shell.
     welcome_message = '\n'
 
-    latest_submission = instance.get_latest_submission()
-    if not latest_submission:
-        welcome_message += (
-            'Last submitted: - (No submission found)\n'
-            ' -> Submit with `task submit`\n'
-        )
+    if not instance.is_submission():
+        latest_submission = instance.get_latest_submission()
+        if not latest_submission:
+            welcome_message += (
+                'Last submitted: - (No submission found)\n'
+                ' -> Submit with `task submit`\n'
+            )
+        else:
+            ts = datetime_to_local_tz(latest_submission.submission_ts)
+            since_in_str = arrow.get(ts).humanize()
+            ts = ts.strftime('%A, %B %dth @ %H:%M')
+            welcome_message += (
+                f'Last submitted: {ts} ({since_in_str})\n'
+            )
     else:
-        ts = datetime_to_local_tz(latest_submission.submission_ts)
+        ts = datetime_to_local_tz(instance.submission.submission_ts)
         since_in_str = arrow.get(ts).humanize()
         ts = ts.strftime('%A, %B %dth @ %H:%M')
-        welcome_message += (
-            f'Last submitted: {ts} ({since_in_str})\n'
-            '-> Diff submission and current files with `task diff`\n'
-        )
+        welcome_message += f'This is a submission from {ts} ({since_in_str})\n'
+        if instance.is_modified():
+            welcome_message += ansi.red('This submission was modified!\nUse `task reset` to restore the initially submitted state.\n')
 
-    if exercise.has_deadline():
-        ts = datetime_to_local_tz(exercise.submission_deadline_end)
-        since_in_str = arrow.get(ts).humanize()
-        deadline = ts.strftime('%A, %B %dth @ %H:%M')
-        if exercise.deadine_passed():
-            msg = f'Deadline passed on {deadline} ({since_in_str})\n'
-            welcome_message += ansi.red(msg)
+        if exercise.has_deadline():
+            ts = datetime_to_local_tz(exercise.submission_deadline_end)
+            since_in_str = arrow.get(ts).humanize()
+            deadline = ts.strftime('%A, %B %dth @ %H:%M')
+            if exercise.deadine_passed():
+                msg = f'Deadline passed on {deadline} ({since_in_str})\n'
+                welcome_message += ansi.red(msg)
+            else:
+                welcome_message += f'Deadline is {deadline} ({since_in_str})\n'
         else:
-            welcome_message += f'Deadline is {deadline} ({since_in_str})\n'
-    else:
-        welcome_message += 'This task has no deadline\n'
+            welcome_message += 'This task has no deadline\n'
+
 
     log.info(f'IP of user instance is {ip}')
 
@@ -206,8 +215,8 @@ def api_provision():
             ret = handle_instance_introspection_request(exercise_name, pubkey)
             db.session.commit()
             return ret
-        except Exception as e:
-            return error_response(str(e))
+        except:
+            raise 
 
     exercise_version = None
     if '@' in exercise_name:
@@ -513,39 +522,55 @@ def api_instance_submit():
 
     return ok_response('OK')
 
-@refbp.route('/api/instance/diff', methods=('GET', 'POST'))
-@limiter.limit('6 per minute')
-def api_instance_diff():
-    """
-    Reset the instance with the given instance ID.
-    This function expects the following signed data structure:
-    {
-        'instance_id': <ID>
-    }
-    """
-    try:
-        content = _sanitize_container_request(request)
-    except Exception as e:
-        return error_response(str(e))
+# @refbp.route('/api/instance/diff', methods=('GET', 'POST'))
+# @limiter.limit('6 per minute')
+# def api_instance_diff():
+#     """
+#     Reset the instance with the given instance ID.
+#     This function expects the following signed data structure:
+#     {
+#         'instance_id': <ID>
+#     }
+#     """
+#     try:
+#         content = _sanitize_container_request(request)
+#     except Exception as e:
+#         return error_response(str(e))
 
-    instance_id = content.get('instance_id')
-    try:
-        instance_id = int(instance_id)
-    except ValueError:
-        log.warning(f'Invalid instance id {instance_id}', exc_info=True)
-        return error_response('Invalid instance ID')
+#     instance_id = content.get('instance_id')
+#     try:
+#         instance_id = int(instance_id)
+#     except ValueError:
+#         log.warning(f'Invalid instance id {instance_id}', exc_info=True)
+#         return error_response('Invalid instance ID')
 
-    log.info(f'Received diff request for instance_id={instance_id}')
+#     log.info(f'Received diff request for instance_id={instance_id}')
 
-    instance = Instance.get(instance_id)
+#     instance = Instance.get(instance_id)
+#     if not instance:
+#         log.warning(f'Invalid instance id {instance_id}')
+#         return error_response('Invalid request')
 
-    if not instance:
-        log.warning(f'Invalid instance id {instance_id}')
-        return error_response('Invalid request')
+#     submission = instance.get_latest_submission()
+#     if not submission:
+#         log.info('Instance has no submission')
+#         return error_response('There is no submission to diff against. Use `task submit` to create a submission.')
 
-    user = instance.user
+#     submitted_state_path = submission.submitted_instance.entry_service.overlay_submitted
+#     current_state_path = instance.entry_service.overlay_merged
 
+#     prefix = os.path.commonpath([submitted_state_path, current_state_path])
+#     log.info(f'prefix={prefix}')
 
-    current_app.db.session.commit()
+#     submitted_state_path = submitted_state_path.replace(prefix, '')
+#     current_state_path = current_state_path.replace(prefix, '')
 
-    return ok_response('OK')
+#     cmd = f'diff -N -r -u -p --exclude=Dockerfile-entry -U 5 .{submitted_state_path} .{current_state_path}'
+#     log.info(f'Running cmd: {cmd}')
+#     p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=prefix)
+#     # if p.returncode == 2:
+#     #     log.error(f'Failed to run. {p.stderr.decode()}')
+#     #     abort(500)
+#     diff = p.stdout.decode()
+
+#     return ok_response(diff)

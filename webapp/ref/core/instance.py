@@ -106,6 +106,7 @@ class InstanceManager():
         #NOTE: We are accessing the overlay, make sure nothing is currently mounted!
         src = self.instance.entry_service.overlay_upper
         dst = new_instance.entry_service.overlay_submitted
+        # -a is mandetory, since the upper dir might contain files with extended file attrbiutes (used by overlayfs) 
         cmd = f'sudo cp -arT {src} {dst}'
         subprocess.check_call(cmd, shell=True)
 
@@ -293,7 +294,7 @@ class InstanceManager():
             #that is started by the host (see below for further details).
             cmd = [
                 'sudo', '/bin/mount', '-t', 'overlay', 'overlay',
-                f'-olowerdir={exercise.entry_service.persistance_lower}:{instance_entry_service.overlay_submitted},upperdir={instance_entry_service.overlay_upper},workdir={instance_entry_service.overlay_work}',
+                f'-olowerdir={instance_entry_service.overlay_submitted}:{exercise.entry_service.persistance_lower},upperdir={instance_entry_service.overlay_upper},workdir={instance_entry_service.overlay_work}',
                 f'{instance_entry_service.overlay_merged}'
             ]
             subprocess.check_call(cmd)
