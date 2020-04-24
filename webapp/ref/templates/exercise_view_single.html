@@ -88,14 +88,11 @@
     {% endif %}
 
     <dt class="col-sm-3">Build Command</dt><dd class="col-sm-9"></dd>
-    {% if service.build_cmd %}
-        {% for l in service.build_cmd %}
-            <dt class="col-sm-3"></dt><dd class="col-sm-9">- {{ l }}</dd>
-        {% endfor %}
-    {% else %}
-        <dt class="col-sm-3"></dt><dd class="col-sm-9">None</dd>
-    {% endif %}
-
+    <textarea class="col-sm-12 form-control" rows="8" style="font-family: monospace" readonly>
+        {%- if service.build_cmd -%}
+            {{ service.build_cmd|join('\n')  }}
+        {% endif %}
+    </textarea>
 
     <dt class="col-sm-3">ASLR Disabled</dt>
     <dd class="col-sm-9">{{ service.disable_aslr }}</dd>
