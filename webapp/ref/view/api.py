@@ -76,7 +76,6 @@ def start_and_return_instance(instance: Instance):
         if not latest_submission:
             welcome_message += (
                 '    Last submitted: (No submission found)\n'
-                '    Submit with `task submit`\n'
             )
         else:
             ts = datetime_to_local_tz(latest_submission.submission_ts)
@@ -89,7 +88,7 @@ def start_and_return_instance(instance: Instance):
         ts = datetime_to_local_tz(instance.submission.submission_ts)
         since_in_str = arrow.get(ts).humanize()
         ts = ts.strftime('%A, %B %dth @ %H:%M')
-        welcome_message += f'This is a submission from {ts} ({since_in_str})\n'
+        welcome_message += f'    This is a submission from {ts} ({since_in_str})\n'
         if instance.is_modified():
             welcome_message += ansi.red('This submission was modified!\nUse `task reset` to restore the initially submitted state.\n')
 

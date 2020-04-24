@@ -102,7 +102,13 @@ def cmd_check(_):
 
 def cmd_id(_):
     print_ok(f'[+] If you need support, please provide this ID alongside your request.')
-    print_ok(f'[+] Instance ID: {INSTANCE_ID}.')
+    print_ok(f'[+] Instance ID: {INSTANCE_ID}')
+
+# def cmd_diff(_):
+#     req = {}
+#     req = finalize_request(req)
+#     res = requests.post('http://sshserver:8000/api/instance/diff', json=req)
+#     handle_response(res)
 
 def main():
     parser = argparse.ArgumentParser(prog="task")
