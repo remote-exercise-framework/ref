@@ -31,7 +31,7 @@ def errorhandler(code_or_exception):
     return decorator
 
 def render_error_template(e, code):
-    current_app.logger.info(f'Generating error message for error {e}')
+    current_app.logger.info(f'code={code}, error="{e}", path={request.path}')
     if is_api_request():
         msg = jsonify(
             {'error': str(e)}

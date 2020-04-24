@@ -480,8 +480,9 @@ def student_delete(user_id):
 
     return redirect_to_next()
 
-@refbp.route('/student', methods=('GET', 'POST'))
-@refbp.route('/', methods=('GET', 'POST'))
+@refbp.route('/student/')
+@refbp.route('/student')
+@refbp.route('/')
 def student_default_routes():
     """
     Redirect some urls to the key retrival form.

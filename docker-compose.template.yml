@@ -19,6 +19,8 @@ services:
          - ssh-and-host
          - web-and-ssh
          - ssh-and-redis
+      depends_on:
+         - web
 
 {% if not testing %}
    pgadmin:
@@ -34,6 +36,8 @@ services:
          - ${PGADMIN_HTTP_PORT:?PGADMIN_HTTP_PORT not set}:80
       networks:
          - db-and-pgadmin
+      depends_on:
+         - db
 {% endif %}
 
    db:
@@ -126,7 +130,7 @@ networks:
       driver: bridge
       driver_opts:
          com.docker.network.bridge.name: "brref-webhost{{ 't' if testing }}"
-   #Webinterface between the SSH entry server and the webinterface.
+   #Interface between the SSH entry server and the webinterface.
    #This interface is used by the SSH server to retrive information
    #on how a incoming connection should be routed.
    web-and-ssh:
@@ -150,11 +154,13 @@ networks:
       driver: bridge
       driver_opts:
          com.docker.network.bridge.name: "brref-dbtopg{{ 't' if testing }}"
+   #connect web with redis
    web-and-redis:
       driver: bridge
       internal: true
       driver_opts:
          com.docker.network.bridge.name: "brref-webtor{{ 't' if testing }}"
+   #connect ssh with redis
    ssh-and-redis:
       driver: bridge
       internal: true
