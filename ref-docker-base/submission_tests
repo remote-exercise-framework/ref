@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
-
-from pathlib import Path
-from typing import List, Optional
-
-import os
-import subprocess
-import sys
-
-from ref_utils import print_ok, print_warn, print_err, drop_privileges
-
-
 """
 This script is executed each time a studen creates a submission.
 It is used to determine whether the submission works as expected or not.
 """
+from pathlib import Path
+
+from ref_utils import print_ok, print_warn, print_err, assert_is_file, run_pylint, run_mypy, contains_flag
+
 
 SUCCESS = True
 FAILURE = False
@@ -21,68 +14,8 @@ FAILURE = False
 
 ################################################################
 
-@drop_privileges
-def run(cmd: List[str], check_returncode: bool = False, timeout: int = 60) -> Optional[str]:
-    """
-    Execute a command (with default timeout of 60s)
-    """
-    output: Optional[str] = None
-    try:
-        p = subprocess.run(cmd, check=check_returncode, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                           timeout=timeout)
-        output = p.stdout.decode().strip()
-    except subprocess.TimeoutExpired:
-        print_err(f"[!] Unexpected timeout for: {' '.join(cmd)} (after {timeout}s)")
-    except subprocess.CalledProcessError as err:
-        print_err(f"[!] Unexpected error: {err}")
-    return output
-
-def run_pylint(python_files: List[Path]) -> bool:
-    """
-    Run pylint with custom config on user code (only interesting if submission contains .py files)
-    """
-    if not python_files:
-        return SUCCESS
-    lint_output = run(["pylint", "--exit-zero", "--rcfile", "/etc/pylintrc"] +
-                      [str(f.resolve()) for f in python_files])
-    if lint_output is None:
-        return FAILURE
-    if lint_output != "":
-        print_warn("[!] pylint's syntax and coding style checks failed:")
-        print_warn('    ' + '\n    '.join(lint_output.split('\n')))
-        return FAILURE
-    print_ok("[+] pylint's syntax and coding style checks passed")
-    return SUCCESS
-
-def run_mypy(python_files: List[Path]) -> bool:
-    """
-    Run mypy with custom config on user code (only interesting if submission contains typed .py files)
-    """
-    if not python_files:
-        return SUCCESS
-    lint_output = run(["mypy", "--config-file", "/etc/mypyrc"] + [str(f.resolve()) for f in python_files])
-    if lint_output is None:
-        return FAILURE
-    if lint_output != "":
-        print_warn("[!] mypy's type checks failed:")
-        print_warn('    ' + '\n    '.join(lint_output.split('\n')))
-        return FAILURE
-    print_ok("[+] mypy's type checks passed")
-    return SUCCESS
-
-def check_all_python_files() -> bool:
-    """
-    Run checks only suited for Python files (mypy + pylint)
-    """
-    tests_passed = True
-    python_files = [f for f in Path("/home/user").glob("**/*.py") if not f.name.startswith(".")]
-    if not python_files:
-        return tests_passed
-    print_ok(f'[+] Testing {len(python_files)} Python source code files')
-    tests_passed &= run_pylint(python_files)
-    tests_passed &= run_mypy(python_files)
-    return tests_passed
-
+SOLUTION_FILE = Path("/home/user/solution.py")
+FLAG = "flag{You_just_got_your_1st_flag_WHOOP_WHOOP}"
 
 def test_environment() -> bool:
     """
@@ -91,9 +24,9 @@ def test_environment() -> bool:
     tests_passed = True
     print_ok('[+] Testing environment..')
 
-    #Test if there is a file exploit.py?
+    # Check whether solution.py exists
+    tests_passed &= assert_is_file(SOLUTION_FILE)
 
-    print_ok('[+] Environment looks good, test passed!')
     return tests_passed
 
 
@@ -103,12 +36,12 @@ def test_submission() -> bool:
     """
     if not test_environment():
         return FAILURE
+    print_ok('[+] Environment looks good, test passed!')
     tests_passed = True
 
-    tests_passed &= check_all_python_files()
-
-    #Run exploit.py strace?
-    #Make sure to drop privileges before running
+    tests_passed &= run_mypy([SOLUTION_FILE])
+    tests_passed &= run_pylint([SOLUTION_FILE])
+    tests_passed &= contains_flag(FLAG, SOLUTION_FILE)
 
     return tests_passed
 
