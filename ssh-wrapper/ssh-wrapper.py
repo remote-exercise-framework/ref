@@ -151,7 +151,7 @@ def main():
     print(resp)
 
     #Greet the connected user
-    print(f'Hello {real_name}!\n[+] Connecting to task "{real_user}"...', end='')
+    print(f'Hello {real_name}!\n[+] Connecting to task "{real_user}"...')
 
 
     #Get the details needed to connect to the users container. 
