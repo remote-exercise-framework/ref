@@ -191,7 +191,7 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         upper_dir = Path(self.entry_service.overlay_upper)
         modified_files = set()
         for path in upper_dir.glob('*'):
-            if path.parts[-1] in ['.ssh', '.bash_history']:
+            if path.parts[-1] in ['.ssh', '.bash_history', '.mypy_cache']:
                 continue
             modified_files.add(path)
         current_app.logger.info(f'Instance {self} has following modified files {modified_files}')
