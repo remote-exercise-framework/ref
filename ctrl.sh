@@ -127,6 +127,14 @@ if [[ ! -f "ssh-wrapper/openssh-portable/README.md"  ]]; then
     exit 1
 fi
 
+if [[ ! -f "ref-docker-base/ref-utils/README.md"  ]]; then
+    error "Please checkout the ref-utils submodule with the following command:"
+    error "git submodule update --init --recursive"
+    error "For further notice, consult the README.md."
+    exit 1
+fi
+
+
 if ! has_binary "docker"; then
     error "Please install docker!"
     exit 1
@@ -252,6 +260,10 @@ fi
 python generate-configs.py
 
 function build {
+    (
+        info "=> Updating submodules"
+        git submodule update --recursive --rebase
+    )
     #Build the base image for all exercises
     (
         info "=> Building docker base image"
