@@ -69,7 +69,7 @@ def start_and_return_instance(instance: Instance):
     exercise: Exercise = instance.exercise
 
     #Message that is printed before the user is dropped into the container shell.
-    welcome_message = '\n'
+    welcome_message = ''
 
     if not instance.is_submission():
         latest_submission = instance.get_latest_submission()
