@@ -61,6 +61,8 @@ class ReleaseConfig(object):
     # TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
     # TELEGRAM_BOT_CHAT_ID = os.environ.get('TELEGRAM_BOT_CHAT_ID')
 
+    DISABLE_TELEGRAM = os.environ.get('DISABLE_TELEGRAM') or None
+
 
 class DebugConfig(ReleaseConfig):
     debug = True

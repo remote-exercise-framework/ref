@@ -293,6 +293,10 @@ function up {
                 maintenance=true
                 shift
             ;;
+            '--disable-telegram')
+                disable_telegram=true
+                shift
+            ;;
             *)
             #Pass unknown flags to docker-compose
             break
@@ -306,6 +310,10 @@ function up {
 
     if [[ "$maintenance" == 'true' ]]; then
         export MAINTENANCE_ENABLED=1
+    fi
+
+    if [[ "$disable_telegram" == 'true' ]]; then
+        export DISABLE_TELEGRAM=1
     fi
 
     docker-compose -p ref up $@
