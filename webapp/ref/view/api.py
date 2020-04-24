@@ -75,15 +75,15 @@ def start_and_return_instance(instance: Instance):
         latest_submission = instance.get_latest_submission()
         if not latest_submission:
             welcome_message += (
-                'Last submitted: - (No submission found)\n'
-                ' -> Submit with `task submit`\n'
+                '    Last submitted: (No submission found)\n'
+                '    Submit with `task submit`\n'
             )
         else:
             ts = datetime_to_local_tz(latest_submission.submission_ts)
             since_in_str = arrow.get(ts).humanize()
             ts = ts.strftime('%A, %B %dth @ %H:%M')
             welcome_message += (
-                f'Last submitted: {ts} ({since_in_str})\n'
+                f'    Last submitted: {ts} ({since_in_str})\n'
             )
     else:
         ts = datetime_to_local_tz(instance.submission.submission_ts)
@@ -98,14 +98,15 @@ def start_and_return_instance(instance: Instance):
         since_in_str = arrow.get(ts).humanize()
         deadline = ts.strftime('%A, %B %dth @ %H:%M')
         if exercise.deadine_passed():
-            msg = f'Deadline passed on {deadline} ({since_in_str})\n'
+            msg = f'    Deadline: Passed on {deadline} ({since_in_str})\n'
             welcome_message += ansi.red(msg)
         else:
-            welcome_message += f'Deadline is {deadline} ({since_in_str})\n'
+            welcome_message += f'    Deadline: {deadline} ({since_in_str})\n'
     else:
-        welcome_message += 'This task has no deadline\n'
+        welcome_message += '    This task has no deadline\n'
 
-
+    #trim trailing newline
+    welcome_message = welcome_message.rstrip()
     log.info(f'IP of user instance is {ip}')
 
     resp = {
@@ -240,7 +241,7 @@ def api_provision():
             requested_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
         log.info(f'Requested exercise is {requested_exercise}')
         if not requested_exercise:
-            return error_response('Requested exercise not found')
+            return error_response('Requested task not found')
 
     user_instances = list(filter(lambda e: e.exercise.short_name == requested_exercise.short_name, user.exercise_instances))
     #Filter submissions

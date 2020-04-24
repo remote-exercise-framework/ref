@@ -99,7 +99,10 @@ Exercises
                     <td>
                         <div class="btn-group">
                             {% if e.build_job_status.value == 'FINISHED' %}
-                            <a role="button" class="btn btn-outline-{{ 'success' if e.is_default else 'danger'}}" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
+                                <a role="button" class="btn btn-outline-{{ 'success' if e.is_default else 'danger'}}" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
+                            {% endif %}
+                            {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
+                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id, next=request.path) }}">Build</a>
                             {% endif %}
                             <div class="btn-group" role="group">
                                 <a id="btnGroupDrop1" type="button" class="btn btn-outline-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -112,9 +115,6 @@ Exercises
                         
                                     <a class="dropdown-item"  href="{{ url_for('ref.exercise_browse', exercise_id=e.id) }}">Browse</a>
                                     <a class="dropdown-item ok-modal"  href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}">View</a>
-                                    {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
-                                        <a class="dropdown-item"  href="{{ url_for('ref.exercise_build', exercise_id=e.id, next=request.path) }}">Build</a>
-                                    {% endif %}
                                     {% if e.build_job_status.value not in ['BUILDING'] %}
                                         <a class="dropdown-item confirm" href="{{ url_for('ref.exercise_delete', exercise_id=e.id, next=request.path) }}">Delete</a>
                                     {% endif %}
@@ -152,20 +152,6 @@ Exercises
     function eraseCookie(name) {
         document.cookie = name+'=; Max-Age=-99999999;';
     }
-
-    $(document).ready(function(){
-        //On click on a element with class ok-modal load the URL href points at,
-        //and create a modal using the retrived data.
-        $( ".ok-modal" ).click(function(e) {
-            var target = $( this ).attr('href');
-            $.get(target, function(data){
-                $("#modal").html(data);
-                $("#modal").modal("show");
-            });
-
-            return false;
-        });
-    });
 
 </script>
 
