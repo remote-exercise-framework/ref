@@ -264,13 +264,10 @@ def exercise_view_all():
             db.session.add(exercise)
             db.session.commit()
 
-    categories = defaultdict(list)
+    categories = defaultdict(lambda: defaultdict(list))
     for e in exercises:
-        categories[e.category] += [e]
-
-    for k in categories:
-        #sort by name and then by version
-        categories[k] = sorted(categories[k], key=lambda e: (e.short_name, e.version))
+        categories[e.category][e.short_name] += [e]
+        categories[e.category][e.short_name] = sorted(categories[e.category][e.short_name], key=lambda e: e.version)
 
     return render()
 

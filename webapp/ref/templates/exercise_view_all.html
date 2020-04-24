@@ -73,6 +73,12 @@ Exercises
         <h4 class="card-header">
             {{ category }}
         </h4>
+    {% for short_name, exercises in tasks.items() %}
+        <div class="card mb-12">
+            <h8 class="card-header">
+                <div class="text-center"> {{ short_name }} </div>
+            </h8>
+        </div>
         <table class="table table-hover">
                 <thead>
                     <tr>
@@ -86,46 +92,47 @@ Exercises
                 </thead>
                 <tbody>
             <!-- Create a row for each exercise -->
-            {% for e in tasks %}
-                <tr>
-                    <td>{{ e.short_name }}</td>
-                    <td>{{ e.version }}</td>
-                    <td>{{ e.max_grading_points }}</td>
-                    <td>{{ e.build_job_status.value }}</td>
-                    <td>
-                        {{ e.active_instances|length }} <br> {{ e.submissions()|length }}
+                {% for e in exercises %}
+                    <tr>
+                        <td>{{ e.short_name }}</td>
+                        <td>{{ e.version }}</td>
+                        <td>{{ e.max_grading_points }}</td>
+                        <td>{{ e.build_job_status.value }}</td>
+                        <td>
+                            {{ e.active_instances|length }} <br> {{ e.submissions()|length }}
 
-                    </td>
-                    <td>
-                        <div class="btn-group">
-                            {% if e.build_job_status.value == 'FINISHED' %}
-                                <a role="button" class="btn btn-outline-{{ 'success' if e.is_default else 'danger'}}" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
-                            {% endif %}
-                            {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
-                                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id, next=request.path) }}">Build</a>
-                            {% endif %}
-                            <div class="btn-group" role="group">
-                                <a id="btnGroupDrop1" type="button" class="btn btn-outline-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                    ...
-                                </a>
-                                <div class="dropdown-menu" aria-labelledby="btnGroupDrop1">
-                                    {% if e.active_instances|length %}
-                                        <a class="dropdown-item"  href="{{ url_for('ref.instances_view_by_exercise', exercise_name=e.short_name|quote_plus, exercise_version=e.version) }}">Instances</a>
-                                    {% endif %}
-                        
-                                    <a class="dropdown-item"  href="{{ url_for('ref.exercise_browse', exercise_id=e.id) }}">Browse</a>
-                                    <a class="dropdown-item ok-modal"  href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}">View</a>
-                                    {% if e.build_job_status.value not in ['BUILDING'] %}
-                                        <a class="dropdown-item confirm" href="{{ url_for('ref.exercise_delete', exercise_id=e.id, next=request.path) }}">Delete</a>
-                                    {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                {% if e.build_job_status.value == 'FINISHED' %}
+                                    <a role="button" class="btn btn-outline-{{ 'success' if e.is_default else 'danger'}}" href="{{ url_for('ref.exercise_toggle_default', exercise_id=e.id, next=request.path) }}">Default</a>
+                                {% endif %}
+                                {% if e.build_job_status.value not in ['FINISHED', 'BUILDING'] %}
+                                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_build', exercise_id=e.id, next=request.path) }}">Build</a>
+                                {% endif %}
+                                <div class="btn-group" role="group">
+                                    <a id="btnGroupDrop1" type="button" class="btn btn-outline-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        ...
+                                    </a>
+                                    <div class="dropdown-menu" aria-labelledby="btnGroupDrop1">
+                                        {% if e.active_instances|length %}
+                                            <a class="dropdown-item"  href="{{ url_for('ref.instances_view_by_exercise', exercise_name=e.short_name|quote_plus, exercise_version=e.version) }}">Instances</a>
+                                        {% endif %}
+                            
+                                        <a class="dropdown-item"  href="{{ url_for('ref.exercise_browse', exercise_id=e.id) }}">Browse</a>
+                                        <a class="dropdown-item ok-modal"  href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}">View</a>
+                                        {% if e.build_job_status.value not in ['BUILDING'] %}
+                                            <a class="dropdown-item confirm" href="{{ url_for('ref.exercise_delete', exercise_id=e.id, next=request.path) }}">Delete</a>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </td>
-                </tr>
-            {% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
             </tbody>
         </table>
+        {% endfor %}
     </div>
 {% endfor %}
 
