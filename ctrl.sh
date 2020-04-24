@@ -333,7 +333,7 @@ function ps {
 
 function flask-cmd {
     info "FLASK_APP=ref python3 -m flask $*"
-    docker-compose -p ref exec web bash -c "FLASK_APP=ref python3 -m flask $*"
+    docker-compose -p ref run --rm web bash -c "FLASK_APP=ref python3 -m flask $*"
 }
 
 function are_you_sure {

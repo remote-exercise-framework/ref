@@ -100,7 +100,9 @@ services:
          - web-and-ssh
          - web-and-db
          - web-and-redis
-
+      depends_on:
+         - db
+         - redis
    redis:
       image: 'bitnami/redis:5.0'
       environment:
