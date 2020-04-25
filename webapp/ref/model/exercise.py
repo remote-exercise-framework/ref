@@ -204,6 +204,9 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             ).order_by(Exercise.version.desc()).all()
         return exercises
 
+    def is_update(self) -> bool:
+        return len(self.predecessors()) > 0
+
     def predecessor(self) -> Exercise:
         predecessors = self.predecessors()
         if predecessors:

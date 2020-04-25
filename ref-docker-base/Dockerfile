@@ -24,9 +24,14 @@ RUN apt update && apt install -y \
     python3 python3-pip \
     python python-dev python-pip \
     software-properties-common \
-    sudo
+    sudo \
+    netcat
 
+RUN wget https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
+    && chmod 555 /usr/bin/wait-for
 
+COPY wait-for-host /usr/bin/wait-for-host
+RUN  chmod 555 /usr/bin/wait-for-host
 
 # 2. Setup related stuff
 RUN mkdir -p /run/sshd
@@ -106,4 +111,3 @@ RUN apt update && apt install -y \
 
 RUN pip install --upgrade pwntools
 RUN pip3 install --upgrade pwntools ipython itsdangerous colorama
-

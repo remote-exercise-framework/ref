@@ -129,30 +129,6 @@ def exercise_diff():
     title = f'{exercise_a.short_name} - v{exercise_b.version} vs. v{exercise_a.version}'
     return render_template('exercise_config_diff.html', title=title, diff=diff)
 
-def _check_import(importable: Exercise):
-    """
-    This function must only be called with an importable that has no successors,
-    since importing an older version is not supported.
-    """
-    warnings = []
-    errors = []
-    predecessors = importable.predecessors()
-    successors = importable.successors()
-
-    assert len(successors) == 0
-
-    for e in predecessors:
-        is_readonly = False
-        if bool(e.entry_service.readonly) != bool(importable.entry_service.readonly):
-            warnings += [f'{importable.template_import_path}: Changeing the readonly flag between versions cause loss of data during instance upgrade']
-            is_readonly = True
-
-        if not is_readonly and importable.entry_service.persistance_container_path != e.entry_service.persistance_container_path:
-            errors += [f'{importable.template_import_path}: Persistance path changes are not allowed between versions']
-
-    return warnings, errors
-
-
 @refbp.route('/admin/exercise/import/<string:cfg_path>')
 @admin_required
 def exercise_do_import(cfg_path):
@@ -180,12 +156,6 @@ def exercise_do_import(cfg_path):
     successor = exercise.successor()
     if successor:
         flash.warning('Unable to import older version of already existing exercise')
-        return render()
-
-    _, errors = _check_import(exercise)
-    if errors:
-        for e in errors:
-            flash.error(e)
         return render()
 
     for e in exercise.predecessors():
@@ -216,19 +186,13 @@ def exercise_view_all():
             continue
         try:
             exercise = ExerciseManager.from_template(path)
-            import_candidates.append(exercise)
         except ExerciseConfigError as err:
-            flash.error(f'Template at {path} contains errors: {err}')
-            exercises = []
-            return render()
+            flash.error(f'Template at {path} contains an error: {err}')
+        else:
+            import_candidates.append(exercise)
 
-    #Check if there are new/updated exercises
+    #Filter import_candidates and put result into importable
     for exercise in import_candidates:
-        exercise.errors = []
-        exercise.warnings = []
-        exercise.is_update = False
-
-        predecessors = exercise.predecessors()
         successors = exercise.successors()
         same_version = exercise.get_exercise(exercise.short_name, exercise.version)
 
@@ -236,33 +200,27 @@ def exercise_view_all():
             #Do not import exercises of same type with version <= the already imported versions.
             continue
 
-        #This is an update, check for compatibility
-        if predecessors:
-            exercise.is_update = True
-
-        exercise.warnings, exercise.errors = _check_import(exercise)
         importable.append(exercise)
 
-    exercises = Exercise.query.with_for_update().all()
-    #category might be None, since this attribute was introduced in a later release
-    exercises = sorted(exercises, key=lambda e: e.category or "None")
+    #Check whether our DB and the local docker repo are in sync.
+    #This basically fixes situations where changes have been made to docker
+    #without involvement of REF.
+    exercises = Exercise.query.all()
+    exercises = sorted(exercises, key=lambda e: e.category)
 
-    #Check whether our DB and the local docker repo are in sync
     for exercise in exercises:
-        mgr = ExerciseManager(exercise)
-
         is_build = ExerciseImageManager(exercise).is_build()
         if exercise.build_job_status != ExerciseBuildStatus.FINISHED and is_build:
             #Already build
             exercise.build_job_status = ExerciseBuildStatus.FINISHED
             db.session.add(exercise)
-            db.session.commit()
         elif exercise.build_job_status == ExerciseBuildStatus.FINISHED and not is_build:
             #Image got deleted
             exercise.is_default = False
             exercise.build_job_status = ExerciseBuildStatus.NOT_BUILD
             db.session.add(exercise)
-            db.session.commit()
+
+    db.session.commit()
 
     categories = defaultdict(lambda: defaultdict(list))
     for e in exercises:

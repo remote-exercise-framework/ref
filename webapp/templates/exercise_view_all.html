@@ -20,7 +20,6 @@ Exercises
 {% for e in exercises %}
     <tr>
         <td>{{ e.short_name }}</td>
-        <td>{{ e.description }}</td>
         <td>{{ e.version }}</td>
         <td>{{ e.build_job_status.value }}</td>
         <td>

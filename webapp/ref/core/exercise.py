@@ -35,7 +35,7 @@ class ExerciseConfigError(Exception):
 
 class ExerciseManager():
     """
-    Used to manage an Exercise.
+    Used to manage an existing Exercise or to create a new one from a config file.
     """
 
     def __init__(self, exercise: Exercise):
@@ -49,6 +49,9 @@ class ExerciseManager():
 
     @staticmethod
     def _parse_attr(yaml_dict, attr_name, expected_type, required=True, default=None):
+        """
+        Parse an attribute from an exercise config.
+        """
         if required:
             if attr_name not in yaml_dict or yaml_dict[attr_name] == None:
                 raise ExerciseConfigError(f'Missing required attribute "{attr_name}"')
@@ -67,30 +70,22 @@ class ExerciseManager():
         return ret
 
     @staticmethod
-    def _from_yaml(cfg_path, cfg_folder) -> Exercise:
+    def _parse_general_data(exercise: Exercise, cfg, cfg_folder_path):
         """
-        Parses the given yaml config of an exercise and returns an Exercise on success.
+        General metadata describing of an exercise.
+        Args:
+            exercise: Object into that the parsed attributes are saved.
+            cfg: The YML config as disconary tree.
+            cfg_folder_path: Path to the folder that contains the currently parsed config.
         Raises:
-            - ExerciseConfigError if the given config could not be parsed.
+            - ExerciseConfigError if the config does not conform to the specification.
         """
-        exercise = Exercise()
-
-        try:
-            with open(cfg_path, 'r') as f:
-                cfg = f.read()
-            cfg = yaml.unsafe_load(cfg)
-        except Exception as e:
-            raise ExerciseConfigError(str(e))
-
-        #General metadata describing the exercise
         exercise.short_name = ExerciseManager._parse_attr(cfg, 'short-name', str)
         short_name_regex = r'([a-zA-Z0-9._])*'
         if not re.fullmatch(short_name_regex, exercise.short_name):
             raise ExerciseConfigError(f'short-name "{exercise.short_name}" is invalid ({short_name_regex})')
 
         exercise.category = ExerciseManager._parse_attr(cfg, 'category', str)
-
-        exercise.description = ExerciseManager._parse_attr(cfg, 'description', str, required=False, default=None)
 
         exercise.version = ExerciseManager._parse_attr(cfg, 'version', int)
 
@@ -101,7 +96,7 @@ class ExerciseManager():
         exercise.submission_test_enabled = ExerciseManager._parse_attr(cfg, 'submission-test', bool, required=False, default=False)
 
         if exercise.submission_test_enabled:
-            test_script_path = Path(cfg_folder) / 'submission_tests'
+            test_script_path = Path(cfg_folder_path) / 'submission_tests'
             if not test_script_path.is_file():
                 raise ExerciseConfigError('Missing submission_tests file!')
 
@@ -111,14 +106,10 @@ class ExerciseManager():
 
         if (exercise.submission_deadline_start is None) != (exercise.submission_deadline_end is None):
             raise ExerciseConfigError('Either both or none of deadline-{start,end} must be set!')
-    
+
         if exercise.submission_deadline_start is not None:
             if exercise.submission_deadline_start >= exercise.submission_deadline_end:
                 raise ExerciseConfigError('Deadline start must be smaller then deadline end.')
-
-        for e in exercise.predecessors():
-            if e.has_graded_submissions() and e.submission_deadline_end != exercise.submission_deadline_end:
-                raise ExerciseConfigError('Changing the deadline of an already graded exercise is not allowed!')
 
         #Set defaults
         exercise.is_default = False
@@ -127,9 +118,20 @@ class ExerciseManager():
         #Check for unknown attrs (ignore 'services' and 'entry')
         unparsed_keys = list(set(cfg.keys()) - set(['entry', 'services']))
         if unparsed_keys:
-            raise ExerciseConfigError(f'Unknown key(s) {unparsed_keys}')
+            raise ExerciseConfigError(f'Unknown attribute(s) {" ".join(unparsed_keys)}')
 
-        #Check if there is an entry service
+    @staticmethod
+    def _parse_entry_service(exercise: Exercise, cfg):
+        """
+        Parse the config section that describes the entry service.
+        Args:
+            exercise: Object into that the parsed attributes are saved.
+            cfg: The YML config as disconary tree.
+        Raises:
+            - ExerciseConfigError if the config does not conform to the specification.
+        """
+
+        #Check if there is an entry service section
         if 'entry' not in cfg:
             raise ExerciseConfigError('An exercise must have exactly one "entry" section')
 
@@ -175,12 +177,22 @@ class ExerciseManager():
         #Check for unknown attrs
         unparsed_keys = list(entry_cfg.keys())
         if unparsed_keys:
-            raise ExerciseConfigError(f'Unknown key(s) in entry service configuration {unparsed_keys}')
+            raise ExerciseConfigError(f'Unknown attribute(s) in entry service configuration {", ".join(unparsed_keys)}')
 
-        #Parse peripheral services
+    @staticmethod
+    def _parse_peripheral_services(exercise: Exercise, cfg):
+        """
+        Parse the services config section that describes the peripheral services (if any).
+        Args:
+            exercise: Object into that the parsed attributes are saved.
+            cfg: The YML config as disconary tree.
+        Raises:
+            - ExerciseConfigError if the config does not conform to the specification.
+        """
+
         peripheral_cfg = cfg.get('services')
         if not peripheral_cfg:
-            return exercise
+            return
 
         services_names = set()
         for service_name, service_values in peripheral_cfg.items():
@@ -206,13 +218,18 @@ class ExerciseManager():
             if service.build_cmd:
                 for line in service.build_cmd:
                     if not isinstance(line, str):
-                        raise ExerciseConfigError(f"Command must be a list of strings: {cmd}")
+                        raise ExerciseConfigError(f"Command must be a list of strings: {service.build_cmd}")
 
             service.cmd = ExerciseManager._parse_attr(service_values, 'cmd', list)
 
             service.readonly =  ExerciseManager._parse_attr(service_values, 'read-only', bool, required=False, default=False)
 
             service.allow_internet = ExerciseManager._parse_attr(service_values, 'allow-internet', bool, required=False, default=False)
+
+            service.health_check_cmd = ExerciseManager._parse_attr(service_values, 'health-check-cmd', list, required=True)
+            for part in service.health_check_cmd:
+                if not isinstance(part, str):
+                    raise ExerciseConfigError('All elements of health-check-cmd must be of type str.')
 
             flag_config = service_values.get('flag')
             if flag_config:
@@ -225,14 +242,78 @@ class ExerciseManager():
 
             exercise.services.append(service)
 
+    @staticmethod
+    def _check_global_constraints(exercise: Exercise):
+        """
+        Check whether the exercise violates any constraints in conjunction with already imported
+        exercises of the same type.
+        Args:
+            exercise: The exercises that should be checked for constraint violations.
+        """
+        predecessors = exercise.predecessors()
+        successors = exercise.successors()
+
+        for e in predecessors:
+            if e.has_graded_submissions() and e.submission_deadline_end != exercise.submission_deadline_end:
+                raise ExerciseConfigError('Changing the deadline of an already graded exercise is not allowed!')
+
+            if bool(e.entry_service.readonly) != bool(exercise.entry_service.readonly):
+                raise ExerciseConfigError('Changeing the readonly flag between versions is not allowed.')
+
+            if e.entry_service.persistance_container_path != exercise.entry_service.persistance_container_path:
+                raise ExerciseConfigError('Persistance path changes are not allowed between versions')
+
+
+
+    @staticmethod
+    def _from_yaml(cfg_path: str) -> Exercise:
+        """
+        Parses the YAML config of an exercise.
+        Args:
+            cfg_path: Path to the config file to parse.
+        Raises:
+            - ExerciseConfigError if the given config could not be parsed.
+            The Exception contains a string describing the problem that occurred.
+        Returns:
+            A new Exercise that can be passed to ExerciseManager.create()
+            to finalize the creation process.
+        """
+
+        #The exercise in that the parsed data is stored.
+        exercise = Exercise()
+
+        #The folder that contains the .yml file.
+        cfg_folder = Path(cfg_path).parent.as_posix()
+
+        try:
+            with open(cfg_path, 'r') as f:
+                cfg = f.read()
+            cfg = yaml.unsafe_load(cfg)
+        except Exception as e:
+            raise ExerciseConfigError(str(e))
+
+        #Parse general attributes like task name, version,...
+        ExerciseManager._parse_general_data(exercise, cfg, cfg_folder)
+
+        #Parse the entry service configuration
+        ExerciseManager._parse_entry_service(exercise, cfg)
+
+        #Parse peripheral services configurations (if any)
+        ExerciseManager._parse_peripheral_services(exercise, cfg)
+
+        ExerciseManager. _check_global_constraints(exercise)
+
         return exercise
 
     @staticmethod
-    def create(exercise: Exercise):
+    def create(exercise: Exercise) -> 'ExerciseManager':
         """
         Copies all data that belong to the passed exercise to a local folder.
         After calling this function, the exercise *must* be added to the DB and can be used
         to create new instances.
+        Args:
+            exercise: The exercise that should be created. The passed Exercise must be
+                created by calling ExerciseManager._from_yaml().
         """
         template_path = Path(current_app.config['IMPORTED_EXERCISES_PATH'])
         template_path = template_path.joinpath(f'{exercise.short_name}-{exercise.version}')
@@ -244,18 +325,19 @@ class ExerciseManager():
         log.info(f'Creating {persistence_path}')
         assert not persistence_path.exists()
 
-        persistence_path.mkdir(parents=True)
-        exercise.persistence_path = persistence_path.as_posix()
-
         try:
+            persistence_path.mkdir(parents=True)
             #Copy data from import folder into an internal folder
             shutil.copytree(exercise.template_import_path, template_path.as_posix())
         except:
             #Restore state as before create() was called.
             if template_path.exists():
                 shutil.rmtree(template_path.as_posix())
-            shutil.rmtree(persistence_path.as_posix())
+            if persistence_path.exists():
+                shutil.rmtree(persistence_path.as_posix())
+            raise
 
+        exercise.persistence_path = persistence_path.as_posix()
         exercise.template_path = template_path.as_posix()
         return ExerciseManager(exercise)
 
@@ -271,14 +353,7 @@ class ExerciseManager():
         if hasattr(path, 'as_posix'):
             path = path.as_posix()
         cfg = os.path.join(path, 'settings.yml')
-        exercise = ExerciseManager._from_yaml(cfg, path)
+        exercise = ExerciseManager._from_yaml(cfg)
         exercise.template_import_path = path
 
         return exercise
-
-    def get_instances(self) -> typing.List[Instance]:
-        """
-        Returns all instances of the given exercise.
-        """
-        instances = Instance.query.filter(Instance.exercise == self.exercise).all()
-        return instances
