@@ -24,7 +24,7 @@ from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, admin_required, flash)
 from ref.core.security import sanitize_path_is_subdir
-from ref.core.util import redirect_to_next
+from ref.core.util import failsafe, redirect_to_next
 from ref.model import ConfigParsingError, Exercise, User
 from ref.model.enums import ExerciseBuildStatus
 
@@ -253,7 +253,12 @@ def exercise_delete(exercise_id):
         return redirect_to_next()
 
     mgr = ExerciseImageManager(exercise)
-    mgr.remove()
+
+    try:
+        mgr.remove()
+    except InconsistentStateError as e:
+        log.error(f'Error while deleting exercise {exercise}')
+        failsafe()
 
     for service in exercise.services:
         db.session.delete(service)

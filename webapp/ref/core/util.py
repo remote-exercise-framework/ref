@@ -1,3 +1,6 @@
+import os
+import signal
+import traceback
 from contextlib import contextmanager
 from datetime import datetime
 from functools import wraps
@@ -124,3 +127,20 @@ class AnsiColorUtil():
     @staticmethod
     def red(s):
         return Fore.RED + s + Style.RESET_ALL
+
+def failsafe():
+    exc = traceback.format_exc()
+    current_app.logger.error(f'Failsafe was triggered by the following exception:\n{exc}')
+
+    has_uwsgi = True
+    try:
+        import uwsgi
+    except ImportError:
+        current_app.logger.warning('Not running under uwsgi, failsafe will not work.')
+        has_uwsgi = False
+
+    if current_app.debug:
+        current_app.logger.warning('Running in debug mode, not triggering failsafe.')
+    else:
+        if has_uwsgi:
+            os.kill(uwsgi.masterpid(), signal.SIGTERM)

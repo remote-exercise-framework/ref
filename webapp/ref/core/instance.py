@@ -190,8 +190,6 @@ class InstanceManager():
             log.error(f'Failed to remove old instance {self.instance}')
             raise
 
-        
-
         return new_instance
 
 
