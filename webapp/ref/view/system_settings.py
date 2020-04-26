@@ -39,7 +39,7 @@ class GeneralSettings(Form):
 
 
 class GroupSettings(Form):
-    group_size = IntegerField('Max. group size')
+    group_size = IntegerField('Max. group size', validators=[validators.NumberRange(1)])
     groups_enable = BooleanField('Groups enabled')
     submit = SubmitField('Save')
 
