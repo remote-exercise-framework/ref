@@ -1,35 +1,22 @@
-import datetime
+import dataclasses
 import json
 import os
-import shutil
-import tempfile
-import typing
-import urllib
-from collections import namedtuple
 from pathlib import Path
 
-import docker
-import redis
-import rq
-import yaml
-from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
-                   render_template, request, url_for)
-from itsdangerous import Serializer, TimedSerializer, URLSafeTimedSerializer
+from flask import (Response, abort, current_app, render_template, request,
+                   url_for)
+from itsdangerous import URLSafeTimedSerializer
 from werkzeug.local import LocalProxy
-from werkzeug.urls import url_parse
-from wtforms import Form, IntegerField, SubmitField, validators
 
-from ref import db, refbp
-from ref.core import (ExerciseConfigError, ExerciseImageManager,
-                      ExerciseManager, InstanceManager, admin_required, flash,
-                      grading_assistant_required)
-from ref.core.security import sanitize_path_is_subdir
-from ref.core.util import lock_db, redirect_to_next
-from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
-                       Instance, SystemSettingsManager, User)
-from ref.model.enums import ExerciseBuildStatus
+from ref import refbp
+from ref.core import grading_assistant_required
 
 log = LocalProxy(lambda: current_app.logger)
+
+@dataclasses.dataclass
+class PathSignatureToken():
+    #Path prefix a request is allowed to access
+    path_prefix: str
 
 def _get_file_list(dir_path, base_dir_path, list_hidden_files=False):
     files = []
@@ -57,14 +44,13 @@ def _get_file_list(dir_path, base_dir_path, list_hidden_files=False):
 
     return files
 
+
 @refbp.context_processor
 def file_browser_processor():
     def sign_path(path):
-        obj = {
-            'path_prefix': path
-        }
+        token = PathSignatureToken(path)
         signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='file-browser')
-        token = signer.dumps(obj)
+        token = signer.dumps(dataclasses.asdict(token))
         return token
 
     def list_dir(path):
@@ -86,29 +72,22 @@ def file_browser_load_file():
     token = data.get('token', None)
     hide_hidden_files = data.get('hide_hidden_files', None)
 
-    log.info(f'hide_hidden_files={hide_hidden_files}')
-
     if path is None or token is None or hide_hidden_files is None:
         return abort(400)
 
-    try:
-        hide_hidden_files = hide_hidden_files == 'true'
-    except:
-        log.warning('', exc_info=True)
-        return abort(400)
+    hide_hidden_files = hide_hidden_files == 'true'
 
     #Check the signature
     signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='file-browser')
     try:
         token = signer.loads(token, max_age=8*24*60)
+        token = PathSignatureToken(**token)
     except:
         log.warning(f'Invalid token: {token}', exc_info=True)
         return abort(400)
 
-    #We signed this, so we do not have to check whether the keys exist
-
     #The allowed path prefix for this request
-    path_prefix = Path(token['path_prefix'])
+    path_prefix = Path(token.path_prefix)
     log.info(f'Signed prefix is {path_prefix}')
     assert path_prefix.is_absolute()
 
@@ -116,11 +95,12 @@ def file_browser_load_file():
     final_path = path_prefix.joinpath(path.lstrip('/'))
     log.info(f'Trying to load file {final_path}')
 
-    try:
-        final_path = final_path.expanduser().resolve()
-        assert final_path.as_posix().startswith(path_prefix.as_posix())
-    except:
-        log.warning(f'Error while resolving path {final_path}')
+    final_path = final_path.expanduser().resolve()
+    assert final_path.is_absolute()
+
+    #Check if the path is covered by the provided signature.
+    if not final_path.as_posix().startswith(path_prefix.as_posix()):
+        log.warning(f'Given path ({final_path}) points outside of the signed prefix ({path_prefix})')
         return abort(400)
 
     response = None
@@ -130,11 +110,10 @@ def file_browser_load_file():
         try:
             with open(final_path, 'r') as f:
                 content = f.read()
-        except:
-            return Response('Error while reading file', status=400)
+        except Exception as e:
+            return Response('Error while reading file: {e}', status=400)
 
-        # Determine file extension.
-        _, file_extension = os.path.splitext(final_path)
+        file_extension = final_path.suffix
 
         response = {
             'type': 'file',
