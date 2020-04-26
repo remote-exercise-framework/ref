@@ -42,7 +42,6 @@ class ExerciseImageManager():
                 log.info(f'Service image {service.image_name} was not build')
                 return False
 
-        log.info(f'All images have been build')
         return True
 
     @staticmethod
