@@ -1,3 +1,8 @@
+"""
+BEWARE: Changes applied to enums that are used as DB column type
+are not automatically picked up by flask_migrate. So, do not change
+these values without adding a manual crafted migration script.
+"""
 from enum import Enum
 
 
