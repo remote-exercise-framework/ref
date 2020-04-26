@@ -30,7 +30,11 @@ System Settings
                     {{ wtf_utils.render_field(general_settings.maintenance_enabled, "checkbox") }}
                 </div>
             </div>
-
+            <div class="col-md-12">
+                <div class="form-group">
+                    {{ wtf_utils.render_field(general_settings.disable_submission, "checkbox") }}
+                </div>
+            </div>
             <div class="col-md-12">
                 <label for="{{ general_settings.timezone.id }}">{{ general_settings.timezone.label }}</label>
                 <div class="form-group">

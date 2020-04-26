@@ -27,6 +27,7 @@ class GeneralSettings(Form):
     course_name = TextField('Course Name')
     allow_submission_deletion = BooleanField('Allow admins to delete submissions')
     maintenance_enabled = BooleanField('Enable maintenance mode: Disallow any new access by non admin users. Already established connections are not closed')
+    disable_submission = BooleanField('Disable submission for instances.')
     timezone = SelectField('Timezone that is used for datetime representation in case no timezone information is provided by the client.', choices=[(e, e) for e in pytz.all_timezones])
 
 class GroupSettings(Form):
@@ -51,11 +52,13 @@ def view_system_settings():
         SystemSettingsManager.COURSE_NAME.value = general_settings.course_name.data
         SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value = general_settings.allow_submission_deletion.data
         SystemSettingsManager.MAINTENANCE_ENABLED.value = general_settings.maintenance_enabled.data
+        SystemSettingsManager.SUBMISSION_DISABLED.value = general_settings.disable_submission.data
         SystemSettingsManager.TIMEZONE.value = general_settings.timezone.data
     else:
         general_settings.course_name.data = SystemSettingsManager.COURSE_NAME.value
         general_settings.allow_submission_deletion.data = SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value
         general_settings.maintenance_enabled.data = SystemSettingsManager.MAINTENANCE_ENABLED.value
+        general_settings.disable_submission.data = SystemSettingsManager.SUBMISSION_DISABLED.value
         general_settings.timezone.data = SystemSettingsManager.TIMEZONE.value
 
     #Group settings belong here

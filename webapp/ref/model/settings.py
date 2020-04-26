@@ -62,6 +62,7 @@ default_ssh_welcome_msg = """
 
 class SystemSettingsManager():
     MAINTENANCE_ENABLED = Setting('MAINTENANCE_ENABLED', bool, False)
+    SUBMISSION_DISABLED = Setting('SUBMISSION_DISABLED', bool, False)
 
     COURSE_NAME = Setting('COURSE_NAME', str, 'OS-Security')
     COURSE_OF_STUDY = Setting('COURSE_OF_STUDY', list, ['A'])

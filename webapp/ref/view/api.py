@@ -502,7 +502,7 @@ def api_instance_submit():
 
     if instance.submission:
         log.warning(f'User tried to submit instance that is already submitted: {instance}')
-        return error_response('Unable to submit: Instance is already submitted')
+        return error_response('Unable to submit: Instance is a submission itself.')
 
     if not instance.exercise.has_deadline():
         log.info(f'User tried to submit instance {instance} without deadline')
@@ -512,6 +512,10 @@ def api_instance_submit():
         log.info(f'User tried to submit instance {instance} after deadline :-O')
         deadline = datetime_to_string(instance.exercise.submission_deadline_end)
         return error_response(f'Unable to submit: The submission deadline already passed (was due before {deadline})')
+
+    if SystemSettingsManager.SUBMISSION_DISABLED.value:
+        log.info(f'Rejecting submission request since submission is currently disabled.')
+        return error_response(f'Submission is currently disabled, please try again later.')
 
     mgr = InstanceManager(instance)
     mgr.stop()
