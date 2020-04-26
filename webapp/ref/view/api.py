@@ -520,9 +520,9 @@ def api_instance_submit():
     mgr = InstanceManager(instance)
     mgr.stop()
     new_instance = mgr.create_submission()
-    log.info(f'Created submission: {new_instance.submission}')
 
     current_app.db.session.commit()
+    log.info(f'Created submission: {new_instance.submission}')
 
     return ok_response('OK')
 

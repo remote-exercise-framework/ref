@@ -1,17 +1,16 @@
 import datetime
 import re
+from functools import partial
 
 from Crypto.PublicKey import RSA
 from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
 from itsdangerous import URLSafeTimedSerializer
-from psycopg2.errors import DeadlockDetected
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
-                     RadioField, SelectField, SelectMultipleField, StringField,
-                     SubmitField, TextField, ValidationError, validators)
+                     RadioField, SelectMultipleField, StringField, SubmitField,
+                     TextField, ValidationError, validators)
 
 from ref import db, limiter, refbp
 from ref.core import admin_required, flash
@@ -21,46 +20,56 @@ from ref.core.util import (is_deadlock_error, lock_db, on_integrity_error,
 from ref.model import SystemSettingsManager, User, UserGroup
 from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
 
-#mat_regex = r"^1080[0-2][0-9][1-2][0-9]{5}$"
-mat_regex = r"^[0-9]+$"
-group_regex = r"^[a-zA-Z0-9-_]+$"
+PASSWORD_MIN_LEN = 8
+PASSWORD_SECURITY_LEVEL = 3
+
+# Salt used to sign download links returned to the user.
+DOWNLOAD_LINK_SIGN_SALT = 'dl-keys'
+
+MAT_REGEX = r"^[0-9]+$"
+GROUP_REGEX = r"^[a-zA-Z0-9-_]+$"
 
 log = LocalProxy(lambda: current_app.logger)
 
-# class SelectOrStringField(StringField):
-
-#     def __init__(self, *args, **kwargs):
-#         if 'choices' in kwargs:
-#             self.choices = kwargs['choices']
-#             del kwargs['choices']
-#         super().__init__(self, *args, **kwargs)
-#         self.label = args[0]
 
 def field_to_str(form, field):
+    del form
     return str(field.data)
 
+
 def validate_password(form, field):
+    """
+    Implements a simple password policy.
+    Raises:
+        ValidationError: If the password does not fullfill the policy.
+    """
+    del form
     password = field.data
 
-    MIN_LEN = 8
-
-    if len(password) < MIN_LEN:
-        raise ValidationError(f'Password must be at least {MIN_LEN} characters long.')
+    if len(password) < PASSWORD_MIN_LEN:
+        raise ValidationError(
+            f'Password must be at least {PASSWORD_MIN_LEN} characters long.')
 
     digit = re.search(r"\d", password) is not None
     upper = re.search(r"[A-Z]", password) is not None
     lower = re.search(r"[a-z]", password) is not None
-    special = re.search(r"[ !#$%&'()*+,-./[\\\]^_`{|}~"+r'"]', password) is not None
+    special = re.search(
+        r"[ !#$%&'()*+,-./[\\\]^_`{|}~"+r'"]', password) is not None
 
-    if sum([digit, upper, lower, special]) < 3:
-        raise ValidationError(f'Password not strong enough. Try to use a mix of digits, upper- and lowercase letters.')
+    if sum([digit, upper, lower, special]) < PASSWORD_SECURITY_LEVEL:
+        raise ValidationError(
+            f'Password not strong enough. Try to use a mix of digits, upper- and lowercase letters.')
+
 
 def validate_matriculation_number(form, field):
     """
     Checksums matriculation number. Raises ValidationError if not a valid matriculation number.
     """
+    del form
     if not field.data.startswith("1080"):
-        log.info(f"Not a valid RUB matriculation number {field.data}")
+        log.info(
+            f"Passed matriculation number ({field.data}) does not belong to the RUB, skipping checksum calculation"
+        )
         return
     if len(field.data) != 12:
         log.info(f"Matriculation number has less than 12 characters.")
@@ -74,80 +83,122 @@ def validate_matriculation_number(form, field):
         checksum += tmp
     checksum_str = str(checksum % 10)
     if field.data[-1] != checksum_str:
-        log.info(f"Invalid matriculation number {field.data} - checksum is {checksum_str}")
+        log.info(
+            f"Invalid matriculation number {field.data} - checksum is {checksum_str}")
         raise ValidationError('Invalid matriculation number: checksum failure')
 
+
 def validate_pubkey(form, field):
+    """
+    Validates an SSH key in the OpenSSH format. If the passed field was left empty,
+    validation is also successfull.
+    Raises:
+         ValidationError: If the key could not be parsed.
+    """
+    del form
     if field.data is None or field.data == '':
         return
     try:
         RSA.importKey(field.data)
     except:
+        log.info(f'Invalid public-key {field.data}.')
         raise ValidationError('Invalid Public-Key.')
+
 
 class EditUserForm(Form):
     id = IntegerField('ID')
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
-        validators.Regexp(mat_regex),
+        validators.Regexp(MAT_REGEX),
         validate_matriculation_number,
+        # FIXME: Field is implemented as number field in the view.
         field_to_str
-        ])
-    course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
-    firstname = StringField('Firstname', validators=[validators.DataRequired()])
+    ])
+    course = RadioField('Course of Study', choices=[
+                        (e.value, e.value) for e in CourseOfStudies])
+    firstname = StringField('Firstname', validators=[
+                            validators.DataRequired()])
     surname = StringField('Surname', validators=[validators.DataRequired()])
     nickname = StringField('Nickname', validators=[validators.DataRequired()])
-    group_name = StringField('Group', validators=[validators.Optional(), validators.Regexp(group_regex)])
-
-    auth_group = SelectMultipleField('Authorization Groups', choices=[(e.value, e.value) for e in UserAuthorizationGroups])
-
+    group_name = StringField('Group',
+                             validators=[
+                                 validators.Optional(),
+                                 validators.Regexp(GROUP_REGEX)
+                             ]
+                             )
+    auth_group = SelectMultipleField('Authorization Groups',
+                                     choices=[
+                                         (e.value, e.value) for e in UserAuthorizationGroups
+                                     ]
+                                     )
     password = PasswordField('Password')
     password_rep = PasswordField('Password (Repeat)')
     is_admin = BooleanField('Is Admin?')
 
-
     submit = SubmitField('Update')
+
 
 class GetKeyForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
-        validators.Regexp(mat_regex),
+        validators.Regexp(MAT_REGEX),
         validate_matriculation_number,
         field_to_str
-        ])
-    course = RadioField('Course of Study', choices=[(e.value, e.value) for e in CourseOfStudies])
-    firstname = StringField('Firstname', validators=[validators.DataRequired()])
+    ])
+    course = RadioField('Course of Study', choices=[
+                        (e.value, e.value) for e in CourseOfStudies])
+    firstname = StringField('Firstname', validators=[
+                            validators.DataRequired()])
     surname = StringField('Surname', validators=[validators.DataRequired()])
     nickname = StringField('Nickname', validators=[validators.DataRequired()])
-    group_name = StringField('Group', validators=[validators.Optional(), validators.Regexp(group_regex)])
-
-    password = PasswordField('Password', validators=[validators.DataRequired(), validate_password])
-    password_rep = PasswordField('Password (Repeat)', validators=[validators.DataRequired(), validate_password])
-
-    pubkey = StringField('Public-Key (if empty, a key-pair is generated for you)', validators=[validate_pubkey])
-
+    group_name = StringField('Group',
+                             validators=[validators.Optional(),
+                                         validators.Regexp(GROUP_REGEX)
+                                         ]
+                             )
+    password = PasswordField('Password',
+                             validators=[
+                                 validators.DataRequired(), validate_password
+                             ]
+                             )
+    password_rep = PasswordField('Password (Repeat)',
+                                 validators=[
+                                     validators.DataRequired(), validate_password
+                                 ]
+                                 )
+    pubkey = StringField('Public-Key (if empty, a key-pair is generated for you)',
+                         validators=[
+                             validate_pubkey
+                         ]
+                         )
     submit = SubmitField('Get Key')
+
 
 class RestoreKeyForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
-        validators.Regexp(mat_regex),
+        validators.Regexp(MAT_REGEX),
         validate_matriculation_number,
-        field_to_str
-        ])
-    password = PasswordField('Password (The password used during first retrieval)', validators=[validators.DataRequired()])
+        field_to_str  # FIXME: Field is implemented as number in view.
+    ])
+    password = PasswordField('Password (The password used during first retrieval)', validators=[
+                             validators.DataRequired()])
     submit = SubmitField('Restore')
 
+
 @refbp.route('/student/download/pubkey/<string:signed_mat>')
-def student_download_pubkey(signed_mat):
+def student_download_pubkey(signed_mat: str):
     """
     Returns the public key of the given matriculation number as
     text/plain.
+    Args:
+        signed_mat: The signed matriculation number.
     """
-    signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
+    signer = URLSafeTimedSerializer(
+        current_app.config['SECRET_KEY'], salt=DOWNLOAD_LINK_SIGN_SALT)
     try:
         mat_num = signer.loads(signed_mat, max_age=60*10)
-    except Exception :
+    except:
         log.warning('Invalid signature', exc_info=True)
         abort(400)
 
@@ -157,18 +208,22 @@ def student_download_pubkey(signed_mat):
             student.pub_key,
             mimetype="text/plain",
             headers={"Content-disposition":
-                    "attachment; filename=id_rsa.pub"})
-    else:
-        flash.error('Unknown student')
-        abort(400)
+                     "attachment; filename=id_rsa.pub"})
+
+    flash.error('Unknown student')
+    abort(400)
+
 
 @refbp.route('/student/download/privkey/<string:signed_mat>')
-def student_download_privkey(signed_mat):
+def student_download_privkey(signed_mat: str):
     """
     Returns the private key of the given matriculation number as
     text/plain.
+    Args:
+        signed_mat: The signed matriculation number.
     """
-    signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
+    signer = URLSafeTimedSerializer(
+        current_app.config['SECRET_KEY'], salt=DOWNLOAD_LINK_SIGN_SALT)
     try:
         mat_num = signer.loads(signed_mat, max_age=60*10)
     except Exception:
@@ -181,10 +236,11 @@ def student_download_privkey(signed_mat):
             student.priv_key,
             mimetype="text/plain",
             headers={"Content-disposition":
-                    "attachment; filename=id_rsa"})
-    else:
-        flash.error('Unknown student')
-        abort(400)
+                     "attachment; filename=id_rsa"})
+
+    flash.error('Unknown student')
+    abort(400)
+
 
 @refbp.route('/student/getkey', methods=('GET', 'POST'))
 @limiter.limit('16 per minute;1024 per day')
@@ -196,7 +252,7 @@ def student_getkey():
 
     form = GetKeyForm(request.form)
 
-    #Get valid group names
+    # Get valid group names
     groups = UserGroup.all()
     form.group_name.choices = [e.name for e in groups]
 
@@ -206,11 +262,21 @@ def student_getkey():
     student = None
 
     groups_enabled = SystemSettingsManager.GROUPS_ENABLED.value
-    render = lambda: render_template('student_getkey.html', route_name='get_key', form=form, student=student, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat, groups_enabled=groups_enabled)
+
+    def render(): return render_template('student_getkey.html',
+                                         route_name='get_key', form=form,
+                                         student=student,
+                                         pubkey=pubkey,
+                                         privkey=privkey,
+                                         signed_mat=signed_mat,
+                                         groups_enabled=groups_enabled
+                                         )
 
     if form.submit.data and form.validate():
-        student = User.query.filter(User.mat_num == form.mat_num.data).one_or_none()
+        student = User.query.filter(
+            User.mat_num == form.mat_num.data).one_or_none()
         if not student:
+            # Check password fields
             if form.password.data != form.password_rep.data:
                 err = ['Passwords do not match!']
                 form.password.errors += err
@@ -219,6 +285,7 @@ def student_getkey():
                 form.password_rep.data = ""
                 return render()
 
+            # If a public key was provided use it, if not, generate a key pair.
             if form.pubkey.data:
                 key = RSA.importKey(form.pubkey.data)
                 pubkey = key.export_key(format='OpenSSH').decode()
@@ -227,8 +294,8 @@ def student_getkey():
                 key = RSA.generate(2048)
                 pubkey = key.export_key(format='OpenSSH').decode()
                 privkey = key.export_key().decode()
+
             student = User()
-            student.invalidate_session()
             student.mat_num = form.mat_num.data
             student.first_name = form.firstname.data
             student.surname = form.surname.data
@@ -242,16 +309,8 @@ def student_getkey():
                 return render()
 
             if groups_enabled:
-                try:
-                    group = UserGroup.query.filter(UserGroup.name == form.group_name.data).with_for_update().one_or_none()
-                except OperationalError as e:
-                    if is_deadlock_error(e):
-                        flash.warning('Please retry.')
-                        pubkey = None
-                        privkey = None
-                        student = None
-                        return render()
-                    raise
+                group = UserGroup.query.filter(
+                    UserGroup.name == form.group_name.data).one_or_none()
 
                 if not group and form.group_name.data:
                     group = UserGroup()
@@ -259,7 +318,8 @@ def student_getkey():
                 else:
                     group_mcnt = SystemSettingsManager.GROUP_SIZE.value
                     if len(group.users) >= group_mcnt:
-                        form.group_name.errors += [f'Groups already reached the maximum of {group_mcnt} members']
+                        form.group_name.errors += [
+                            f'Groups already reached the maximum of {group_mcnt} members']
                         pubkey = None
                         privkey = None
                         student = None
@@ -276,26 +336,20 @@ def student_getkey():
             student.course_of_studies = CourseOfStudies(form.course.data)
             student.auth_groups = [UserAuthorizationGroups.STUDENT]
 
-            try:
-                db.session.add(student)
-                db.session.commit()
-            except IntegrityError:
-                db.session.rollback()
-                on_integrity_error()
-                pubkey = None
-                privkey = None
-                student = None
-                return render()
-
-            signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
+            signer = URLSafeTimedSerializer(
+                current_app.config['SECRET_KEY'], salt=DOWNLOAD_LINK_SIGN_SALT)
             signed_mat = signer.dumps(str(student.mat_num))
+
+            db.session.add(student)
+            db.session.commit()
 
             return render()
         else:
-            form.mat_num.errors += ['Already registered, please use your password to restore key.']
-
+            form.mat_num.errors += [
+                'Already registered, please use your password to restore key.']
 
     return render()
+
 
 @refbp.route('/student/restoreKey', methods=('GET', 'POST'))
 @limiter.limit('16 per minute;1024 per day')
@@ -308,12 +362,20 @@ def student_restorekey():
     pubkey = None
     privkey = None
     signed_mat = None
-    render = lambda: render_template('student_restorekey.html', route_name='restore_key', form=form, pubkey=pubkey, privkey=privkey, signed_mat=signed_mat)
 
-    signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='dl-keys')
+    def render(): return render_template('student_restorekey.html',
+                                         route_name='restore_key',
+                                         form=form,
+                                         pubkey=pubkey,
+                                         privkey=privkey,
+                                         signed_mat=signed_mat)
+
+    signer = URLSafeTimedSerializer(
+        current_app.config['SECRET_KEY'], salt=DOWNLOAD_LINK_SIGN_SALT)
 
     if form.submit.data and form.validate():
-        student = User.query.filter(User.mat_num == form.mat_num.data).one_or_none()
+        student = User.query.filter(
+            User.mat_num == form.mat_num.data).one_or_none()
         if student:
             if student.check_password(form.password.data):
                 signed_mat = signer.dumps(str(student.mat_num))
@@ -321,13 +383,16 @@ def student_restorekey():
                 privkey = student.priv_key
                 return render()
             else:
-                form.password.errors += ['Wrong password or matriculation number unknown.']
+                form.password.errors += [
+                    'Wrong password or matriculation number unknown.']
                 return render()
         else:
-            form.password.errors += ['Wrong password or matriculation number unknown.']
+            form.password.errors += [
+                'Wrong password or matriculation number unknown.']
             return render()
 
     return render()
+
 
 @refbp.route('/admin/student/view', methods=('GET', 'POST'))
 @admin_required
@@ -338,18 +403,20 @@ def student_view_all():
     students = User.query.order_by(User.id).all()
     return render_template('student_view_all.html', students=students)
 
+
 @refbp.route('/admin/student/view/<int:user_id>')
 @admin_required
 def student_view_single(user_id):
     """
     Shows details for the user that belongs to the given user_id.
     """
-    user =  User.query.filter(User.id == user_id).one_or_none()
+    user = User.query.filter(User.id == user_id).one_or_none()
     if not user:
         flash.error(f'Unknown user ID {user_id}')
         abort(400)
 
     return render_template('student_view_single.html', user=user)
+
 
 @refbp.route('/admin/student/edit/<int:user_id>', methods=('GET', 'POST'))
 @admin_required
@@ -359,17 +426,18 @@ def student_edit(user_id):
     """
     form = EditUserForm(request.form)
 
-    #Get valid group names
+    # Get valid group names
     groups = UserGroup.all()
     form.group_name.choices = [e.name for e in groups]
 
-    user: User = User.query.filter(User.id == user_id).with_for_update().one_or_none()
+    user: User = User.query.filter(
+        User.id == user_id).one_or_none()
     if not user:
         flash.error(f'Unknown user ID {user_id}')
         abort(400)
 
     if form.submit.data and form.validate():
-        #Form was submitted
+        # Form was submitted
 
         if form.password.data != '':
             if form.password.data != form.password_rep.data:
@@ -383,7 +451,6 @@ def student_edit(user_id):
             form.mat_num.errors += ['Already taken']
             return render_template('user_edit.html', form=form)
         else:
-            #Uniqueness enforced by DB constraint
             user.mat_num = form.mat_num.data
 
         user.course_of_studies = CourseOfStudies(form.course.data)
@@ -394,33 +461,25 @@ def student_edit(user_id):
             form.nickname.errors += ['Nickname already taken']
             return render_template('user_edit.html', form=form)
         else:
-            #Uniqueness enforced by DB constraint
             user.nickname = form.nickname.data
 
-        #Lock the group to make sure we do not exceed the group size limit
-        try:
-            group = UserGroup.query.filter(UserGroup.name == form.group_name.data).with_for_update().one_or_none()
-        except OperationalError as e:
-            if is_deadlock_error(e):
-                flash.warning('Concurrent access, please retry.')
-                return render_template('user_edit.html', form=form)
-            raise
+        group = UserGroup.query.filter(
+            UserGroup.name == form.group_name.data).with_for_update().one_or_none()
 
-        #Only create a group if the name was set
+        # Only create a group if the name was set
         if not group and form.group_name.data:
-            #Multiple groups with same name might be created concurrently, but ony one will
-            #win the DB unique constraint on commit.
             group = UserGroup()
             group.name = form.group_name.data
         user.group = group
 
-        #Make sure there are not to many members in the group
+        # Make sure there are not to many members in the group
         max_grp_size = SystemSettingsManager.GROUP_SIZE.value
         if group and len(group.users) > max_grp_size:
-            form.group_name.errors += [f'Groups already reached the maximum of {max_grp_size} members']
+            form.group_name.errors += [
+                f'Groups already reached the maximum of {max_grp_size} members']
             return render_template('user_edit.html', form=form)
 
-        #Invalidate login if the authentication group changed
+        # Invalidate login if the authentication group changed
         new_auth_groups = set()
         for auth_group in form.auth_group.data:
             new_auth_groups.add(UserAuthorizationGroups(auth_group))
@@ -430,11 +489,11 @@ def student_edit(user_id):
 
         current_app.db.session.add(user)
         current_app.db.session.commit()
+
         flash.success('Updated!')
-        
         return render_template('user_edit.html', form=form)
     else:
-        #Form was not submitted: Set initial values
+        # Form was not submitted: Set initial values
         form.id.data = user.id
         form.mat_num.data = user.mat_num
         form.course.data = user.course_of_studies.value
@@ -444,10 +503,9 @@ def student_edit(user_id):
         if user.group:
             form.group_name.data = user.group.name
         form.auth_group.data = [e.value for e in user.auth_groups]
-        #Leave password empty
+        # Leave password empty
         form.password.data = ''
         form.password_rep.data = ''
-
 
     return render_template('user_edit.html', form=form)
 
@@ -458,7 +516,9 @@ def student_delete(user_id):
     """
     Deletes the given user.
     """
-    user: User = User.query.filter(User.id == user_id).with_for_update().one_or_none()
+    user: User = User.query.filter(
+        User.id == user_id).one_or_none()
+
     if not user:
         flash.warning(f'Unknown user ID {user_id}')
         return redirect_to_next()
@@ -471,14 +531,12 @@ def student_delete(user_id):
         flash.error('User has active instances, please delete them first!')
         return redirect_to_next()
 
-    try:
-        current_app.db.session.delete(user)
-        current_app.db.session.commit()
-        flash.success(f'User {user.id} deleted')
-    except IntegrityError:
-        on_integrity_error()
+    current_app.db.session.delete(user)
+    current_app.db.session.commit()
+    flash.success(f'User {user.id} deleted')
 
     return redirect_to_next()
+
 
 @refbp.route('/student/')
 @refbp.route('/student')
