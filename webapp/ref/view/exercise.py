@@ -223,9 +223,8 @@ def exercise_view_all():
     db.session.commit()
 
     categories = defaultdict(lambda: defaultdict(list))
-    for e in exercises:
+    for e in sorted(exercises, key=lambda e: (e.category, e.short_name, e.version)):
         categories[e.category][e.short_name] += [e]
-        categories[e.category][e.short_name] = sorted(categories[e.category][e.short_name], key=lambda e: e.version)
 
     return render()
 
