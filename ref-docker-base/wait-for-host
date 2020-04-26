@@ -1,0 +1,70 @@
+#!/bin/bash
+
+set -e
+
+#bc, ping, timeout
+
+term() {
+    echo "Host did not came up before the timeout was exceeded."
+    exit 1
+}
+
+trap term SIGINT SIGTERM
+
+function usage {
+if [[ ! -z "$1" ]]; then
+    echo $1
+fi
+
+cat<<EOF
+$0 host [-t TIMEOUT]
+EOF
+exit 2
+}
+
+function wait_for_host {
+    hostname="$1"
+    timeout="$2"
+
+    if [[ ! -z "$timeout" ]]; then
+        {
+            sleep $timeout
+            kill -- -$$
+        } &
+    fi
+
+    set +e
+    while [[ true ]]; do
+        ping -c 1 $hostname
+        [[ "$?" != "0" ]] || exit 0
+        sleep 0.2
+    done
+    exit 0
+}
+
+if [[ $# < 1 ]]; then
+    echo "Not enough arguments!"
+    usage
+fi
+
+host="$1"
+shift
+
+while [[ $# > 0 ]]; do
+    arg="$1"
+    case "$arg" in
+
+    '-t')
+        shift
+        [[ ! -z "$1" ]] || usage "Missing argument for -t"
+        timeout="$1"
+        ;;
+    *)
+        echo "Invalid argument: $arg"
+        usage
+        ;;
+    esac
+    shift
+done
+
+wait_for_host "$host" "$timeout"
