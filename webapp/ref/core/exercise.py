@@ -257,6 +257,9 @@ class ExerciseManager():
             if e.has_graded_submissions() and e.submission_deadline_end != exercise.submission_deadline_end:
                 raise ExerciseConfigError('Changing the deadline of an already graded exercise is not allowed!')
 
+            if e.has_graded_submissions() and e.max_grading_points != exercise.max_grading_points:
+                raise ExerciseConfigError('Changing the grading points of an already graded exercise is not allowed!')
+
             if bool(e.entry_service.readonly) != bool(exercise.entry_service.readonly):
                 raise ExerciseConfigError('Changeing the readonly flag between versions is not allowed.')
 
