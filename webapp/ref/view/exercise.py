@@ -235,7 +235,7 @@ def exercise_view_all():
 @refbp.route('/admin/exercise/<int:exercise_id>/delete')
 @admin_required
 def exercise_delete(exercise_id):
-    exercise =  Exercise.query.filter(Exercise.id == exercise_id).with_for_update().first()
+    exercise = Exercise.query.filter(Exercise.id == exercise_id).with_for_update().first()
     if not exercise:
         flash.error(f'Unknown exercise ID {exercise_id}')
         abort(400)
@@ -256,9 +256,8 @@ def exercise_delete(exercise_id):
 
     try:
         mgr.remove()
-    except InconsistentStateError as e:
-        log.error(f'Error while deleting exercise {exercise}')
-        failsafe()
+    except InconsistentStateError:
+        raise
 
     for service in exercise.services:
         db.session.delete(service)

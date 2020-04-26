@@ -10,6 +10,8 @@ from werkzeug.exceptions import (BadRequest, Forbidden, Gone,
                                  InternalServerError, MethodNotAllowed,
                                  NotFound, TooManyRequests)
 
+from ref.core import InconsistentStateError, failsafe
+
 error_handlers = []
 
 smileys_sad = [u'😐', u'😑', u'😒', u'😓', u'😔', u'😕', u'😖', u'😝', u'😞', u'😟',
@@ -64,6 +66,9 @@ def too_many_requests(e):
 def internal_error(e):
     code = uuid.uuid4()
     current_app.logger.error(f"InternalServerError: {e}", exc_info=True)
+
+    if isinstance(e, (AssertionError, InconsistentStateError)):
+        failsafe()
 
     text = f'Internal Error: If the problem persists, please contact the server administrator and provide the following error code {code}'
     return render_error_template(text, InternalServerError.code)
