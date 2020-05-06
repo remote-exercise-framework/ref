@@ -133,23 +133,28 @@ def handle_instance_introspection_request(exercise_name, pubkey):
         log.warning(f'Invalid instance ID {instance_id}', exc_info=True)
         raise Exception('Invalid request')
 
-    #Make sure nobody messes with the instance or requesting user.
-    with retry_on_deadlock():
-        instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
-        user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
+    instance: Instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
+    user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
+
+    if not user:
+        log.warning('User not found.')
+        return error_response('Unknown user.')
 
     if not SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value:
         m = f'Instance SSH introspection is disabled!'
         log.warning(m)
-        raise Exception(m)
+        return error_response('Introspection is disabled.')
 
     if not user.is_admin and not user.is_grading_assistant:
         log.warning(f'Only administrators and grading assistants are allowed to request access to specific instances.')
-        raise Exception('Insufficient permissions')
+        return error_response('Insufficient permissions')
 
     if not instance:
         log.warning(f'Invalid instance_id={instance_id}')
-        raise Exception('Invalid instance ID')
+        return error_response('Invalid instance ID')
+
+    if not instance.is_submission() and not user.is_admin:
+        return error_response('Insufficient permissions.')
 
     return start_and_return_instance(instance)
 
@@ -216,7 +221,7 @@ def api_provision():
             db.session.commit()
             return ret
         except:
-            raise 
+            raise
 
     exercise_version = None
     if '@' in exercise_name:
