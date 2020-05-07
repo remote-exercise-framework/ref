@@ -67,7 +67,7 @@ def handle_response(resp, expected_status=(200, )) -> typing.Tuple[int, typing.D
         if 'error' in json:
             print_err(f'[!] ', json['error'])
         else:
-            print_err(f'[!] ', 'Unknown error! Please contact staff')
+            print_err(f'[!] ', 'Unknown error! Please contact the staff')
         exit(1)
 
 def do_post(url, json, expected_status=(200, )) -> typing.Tuple[int, typing.Dict]:
@@ -171,7 +171,8 @@ def main():
     default_cmd = resp['cmd']
 
     if ssh_cmd:
-        cmd += [ssh_cmd]
+        #Force stop parsing with --
+        cmd += ['--', ssh_cmd]
     elif default_cmd:
         cmd += default_cmd
 
