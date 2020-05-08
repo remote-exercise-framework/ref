@@ -202,6 +202,14 @@ def api_provision():
 
     log.info(f'Got request from pubkey={pubkey:32}, exercise_name={exercise_name}')
 
+    #exercise_name is user provided, make sure it is valid UTF8.
+    #If its not, sqlalchemy will raise an unicode error.
+    try:
+        exercise_name.encode()
+    except Exception as e:
+        log.error(f'Invalid exercise name {str(e)}')
+        return error_response('Requested task not found')
+
     #Get the user account
     with retry_on_deadlock():
         user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
