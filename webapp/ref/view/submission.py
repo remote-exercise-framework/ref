@@ -66,6 +66,20 @@ def submissions_by_instance(instance_id):
 
     return render_template('submissions_view_all.html', title=f'Submissions of instance {instance_id}', submissions=submissions)
 
+@refbp.route('/admin/submissions/by-user/<int:user_id>')
+@admin_required
+def submissions_by_user(user_id):
+    user: User = User.get(user_id)
+    if not user:
+        flash.error(f'Unkown user ID {user_id}')
+        abort(400)
+
+    submissions: List[Submission] = Submission.all()
+    submissions = [i for i in submissions if i.origin_instance.user.id == user_id]
+    submissions = sorted(submissions, key=lambda e: e.submission_ts, reverse=True)
+
+    return render_template('submissions_view_all.html', title=f'Submissions of user {user_id}', submissions=submissions)
+
 @refbp.route('/admin/submissions/reset/<int:submission_id>')
 @admin_required
 def submission_reset(submission_id):

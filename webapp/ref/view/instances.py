@@ -11,6 +11,7 @@ from pathlib import Path
 import docker
 import redis
 import rq
+from functools import lru_cache
 import yaml
 from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
@@ -32,6 +33,7 @@ lwarn = lambda msg: current_app.logger.warning(msg)
 
 log = LocalProxy(lambda: current_app.logger)
 
+@lru_cache(maxsize=None)
 def get_newest_exercise_version(exercise: Exercise):
     exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
     new_exercise = list(filter(lambda e: e.version > exercise.version and e.build_job_status == ExerciseBuildStatus.FINISHED, exercises))
@@ -40,8 +42,6 @@ def get_newest_exercise_version(exercise: Exercise):
 @refbp.route('/admin/instances/update/<int:instance_id>')
 @admin_required
 def instance_update(instance_id):
-
-    #Get lock
 
     #Lock the instance
     instance: Instance = Instance.query.filter(Instance.id == instance_id).with_for_update().first()
