@@ -15,12 +15,10 @@ User Details
     <dd class="col-sm-9">{{ user.first_name }}</dd>
     <dt class="col-sm-3">Nickname</dt>
     <dd class="col-sm-9">{{ user.nickname }}</dd>
-    {% if user.group %}
-    <dt class="col-sm-3">Group</dt>
-    <dd class="col-sm-9">{{ user.group.name }} ({{ user.group.id }})</dd>
-    {% endif %}
     <dt class="col-sm-3">Matriculation Number</dt>
     <dd class="col-sm-9">{{ user.mat_num }}</dd>
+    <dt class="col-sm-3">Group</dt>
+    <dd class="col-sm-9">{{ user.group.name|default('None') }}</dd>
     <dt class="col-sm-3">Course</dt>
     <dd class="col-sm-9">{{ user.course_of_studies.value }}</dd>
     <dt class="col-sm-3">Date of regestration</dt>
