@@ -64,3 +64,4 @@ websocket-client==0.57.0
 zipp==3.1.0
 pytz
 arrow
+returns
