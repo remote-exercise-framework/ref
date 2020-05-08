@@ -15,7 +15,7 @@ Students
             <th scope="col">#id</th>
             <th scope="col">#Mat.</th>
             <th scope="col">Name</th>
-            <th scope="col">#Instances</th>
+            <th scope="col">#Instances<br>#Submissions</th>
             <th scope="col">Admin</th>
             <th scope='col'></th>
             </tr>
@@ -27,18 +27,29 @@ Students
             <th scope="row">{{student.mat_num}}</th>
             <td>{{student.first_name}} {{student.surname}} ({{student.nickname}})</td>
             <td>
-                {{ student.instances|length }}
+                {{ student.instances|length }}<br>{{ student.submissions|length }}
             </td>
             <td>{{student.is_admin}}</td>
             <td>
                 <div class="btn-group">
-                <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.student_view_single', user_id=student.id) }}">View</a>
-                {% if student.instances|length %}
-                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instances_by_user_id', user_id=student.id) }}">Instances</a>
-                {% endif %}
-                <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.student_edit', user_id=student.id, next=request.path) }}">Edit</a>
-                <a role="button" class="btn btn-outline-danger confirm" href="{{ url_for('ref.student_delete', user_id=student.id, next=request.path) }}">Delete</a>
-            </div>
+                    <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.student_view_single', user_id=student.id) }}">View</a>
+                    <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.student_edit', user_id=student.id, next=request.path) }}">Edit</a>
+
+                    <div class="btn-group" role="group">
+                        <a id="btnGroupDrop1" type="button" class="btn btn-outline-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            ...
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="btnGroupDrop1">
+                            {% if student.instances|length %}
+                            <a role="button" class="dropdown-item" href="{{ url_for('ref.instances_by_user_id', user_id=student.id) }}">Instances</a>
+                            {% endif %}
+                            {% if student.instances|length %}
+                            <a role="button" class="dropdown-item" href="{{ url_for('ref.submissions_by_user', user_id=student.id) }}">Submissions</a>
+                            {% endif %}
+                            <a class="dropdown-item confirm" href="{{ url_for('ref.student_delete', user_id=student.id, next=request.path) }}">Delete</a>
+                        </div>
+                    </div>
+                </div>
             </td>
         </tr>
     {% endfor %}

@@ -119,7 +119,7 @@ Exercises
                                         {% endif %}
 
                                         {% if e.build_job_status.value not in ['BUILDING'] %}
-                                            <a class="dropdown-item"  href="{{ url_for('ref.exercise_browse', exercise_id=e.id) }}">Browse</a>
+                                            <a class="dropdown-item" href="{{ url_for('ref.exercise_browse', exercise_id=e.id) }}">Browse</a>
                                             <a class="dropdown-item ok-modal"  href="{{ url_for('ref.exercise_view', exercise_id=e.id) }}">View</a>
                                             <a class="dropdown-item confirm" href="{{ url_for('ref.exercise_delete', exercise_id=e.id, next=request.path) }}">Delete</a>
                                         {% endif %}

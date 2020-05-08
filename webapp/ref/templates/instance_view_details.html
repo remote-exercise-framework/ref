@@ -1,45 +1,57 @@
-<div class="modal-dialog modal-dialog-centered modal-full" role="document">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h5 class="modal-title" id="exampleModalLongTitle">Details of instance {{ instance.id }}</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-        <div class="modal-body">
-            <dl class="row">
-                <dt class="col-sm-3">ID</dt>
-                <dd class="col-sm-9">{{ instance.id }}</dd>
-                <dt class="col-sm-3"> Entry Service Network ID </dt>
-                <dd class="col-sm-9">{{ instance.network_id }}</dd>
-                <dt class="col-sm-3">Exercise ID</dt>
-                <dd class="col-sm-9">{{ instance.exercise_id }}</dd>
-                <dt class="col-sm-3">User ID</dt>
-                <dd class="col-sm-9">{{ instance.user_id }}</dd>
-                <dt class="col-sm-3">Persistance Path</dt>
-                <dd class="col-sm-9">{{ instance.persistance_path }}</dd>
-            </dl>
+{% extends 'modal/ok.html' %}
 
-            <h5>Entry Service</h5>
-            <dl class="row">
-                <dt class="col-sm-3">ID</dt>
-                <dd class="col-sm-9">{{ instance.entry_service.id }}</dd>
-                <dt class="col-sm-3">Container ID</dt>
-                <dd class="col-sm-9">{{ instance.entry_service.container_id }}</dd>
-                <dt class="col-sm-3">Is Submission</dt>
-                <dd class="col-sm-9">{{ instance.entry_service.submission }}</dd>
-                <dt class="col-sm-3">Overlay Submission Lower</dt>
-                <dd class="col-sm-9">{{ instance.entry_service.overlay_submission_lower }}</dd>
-                <dt class="col-sm-3">Overlay Upper</dt>
-                <dd class="col-sm-9">{{ instance.entry_service.overlay_upper }}</dd>
-                <dt class="col-sm-3">Overlay Work</dt>
-                <dd class="col-sm-9">{{ instance.entry_service.overlay_work }}</dd>
-                <dt class="col-sm-3">Overlay Merged</dt>
-                <dd class="col-sm-9">{{ instance.entry_service.overlay_merged }}</dd>
-            </dl>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-        </div>
-    </div>
+{% block title %}
+Instance Details
+{% endblock title %}
+
+{% block content %}
+
+
+<div class="modal-body">
+    <dl class="row">
+        <dt class="col-sm-3">ID</dt>
+        <dd class="col-sm-9">{{ instance.id }}</dd>
+        <dt class="col-sm-3">Exercise ID</dt>
+        <dd class="col-sm-9">{{ instance.exercise_id }}</dd>
+        <dt class="col-sm-3">User ID</dt>
+        <dd class="col-sm-9">{{ instance.user_id }}</dd>
+        <dt class="col-sm-3"> Entry Service Network ID </dt>
+        <dd class="col-sm-9">{{ instance.network_id }}</dd>
+        <dt class="col-sm-3"> Peripheral Services Network ID </dt>
+        <dd class="col-sm-9">{{ instance.peripheral_services_network_id }}</dd>
+        <dt class="col-sm-3">Persistance Path</dt>
+        <dd class="col-sm-9">{{ instance.persistance_path }}</dd>
+        <dt class="col-sm-3">Creation Date</dt>
+        <dd class="col-sm-9">{{ moment(instance.creation_ts).format() }}</dd>
+        <dt class="col-sm-3">Is Submission</dt>
+        <dd class="col-sm-9">{{ instance.submission }}</dd>
+    </dl>
+
+    <h5>Entry Service</h5>
+    <dl class="row">
+        <dt class="col-sm-3">ID</dt>
+        <dd class="col-sm-9">{{ instance.entry_service.id }}</dd>
+        <dt class="col-sm-3">Container ID</dt>
+        <dd class="col-sm-9">{{ instance.entry_service.container_id }}</dd>
+        <dt class="col-sm-3">Overlay Submission Lower</dt>
+        <dd class="col-sm-9">{{ instance.entry_service.overlay_submission_lower }}</dd>
+        <dt class="col-sm-3">Overlay Upper</dt>
+        <dd class="col-sm-9">{{ instance.entry_service.overlay_upper }}</dd>
+        <dt class="col-sm-3">Overlay Work</dt>
+        <dd class="col-sm-9">{{ instance.entry_service.overlay_work }}</dd>
+        <dt class="col-sm-3">Overlay Merged</dt>
+        <dd class="col-sm-9">{{ instance.entry_service.overlay_merged }}</dd>
+    </dl>
+
+    {% for service in instance.peripheral_services  %}
+        <h5>service.name Service</h5>
+        <dl class="row">
+            <dt class="col-sm-3">ID</dt>
+            <dd class="col-sm-9">{{ service.id }}</dd>
+            <dt class="col-sm-3">Container ID</dt>
+            <dd class="col-sm-9">{{ service.container_id }}</dd>
+        </dl>
+    {% endfor %}
 </div>
+
+{% endblock content %}

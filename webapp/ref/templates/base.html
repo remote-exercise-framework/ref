@@ -71,7 +71,7 @@
      }
 
      $(document).ready(function(){
-        $('body').bootstrapMaterialDesign(); 
+        $('body').bootstrapMaterialDesign();
 
         // Disable mousewheel scrolling for number input fields
         $(':input[type=number]').on('mousewheel',function(e){ $(this).blur(); });
@@ -82,9 +82,7 @@
                 return false
             return true;
         });
-     });
 
-     $(document).ready(function(){
         //On click on a element with class ok-modal load the URL href points at,
         //and create a modal using the retrived data.
         $( ".ok-modal" ).click(function(e) {
@@ -93,10 +91,14 @@
                 $("#modal").html(data);
                 $("#modal").modal("show");
             });
-
             return false;
         });
-    });
+
+        $('[data-toggle="tooltip"]').tooltip()
+
+     });
+
+
 
     </script>
 </body>
