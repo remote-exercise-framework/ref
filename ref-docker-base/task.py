@@ -4,6 +4,7 @@ import argparse
 import os
 import subprocess
 import sys
+import typing
 
 import requests
 from itsdangerous import TimedSerializer
@@ -22,26 +23,39 @@ def finalize_request(req):
     req = signer.dumps(req)
     return req
 
-def handle_response(resp):
+def handle_response(resp, expected_status=(200, )) -> typing.Tuple[int, typing.Dict]:
+    """
+    Process a response of a "requests" request.
+    If the response has a status code not in expected_status,
+    the program is terminated and an error message is displayed
+    to the user. If the status code is in expected_status and the
+    response contains a JSON body, a tuple status_code, json_body
+    is returned.
+    """
+    status_code = resp.status_code
+    json = None
+
+    json_error = None
     try:
-        err = resp.status_code
         json = resp.json()
     except ValueError:
-        print_err('[!] Missing JSON body')
-        return False
+        json_error = f'[!] Missing JSON body (status={status_code})'
     except Exception:
-        print_err('[!] Internal Error')
-        return False
+        json_error = f'[!] Internal Error (status={status_code})'
+
+    if json_error:
+        #Answers always have to contain JSON
+        print_err(json_error)
+        exit(1)
+
+    if status_code in expected_status:
+        return status_code, json
     else:
-        if err != 200:
-            if 'error' in json:
-                print_err(f'[!] ', json['error'])
-            else:
-                print_err('[!] ', 'Unknown error! Please contact staff.')
-            return False
+        if 'error' in json:
+            print_err(f'[!] ', json['error'])
         else:
-            print_ok('[+] ', json)
-    return True
+            print_err(f'[!] ', 'Unknown error! Please contact the staff')
+        exit(1)
 
 def check_answer(prompt=None):
     if prompt:
@@ -52,7 +66,7 @@ def check_answer(prompt=None):
         print_err('[!] No answer provided, exiting.')
         exit(1)
     data = data.lower()
-    return data == 'y' or data == 'yes' or data == 'true'
+    return data in ['y', 'yes', 'true']
 
 
 def cmd_reset(_):
@@ -103,12 +117,6 @@ def cmd_check(_):
 def cmd_id(_):
     print_ok(f'[+] If you need support, please provide this ID alongside your request.')
     print_ok(f'[+] Instance ID: {INSTANCE_ID}')
-
-# def cmd_diff(_):
-#     req = {}
-#     req = finalize_request(req)
-#     res = requests.post('http://sshserver:8000/api/instance/diff', json=req)
-#     handle_response(res)
 
 def main():
     parser = argparse.ArgumentParser(prog="task")

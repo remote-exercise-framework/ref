@@ -83,7 +83,6 @@ RUN echo "user:user" | chpasswd
 # Import and install ref-utils
 COPY --from=ref_utils_builder /home/ref-utils/dist/ref_utils-*-py3-none-any.whl /tmp
 RUN python3 -m pip install -U pip setuptools wheel && \
-    python3 -m pip install colorama && \
     python3 -m pip install -U /tmp/ref_utils-*-py3-none-any.whl && \
     rm -f /tmp/ref_utils-*-py3-none-any.whl
 
@@ -92,8 +91,10 @@ RUN wget -O /home/user/.gdbinit-gef.py -q https://github.com/hugsy/gef/raw/maste
     && echo source /home/user/.gdbinit-gef.py >> /home/user/.gdbinit \
     && chown user:user /home/user/.gdbinit
 
-# Setup mypy and pylint
-RUN python3 -m pip install -U mypy pylint
+COPY requirements.txt /tmp/requirements.txt
+RUN python3 -m pip install -r /tmp/requirements.txt && rm /tmp/requirements.txt
+
+# Copy mypy and pylint configs
 COPY pylintrc /etc/pylintrc
 COPY mypyrc /etc/mypyrc
 
@@ -110,4 +111,3 @@ RUN apt update && apt install -y \
     vim
 
 RUN pip install --upgrade pwntools
-RUN pip3 install --upgrade pwntools ipython itsdangerous colorama
