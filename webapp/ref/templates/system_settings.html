@@ -64,6 +64,11 @@ System Settings
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
+                        {{ wtf_utils.render_textarea(ssh_settings.message_of_the_day, style="font-family: monospace") }}
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-group">
                         {{ wtf_utils.render_field(ssh_settings.allow_none_default_provisioning, "checkbox") }}
                     </div>
                 </div>
@@ -85,7 +90,7 @@ System Settings
                 {{ wtf_utils.render_submit(ssh_settings.submit) }}
             </div>
         </form>
-    </div>
+    </div> 
 </div>
 
 <div class="card">

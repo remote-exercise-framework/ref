@@ -78,5 +78,6 @@ class SystemSettingsManager():
     GROUPS_ENABLED = Setting('GROUPS_ENABLED', bool, False)
     GROUP_SIZE = Setting('GROUP_SIZE', int, 2)
     SSH_WELCOME_MSG = Setting('SSH_WELCOME_MSG', str, default_ssh_welcome_msg)
+    SSH_MESSAGE_OF_THE_DAY = Setting('SSH_MESSAGE_OF_THE_DAY', str, None)
 
     TIMEZONE = Setting('TIMEZONE', str, 'Europe/Berlin')

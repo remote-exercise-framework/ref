@@ -54,6 +54,7 @@ class SshSettings(Form):
     ssh_instance_introspection = BooleanField(
         'Allow admins and grading assistance to access arbitrary instances using instance-{ID} as username'
         )
+    message_of_the_day = TextField('Message of the day')
     submit = SubmitField('Save')
 
 
@@ -93,12 +94,14 @@ def view_system_settings():
         SystemSettingsManager.SSH_WELCOME_MSG.value = ssh_settings.welcome_header.data
         SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value = ssh_settings.ssh_instance_introspection.data
         SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value = ssh_settings.allow_none_default_provisioning.data
+        SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY.value = ssh_settings.message_of_the_day.data
     else:
         ssh_settings.ssh_hostname.data = SystemSettingsManager.SSH_HOSTNAME.value
         ssh_settings.ssh_port.data = SystemSettingsManager.SSH_PORT.value
         ssh_settings.welcome_header.data = SystemSettingsManager.SSH_WELCOME_MSG.value
         ssh_settings.ssh_instance_introspection.data = SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value
         ssh_settings.allow_none_default_provisioning.data = SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value
+        ssh_settings.message_of_the_day.data = SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY.value
 
     return render_template(
         'system_settings.html',
