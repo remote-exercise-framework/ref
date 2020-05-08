@@ -98,12 +98,6 @@ def _instances_render_view(instances, title=None):
 
     #Set attributes used by the UI.
     for i in instances:
-        i = i.refresh(lock=True)
-        if not i:
-            continue
-        running = InstanceManager(i).is_running()
-        setattr(i, 'running', running)
-
         new_exercise = get_newest_exercise_version(i.exercise)
         setattr(i, 'new_exercise', new_exercise)
 
