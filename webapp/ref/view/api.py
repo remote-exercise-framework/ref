@@ -22,7 +22,8 @@ from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, limiter, refbp
 from ref.core import AnsiColorUtil as ansi
-from ref.core import (ExerciseImageManager, ExerciseManager, InstanceManager,
+from ref.core import (ExerciseImageManager, ExerciseManager,
+                      InconsistentStateError, InstanceManager,
                       datetime_to_local_tz, datetime_to_string, flash,
                       retry_on_deadlock)
 from ref.core.util import lock_db
@@ -372,7 +373,12 @@ def api_get_header():
     """
     Returns the header that is display when a user connects.
     """
-    return ok_response(SystemSettingsManager.SSH_WELCOME_MSG.value)
+    resp = SystemSettingsManager.SSH_WELCOME_MSG.value
+    msg_of_the_day = SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY.value
+    if msg_of_the_day:
+        msg_of_the_day = ansi.green(msg_of_the_day)
+        resp += f'\n{msg_of_the_day}'
+    return ok_response(resp)
 
 
 def _sanitize_container_request(request, max_age=60) -> str:

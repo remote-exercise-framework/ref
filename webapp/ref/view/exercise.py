@@ -22,7 +22,8 @@ from wtforms import Form, IntegerField, SubmitField, validators
 from flask_login import login_required
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
-                      ExerciseManager, admin_required, flash)
+                      ExerciseManager, admin_required, flash,
+                      inconsistency_on_error)
 from ref.core.security import sanitize_path_is_subdir
 from ref.core.util import failsafe, redirect_to_next
 from ref.model import ConfigParsingError, Exercise, User

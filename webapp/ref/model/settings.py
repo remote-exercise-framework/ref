@@ -48,7 +48,6 @@ class Setting():
             entry.name = self.key
         entry.value = val
         current_app.db.session.add(entry)
-        current_app.db.session.commit()
 
     value = property(_get_value, _set_value)
 

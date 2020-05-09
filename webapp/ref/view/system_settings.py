@@ -9,12 +9,16 @@ from werkzeug.local import LocalProxy
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, SelectField, StringField, SubmitField,
                      TextField, validators)
+from flask import copy_current_request_context
 
 import pytz
 from ref import db, refbp
-from ref.core import admin_required, flash
+from ref.core import admin_required, flash, InstanceManager
 from ref.core.util import redirect_to_next
-from ref.model import SystemSettingsManager, UserGroup
+from ref.model import SystemSettingsManager, UserGroup, Instance
+
+import concurrent.futures as cf
+from functools import partial
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -29,7 +33,7 @@ class GeneralSettings(Form):
     allow_submission_deletion = BooleanField(
         'Allow admins to delete submissions')
     maintenance_enabled = BooleanField(
-        'Enable maintenance mode: Disallow any new access by non admin users. Already established connections are not closed'
+        'Enable maintenance mode: Disallow any new access by non admin users. Beware: Already established connections are closed'
         )
     disable_submission = BooleanField('Disable submission for instances.')
     timezone = SelectField(
@@ -56,7 +60,6 @@ class SshSettings(Form):
         )
     message_of_the_day = TextField('Message of the day')
     submit = SubmitField('Save')
-
 
 @refbp.route('/admin/system/settings/', methods=('GET', 'POST'))
 @admin_required
@@ -102,6 +105,8 @@ def view_system_settings():
         ssh_settings.ssh_instance_introspection.data = SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value
         ssh_settings.allow_none_default_provisioning.data = SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value
         ssh_settings.message_of_the_day.data = SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY.value
+
+    current_app.db.session.commit()
 
     return render_template(
         'system_settings.html',
