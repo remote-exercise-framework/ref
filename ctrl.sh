@@ -297,6 +297,10 @@ function up {
                 disable_telegram=true
                 shift
             ;;
+            '--debug-toolbar')
+                debug_toolbar=true
+                shift
+            ;;
             *)
             #Pass unknown flags to docker-compose
             break
@@ -314,6 +318,10 @@ function up {
 
     if [[ "$disable_telegram" == 'true' ]]; then
         export DISABLE_TELEGRAM=1
+    fi
+
+    if [[ "$debug_toolbar" == 'true' ]]; then
+        export DEBUG_TOOLBAR=1
     fi
 
     docker-compose -p ref up $@

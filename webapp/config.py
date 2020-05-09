@@ -63,6 +63,8 @@ class ReleaseConfig(object):
 
     DISABLE_TELEGRAM = os.environ.get('DISABLE_TELEGRAM') or None
 
+    DEBUG_TOOLBAR = os.environ.get('DEBUG_TOOLBAR') or None
+
 
 class DebugConfig(ReleaseConfig):
     debug = True

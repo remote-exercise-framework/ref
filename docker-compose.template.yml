@@ -74,6 +74,7 @@ services:
          - SSH_HOST_PORT=${SSH_HOST_PORT:?SSH_HOST_PORT not set}
          - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
          - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
+         - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
       cap_add:
          - SYS_ADMIN
       build:
