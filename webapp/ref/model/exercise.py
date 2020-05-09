@@ -299,6 +299,28 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             ret += [max(v, key=lambda e: e.creation_ts)]
         return [e.submission for e in ret if e.submission]
 
+    def submission_heads_global(self):
+        """
+        Same as .submission_heads(), except only submissions
+        that have no newer (based on a more recent exercise)
+        submission are returned.
+        """
+        submissions = []
+        for exercise in [self] + self.successors():
+            submissions += exercise.submission_heads()
+
+        seen_users = set()
+        ret = []
+
+        for submission in submissions[::-1]:
+            user = submission.submitted_instance.user
+            if user in seen_users:
+                continue
+            seen_users.add(user)
+            ret += [submission]
+
+        return ret
+
     @property
     def active_instances(self) -> List[Instance]:
         """
@@ -318,6 +340,10 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         if user:
             ret = [e for e in ret if e.user == user]
         return ret
+
+    def ungraded_submissions(self, user=None):
+        submissions = self.submissions(user=user)
+        return [s for s in submissions if not s.grading and not s.successors()]
 
     def has_submissions(self) -> bool:
         return self.submissions()
