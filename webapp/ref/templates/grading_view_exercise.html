@@ -24,28 +24,28 @@ Grading of exercise {{ exercise.short_name }} - v{{ exercise.version }}
                 </tr>
             </thead>
             <tbody>
-                {% for submission in submissions %}
-                {% set instance = submission.submitted_instance  %}
-                {% set deadline_passed = exercise.deadine_passed() %}
-                {% set modified = submission.is_modified() %}
-                {% set grading = submission.grading %}
-                <tr class="table-{{ 'success' if grading else 'danger'  }}">
-                    <td>{{ instance.user.mat_num }}</td>
-                    <td>{{ instance.user.first_name }} {{ instance.user.surname }}</td>
-                    {% if exercise.submission_test_enabled %}
-                        <td>{{ submission.test_passed  }}</td>
-                    {% else  %}
-                        <td>Disabled</td>
-                    {% endif %}
-                    <td>{{ grading.points_reached|default('?') }} of 12</td>
-                    <td>{{ moment(submission.submission_ts).fromNow()  }}</td>
-                    <td>{{ modified }}</td>
-                    <td>
-                        <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ instance.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">SSH</a>
-                        <a role="button" class="btn btn-outline-{{ 'success' if deadline_passed else 'danger'  }}" href="{{ url_for('ref.grading_view_submission', submission_id=submission.id, next=request.path)  }}">Grade</a>
-                        <a role="button" class="btn btn-outline-{{ 'success' if modified else 'danger'  }}" href="{{ url_for('ref.submission_reset', submission_id=submission.id, next=request.path)  }}">Reset</a>
-                    </td>
-                </tr>
+                {% for submission in submissions|sort(attribute='submission_ts', reverse=true) %}
+                    {% set instance = submission.submitted_instance  %}
+                    {% set deadline_passed = exercise.deadine_passed() %}
+                    {% set modified = submission.is_modified() %}
+                    {% set grading = submission.grading %}
+                    <tr class="table-{{ 'success' if grading else 'danger'  }}">
+                        <td>{{ instance.user.mat_num }}</td>
+                        <td>{{ instance.user.first_name }} {{ instance.user.surname }}</td>
+                        {% if exercise.submission_test_enabled %}
+                            <td>{{ submission.test_passed  }}</td>
+                        {% else  %}
+                            <td>Disabled</td>
+                        {% endif %}
+                        <td>{{ grading.points_reached|default('?') }} of 12</td>
+                        <td>{{ moment(submission.submission_ts).fromNow()  }}</td>
+                        <td>{{ modified }}</td>
+                        <td>
+                            <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ instance.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">SSH</a>
+                            <a role="button" class="btn btn-outline-{{ 'success' if deadline_passed else 'danger'  }}" href="{{ url_for('ref.grading_view_submission', submission_id=submission.id, next=request.path)  }}">Grade</a>
+                            <a role="button" class="btn btn-outline-{{ 'success' if modified else 'danger'  }}" href="{{ url_for('ref.submission_reset', submission_id=submission.id, next=request.path)  }}">Reset</a>
+                        </td>
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -108,7 +108,11 @@ Grading for exercise {{ exercise.short_name }}
         {{ form.csrf_token }}
         {{ wtf_utils.render_field(form.points, "number") }}
         {{ wtf_utils.render_textarea(form.notes) }}
-        {{ wtf_utils.render_submit(form.save) }}
+        <dl class="row">
+          <dt class="col-sm-4">{{ wtf_utils.render_submit(form.save_and_next) }}</dt>
+          <dt class="col-sm-4">{{ wtf_utils.render_submit(form.save) }}</dt>
+          <dt class="col-sm-4">{{ wtf_utils.render_submit(form.next) }}</dt>
+        </dl>
         {{ wtf_utils.render_submit(form.reset) }}
       </form>
     </div>

@@ -34,7 +34,9 @@ log = LocalProxy(lambda: current_app.logger)
 class GradingForm(Form):
     points = IntegerField('Points', validators=[validators.NumberRange(min=0)])
     notes = StringField('Notes')
+    next = SubmitField('Next')
     save = SubmitField('Save')
+    save_and_next = SubmitField('Save and Next')
     reset = SubmitField('Reset')
 
 
@@ -42,11 +44,12 @@ class GradingForm(Form):
 @grading_assistant_required
 def grading_view_all():
     exercises: typing.List[Exercise] = Exercise.all()
-    exercises_by_category = defaultdict(list)
-    for exercise in exercises:
+    exercises_by_category = defaultdict(lambda: defaultdict(list))
+
+    for exercise in sorted(exercises, key=lambda e: (e.category, e.short_name, e.version)):
         if not exercise.has_deadline() or not exercise.has_submissions():
             continue
-        exercises_by_category[exercise.category] += [exercise]
+        exercises_by_category[exercise.category][exercise.short_name] += [exercise]
 
     return render_template('grading_view_all.html', exercises_by_category=exercises_by_category)
 
@@ -58,14 +61,27 @@ def grading_view_exercise(exercise_id):
         flash.error(f'Unknown exercise ID {exercise_id}')
         return redirect_to_next()
 
-    submissions = exercise.submission_heads()
+    submissions = exercise.submission_heads_global()
 
     return render_template('grading_view_exercise.html', exercise=exercise, submissions=submissions)
+
+
+def _get_next_ungraded_submission(exercise: Exercise, current: Submission):
+    ungraded_submissions = exercise.ungraded_submissions()
+    ungraded_submissions = sorted(ungraded_submissions, key=lambda e: e.submission_ts, reverse=True)
+    current_ts = current.submission_ts
+    newer_submissions = [e for e in ungraded_submissions if e.submission_ts < current_ts]
+    if newer_submissions:
+        return newer_submissions[0]
+    elif ungraded_submissions:
+        return ungraded_submissions[0]
+
+    return None
 
 @refbp.route('/admin/grading/grade/<int:submission_id>',  methods=('GET', 'POST'))
 @grading_assistant_required
 def grading_view_submission(submission_id):
-    submission = Submission.get(submission_id)
+    submission: Submission = Submission.get(submission_id)
     if not submission:
         flash.error(f'Unknown submission ID {submission_id}')
         return redirect_to_next()
@@ -75,7 +91,7 @@ def grading_view_submission(submission_id):
         return redirect_to_next()
 
     grading: Grading = submission.grading
-    exercise: Exercise = submission.submitted_instance.exercise    
+    exercise: Exercise = submission.submitted_instance.exercise
     form = GradingForm(request.form)
 
     is_new_grading = False
@@ -91,13 +107,21 @@ def grading_view_submission(submission_id):
         file_browser_path=submission.submitted_instance.entry_service.overlay_merged
         )
 
-    if form.save.data and form.validate():
+    if form.next.data:
+            next_submission = _get_next_ungraded_submission(exercise, submission)
+            if not next_submission:
+                flash.warning('There is no submission left for grading.')
+                return render()
+            return redirect(url_for('ref.grading_view_submission', submission_id=next_submission.id))
+
+    if (form.save.data or form.save_and_next.data) and form.validate():
         if not exercise.deadine_passed():
             flash.error(f'Unable to grade submission before deadline is passed!')
             return render()
 
         if form.points.data > exercise.max_grading_points:
             form.points.errors = [f'Points are greater than the maximum of {exercise.max_grading_points}']
+            return render()
         grading.points_reached = form.points.data
         grading.private_note = form.notes.data
         grading.last_edited_by = current_user
@@ -109,10 +133,23 @@ def grading_view_submission(submission_id):
             grading.created_ts = datetime.datetime.utcnow()
             current_app.db.session.add(grading)
 
+
+        flash.success(f'Successfully graded submission {submission.id}.')
+        if form.save_and_next.data:
+            next_submission = _get_next_ungraded_submission(exercise, submission)
+            if next_submission:
+                current_app.db.session.add(grading)
+                current_app.db.session.commit()
+                return redirect(url_for('ref.grading_view_submission', submission_id=next_submission.id))
+            flash.warning('There is no submission left for gradeing')
+
         current_app.db.session.add(grading)
         current_app.db.session.commit()
+        return render()
+
+
+
     else:
         form.points.data = '' if grading.points_reached is None else grading.points_reached
         form.notes.data = '' if grading.private_note is None else grading.private_note
-
-    return render()
+        return render()
