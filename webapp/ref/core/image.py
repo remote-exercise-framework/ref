@@ -10,7 +10,7 @@ from flask import Flask, current_app
 from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
 
-from ref.core import InconsistentStateError
+from ref.core import InconsistentStateError, inconsistency_on_error
 
 from .docker import DockerClient
 from .exercise import Exercise, ExerciseBuildStatus, ExerciseService
@@ -337,8 +337,7 @@ class ExerciseImageManager():
 
         log.info(f'Deleting images of {self.exercise} ')
 
-        try:
-
+        with inconsistency_on_error(f'Failed to delete all components of exercise {self.exercise}'):
             #Delete docker images
             ExerciseImageManager.__purge_entry_service_image(self.exercise)
             ExerciseImageManager.__purge_peripheral_services_images(self.exercise)
@@ -350,5 +349,3 @@ class ExerciseImageManager():
             #Remove overlay
             if os.path.isdir(self.exercise.persistence_path):
                 subprocess.check_call(f'sudo rm -rf {self.exercise.persistence_path}', shell=True)
-        except Exception as e:
-            raise InconsistentStateError(f'Failed to delete all components of exercise {self.exercise}') from e

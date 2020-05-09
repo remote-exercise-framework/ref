@@ -53,6 +53,10 @@ class InstanceService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     #The docker container id of this service.
     container_id: str = db.Column(db.Text(), unique=True)
 
+    @property
+    def hostname(self):
+        return self.exercise_service.name
+
 class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     An InstanceEntryService is an instance of an ExerciseEntryService and
@@ -99,6 +103,10 @@ class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         Path to the directory that contains the merged content of the upper and lower directory.
         """
         return f'{self.instance.persistance_path}/entry-merged'
+
+    @property
+    def hostname(self):
+        return self.instance.exercise.short_name
 
 class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """

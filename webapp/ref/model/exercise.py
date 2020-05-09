@@ -115,6 +115,8 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     instances: List[Instance] = db.relationship("InstanceService", back_populates="exercise_service", lazy=True, passive_deletes='all')
 
+    # health_check_cmd: List[str] = db.Column(db.PickleType(), nullable=False)
+
     flag_path: str = db.Column(db.Text(), nullable=True)
     flag_value: str = db.Column(db.Text(), nullable=True)
     flag_user: str = db.Column(db.Text(), nullable=True)
@@ -164,7 +166,6 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     #Used to group the exercises
     category: str = db.Column(db.Text(), nullable=True, unique=False)
 
-    description: str = db.Column(db.Text(), nullable=True)
 
     #Instances must be submitted before this point in time.
     submission_deadline_end: datetime.datetime = db.Column(db.DateTime(), nullable=True)
@@ -287,7 +288,8 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         Returns the most recent submission for this exercise for each user.
         Note: This function does not consider Submissions of other
-        version of this exercise.
+        version of this exercise. Hence, the returned submissions might
+        not be the most recent ones for an specific instance.
         """
         ret = []
         submissions_per_user = defaultdict(list)

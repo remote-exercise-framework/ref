@@ -278,6 +278,19 @@ def api_provision():
             log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {requested_exercise}')
             mgr = InstanceManager(old_instance)
             user_instance = mgr.update_instance(requested_exercise)
+            mgr.bequeath_submissions_to(user_instance)
+
+            try:
+                db.session.begin_nested()
+                mgr.remove()
+            except Exception as e:
+                #Remove failed, do not commit the changes to the DB.
+                db.session.rollback()
+                #Commit the new instance to the DB.
+                db.session.commit()
+                raise InconsistentStateError('Failed to remove old instance after upgrading.') from e
+            else:
+                db.session.commit()
     else:
         user_instance = InstanceManager.create_instance(user, requested_exercise)
 

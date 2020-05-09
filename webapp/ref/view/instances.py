@@ -64,23 +64,26 @@ def instance_update(instance_id):
             flash.error('There can be only one instance with same version')
             return redirect_to_next()
 
-    #release lock (commit)
-
-    #Create new instance (takes long)
-
-    #Get lock
-
-    #Retest assumption. If still valid, update old instance. If not, delete new instance.
-
     mgr = InstanceManager(instance)
-    try:
-        mgr.update_instance(new_exercise)
-    except:
-        raise
-    finally:
-        current_app.db.session.commit()
+    user_instance = mgr.update_instance(new_exercise)
+    mgr.bequeath_submissions_to(user_instance)
 
+    try:
+        db.session.begin_nested() #subtransaction start
+        mgr.remove()
+    except Exception as e:
+        #Remove failed, do not commit the changes to the DB.
+        db.session.rollback() #subtransaction end
+        #Commit the new instance to the DB.
+        db.session.commit()
+        raise InconsistentStateError('Failed to remove old instance after upgrading.') from e
+    else:
+        db.session.commit() #subtransaction end
+
+    db.session.commit()
     return redirect_to_next()
+
+
 
 @refbp.route('/admin/instances/view/<int:instance_id>')
 @admin_required
@@ -151,7 +154,7 @@ def instance_view_submissions(instance_id):
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         abort(400)
-    
+
     instances = []
     for submission in instance.submissions:
         instances.append(submission.submitted_instance)
@@ -161,8 +164,6 @@ def instance_view_submissions(instance_id):
 @refbp.route('/admin/instances/view')
 @admin_required
 def instances_view_all():
-
-    lock_db()
 
     instances = Instance.query.all()
     instances = list(filter(lambda e: not e.submission, instances))

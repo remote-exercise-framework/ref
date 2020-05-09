@@ -1,6 +1,6 @@
 from .dashboard import SystemMetricsUpdateService
 from .docker import DockerClient
-from .error import InconsistentStateError
+from .error import InconsistentStateError, inconsistency_on_error
 from .exercise import ExerciseConfigError, ExerciseManager
 from .image import ExerciseImageManager
 from .instance import InstanceManager

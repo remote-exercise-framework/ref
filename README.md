@@ -75,5 +75,3 @@ User: ref
 Database name: ref
 Password: See .env
 ```
-
-

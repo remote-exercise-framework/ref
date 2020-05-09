@@ -10,11 +10,13 @@ import tarfile
 import traceback
 from io import BytesIO, StringIO
 from pathlib import Path
+from typing import List
 
 import itsdangerous
 from flask import current_app
 from werkzeug.local import LocalProxy
 
+from ref.core import InconsistentStateError, inconsistency_on_error
 from ref.model import (Instance, InstanceEntryService, InstanceService,
                        Submission, User)
 
@@ -38,12 +40,15 @@ class InstanceManager():
         Creates an instance of the given exercise for the given user.
         After creating an instance, .start() must be used to start it.
 
-        On success a new Instance is returned and added to the DB.
-        On error all changes are rolled back and an exception is thrown.
-
-        The following arguments must be locked:
-            - user
-            - exercise
+        Args:
+            user: The user the instance is created for.
+            exercise: The exercise of that an instance is created.
+        Raises:
+            *: If the instance creation failed.
+            InconsistentStateError: If the instance creation failed and left the system
+                in an inconsistent state.
+        Returns:
+            The created instance.
         """
         instance = Instance()
         instance.creation_ts = datetime.datetime.utcnow()
@@ -53,13 +58,12 @@ class InstanceManager():
 
         #Create the entry service
         entry_service = InstanceEntryService()
-        #Backref
-        entry_service.instance = instance
+        instance.entry_service = entry_service
 
         #Create the peripheral services
         for service in exercise.services:
             peripheral_service = InstanceService()
-            peripheral_service.instance = instance
+            instance.peripheral_services.append(peripheral_service)
             peripheral_service.exercise_service = service
 
         dirs = [
@@ -69,27 +73,34 @@ class InstanceManager():
             Path(entry_service.overlay_merged),
             Path(entry_service.overlay_submitted)
         ]
-        try:
-            for d in dirs:
-                d.mkdir(parents=True)
-        except:
-            #Revert changes
+
+        def delete_dirs():
             for d in dirs:
                 if d.exists():
                     shutil.rmtree(d.as_posix())
+
+        try:
+            for d in dirs:
+                d.mkdir(parents=True)
+            mgr = InstanceManager(instance)
+            mgr.mount()
+        except:
+            #Revert changes
+            with inconsistency_on_error(f'Error while aborting instance creation {instance}'):
+                delete_dirs()
             raise
 
-        current_app.db.session.add(entry_service)
         current_app.db.session.add(instance)
-
-        mgr = InstanceManager(instance)
-        mgr.mount()
 
         return instance
 
     def create_submission(self) -> Instance:
         """
         Creates a new instance that represents a snapshot of the current instance state.
+        Raises:
+            *: If the instance submission failed.
+            InconsistentStateError: If the instance submission failed and left the system
+                in an inconsistent state.
         """
         assert not self.instance.submission, f'Can not submit instance {self.instance}, cause it is already part of a submission'
 
@@ -101,33 +112,59 @@ class InstanceManager():
         exercise = self.instance.exercise
 
         new_instance = InstanceManager.create_instance(user, exercise)
+        new_mgr = InstanceManager(new_instance)
 
         #Copy user data from the original instance as second lower dir to new instance.
         #NOTE: We are accessing the overlay, make sure nothing is currently mounted!
         src = self.instance.entry_service.overlay_upper
         dst = new_instance.entry_service.overlay_submitted
-        # -a is mandetory, since the upper dir might contain files with extended file attrbiutes (used by overlayfs) 
+        # -a is mandatory, since the upper dir might contain files with extended file attrbiutes (used by overlayfs).
         cmd = f'sudo cp -arT {src} {dst}'
-        subprocess.check_call(cmd, shell=True)
+        try:
+            subprocess.check_call(cmd, shell=True)
+        except subprocess.CalledProcessError:
+            log.error(f'Error while coping submitted data into new instance.', exc_info=True)
+            with inconsistency_on_error():
+                new_mgr.remove()
+            raise
 
-        new_mgr = InstanceManager(new_instance)
-        new_mgr.start()
-
-
-        submission = Submission()
+        #Start the new instance
+        try:
+            new_mgr.start()
+        except:
+            with inconsistency_on_error():
+                new_mgr.remove()
+            raise
 
         #Run submission tests and safe result
-        ret, test_out = new_mgr.run_tests()
+        try:
+            ret, test_out = new_mgr.run_tests()
+        except:
+            with inconsistency_on_error():
+                new_mgr.remove()
+            raise
 
-        submission.test_output = test_out.decode()
+        submission = Submission()
+        try:
+            submission.test_output = test_out.decode()
+        except:
+            log.error('Failed to decode output', exc_info=True)
+            submission.test_output = str(test_out)
+
         submission.test_passed = ret == 0
 
         submission.submission_ts = datetime.datetime.now()
         submission.origin_instance = self.instance
         submission.submitted_instance = new_instance
 
-        current_app.db.session.add(submission)
-        current_app.db.session.add(self.instance)
+        try:
+            current_app.db.session.add(submission)
+            current_app.db.session.add(self.instance)
+        except:
+            log.error('Error while adding objects to DB', exc_info=True)
+            with inconsistency_on_error():
+                new_mgr.remove()
+            raise
 
         return new_instance
 
@@ -136,8 +173,15 @@ class InstanceManager():
         Updates the instance to the new exercise version new_exercise.
         The passed exercise must be a newer version of the exercise currently attached
         to the instance.
-        Returns a new running instance.
-        On error and exception is raised and the current instance might be stopped.
+        Args:
+            new_exercise: The exercise the instance should be updated to.
+        Raises:
+            *: If the instance update failed.
+            InconsistentStateError: If an error occurred that caus the system to be left in an
+                inconsistent state.
+        Returns:
+            The new instance that was created.
+            NOTE: The caller is responsible to delete the old instance, after an successfull upgrade.
         """
         assert self.instance.exercise.short_name == new_exercise.short_name
         assert self.instance.exercise.version < new_exercise.version
@@ -147,18 +191,12 @@ class InstanceManager():
         new_instance = InstanceManager.create_instance(self.instance.user, new_exercise)
         new_mgr = InstanceManager(new_instance)
 
-        #NOTE: We need to take care of deleteing the new instance if anything down below fails.
-
         try:
             new_mgr.start()
         except:
-            try:
+            log.error('Failed to start new instance.', exc_info=True)
+            with inconsistency_on_error():
                 new_mgr.remove()
-            except:
-                #No way to resolve this, just log it and hope for the best.
-                log.error(f'Failed to remove newly created instance {new_instance} during update of {self.instance}', exc_info=True)
-                raise
-            raise
 
         try:
             #Make sure the updated instance is not running
@@ -171,24 +209,9 @@ class InstanceManager():
                 cmd = f'sudo cp -arT {self.instance.entry_service.overlay_upper} {new_instance.entry_service.overlay_merged}'
                 subprocess.check_call(cmd, shell=True)
         except:
-            try:
-                #Stop and remove the new instance
+            log.info('whops', exc_info=True)
+            with inconsistency_on_error():
                 new_mgr.remove()
-            except:
-                log.error(f'Failed to remove new instance {new_instance} during update of {self.instance}', exc_info=True)
-            raise
-
-
-
-        try:
-            #Remove old instance and all persisted data
-            self.remove(bequeath_submissions_to=new_mgr.instance)
-        except:
-            #If this fails, we have two instances for one user. How do we deal with this?
-            #We need to keep the new instance since it contains the persisted user data and
-            #the old instance might be corrupted.
-            log.error(f'Failed to remove old instance {self.instance}')
-            raise
 
         return new_instance
 
@@ -196,78 +219,35 @@ class InstanceManager():
     def get_entry_ip(self):
         """
         Returns the IP of entry service that can be used by the SSH server to forward connections.
+        Raises:
+            *: If the IP could not be determined.
         """
         network = self.dc.network(self.instance.network_id)
         container = self.dc.container(self.instance.entry_service.container_id)
         log.info(f'Getting IP of container {self.instance.entry_service.container_id} on network {self.instance.network_id}')
         ip = self.dc.container_get_ip(container, network)
+        if ip is None:
+            raise Exception('Failed to get container IP.')
         log.info(f'IP is {ip}')
+        #Split the CIDR suffix
         return ip.split('/')[0]
 
-    def __start_peripheral_services(self, exercise: Exercise, entry_container):
-        """
-        Start the peripheral services and the associated networks.
-        """
-        services = self.instance.peripheral_services
-        if not services:
-            return
-
-        internet_services = [service for service in services if service.exercise_service.allow_internet]
-
-        internet_network = None
-        if internet_services:
-            network_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-peripheral-internet-{self.instance.id}'
-            internet_network = self.dc.create_network(name=network_name, internal=False)
-            self.instance.peripheral_services_internet_network_id = internet_network.id
-
-        network_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-peripheral-to-entry-{self.instance.id}'
-        to_entry_network = self.dc.create_network(name=network_name, internal=True)
-        self.instance.peripheral_services_network_id = to_entry_network.id
-
-        to_entry_network.connect(entry_container)
+    def __get_container_config_defaults(self):
+        config = {}
 
         #Allow the usage of ptrace, thus we can use gdb
-        capabilities = ['SYS_PTRACE']
+        config['cap_add'] = ['SYS_PTRACE']
 
         #Apply a custom seccomp profile that allows the personality syscall to disable ASLR
         with open('/app/seccomp.json', 'r') as f:
             seccomp_profile = f.read()
+        config['security_opt'] = [f'seccomp={seccomp_profile}']
 
-        cpu_period = current_app.config['EXERCISE_CONTAINER_CPU_PERIOD']
-        cpu_quota = current_app.config['EXERCISE_CONTAINER_CPU_QUOTA']
-        mem_limit = current_app.config['EXERCISE_CONTAINER_MEMORY_LIMIT']
+        config['cpu_period'] = current_app.config['EXERCISE_CONTAINER_CPU_PERIOD']
+        config['cpu_quota'] = current_app.config['EXERCISE_CONTAINER_CPU_QUOTA']
+        config['mem_limit'] = current_app.config['EXERCISE_CONTAINER_MEMORY_LIMIT']
 
-        seccomp_profile = [f'seccomp={seccomp_profile}']
-
-        #Create container for all services
-        for service in services:
-            container_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-{service.exercise_service.name}-{self.instance.id}'
-            log.info(f'Creating peripheral container {container_name}')
-
-            container = self.dc.create_container(
-                service.exercise_service.image_name,
-                name=container_name,
-                network_mode='none',
-                cap_add=capabilities,
-                security_opt=seccomp_profile,
-                cpu_quota=cpu_quota,
-                cpu_period=cpu_period,
-                mem_limit=mem_limit,
-                read_only=service.exercise_service.readonly,
-                hostname=service.exercise_service.name
-            )
-            log.info(f'Success, id is {container.id}')
-
-            service.container_id = container.id
-            none_network = self.dc.network('none')
-            none_network.disconnect(container)
-
-            to_entry_network.connect(container, aliases=[service.exercise_service.name])
-
-            if service.exercise_service.allow_internet:
-                internet_network.connect(container)
-
-            current_app.db.session.add(service)
+        return config
 
     def mount(self):
         """
@@ -324,79 +304,164 @@ class InstanceManager():
     def is_mounted(self):
         return os.path.ismount(self.instance.entry_service.overlay_merged)
 
+    def __start_peripheral_services(self, exercise: Exercise, entry_container):
+        """
+        Start the peripheral services and the associated networks.
+        """
+        services = self.instance.peripheral_services
+        if not services:
+            return
+
+        #List of services that are allowed to connect to the internet
+        internet_services = [service for service in services if service.exercise_service.allow_internet]
+
+        internet_network = None
+        if internet_services:
+            network_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}'
+            network_name += f'{self.instance.exercise.short_name}'
+            network_name += f'-v{self.instance.exercise.version}-peripheral-internet-{self.instance.id}'
+            internet_network = self.dc.create_network(name=network_name, internal=False)
+            self.instance.peripheral_services_internet_network_id = internet_network.id
+
+        network_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}'
+        network_name += f'{self.instance.exercise.short_name}'
+        network_name += f'-v{self.instance.exercise.version}-peripheral-to-entry-{self.instance.id}'
+        to_entry_network = self.dc.create_network(name=network_name, internal=True)
+        self.instance.peripheral_services_network_id = to_entry_network.id
+
+        to_entry_network.connect(entry_container)
+
+        default_config = self.__get_container_config_defaults()
+
+        #Create container for all services
+        for service in services:
+            container_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}'
+            container_name += f'-v{self.instance.exercise.version}-{service.exercise_service.name}-{self.instance.id}'
+            log.info(f'Creating peripheral container {container_name}')
+
+            container = self.dc.create_container(
+                service.exercise_service.image_name,
+                name=container_name,
+                network_mode='none',
+                read_only=service.exercise_service.readonly,
+                hostname=service.exercise_service.name,
+                **default_config
+            )
+            log.info(f'Success, id is {container.id}')
+
+            service.container_id = container.id
+            none_network = self.dc.network('none')
+            none_network.disconnect(container)
+
+            to_entry_network.connect(container, aliases=[service.exercise_service.name])
+
+            if service.exercise_service.allow_internet:
+                internet_network.connect(container)
+
+            #Make sure the network is up by testing if the entry service can ping this service.
+            wait_for_network_cmd = f'bash -c "wait-for-host {service.hostname} -t 3"'
+            log.info(f'Executing command: {wait_for_network_cmd}')
+            ret, output = entry_container.exec_run(wait_for_network_cmd)
+            log.info(f'Result ret={ret}, out={output}')
+
+            #Execute the actual service command.
+            log.info(f'Executing command: {service.exercise_service.cmd}')
+            ret, output = container.exec_run(service.exercise_service.cmd, detach=True)
+            log.info(f'Result ret={ret}, out={output}')
+
+            current_app.db.session.add(service)
+
     def start(self):
         """
-        Starts the given instance.
-        On error an exception is raised. The caller is responsible to
-        call stop to revert partital changes done by start.
+        Starts the instance. Before calling this function, .stop() should be called.
+        Raises:
+            *: If starting the instance failed.
+            InconsistentStateError: If the starting operation failed, and left the system in an inconsistent state.
         """
         assert self.is_mounted(), 'Instances should always be mounted, except just before they are removed'
 
-        #Make sure everything is cleaned up
+        #FIXME: Remove this? It feels wrong to call this each time as a safeguard.
+        #Make sure everything is cleaned up (this function can be called regardless of whether the instance is running)
         self.stop()
 
         exercise: Exercise = self.instance.exercise
+
+        #Class if the EntryService
         exercise_entry_service = exercise.entry_service
+
+        #Object/Instance of the EntryService
         instance_entry_service = self.instance.entry_service
-        #Get the container ID of the ssh container, thus we can connect the new instance
-        #to it.
+
+        #Get the container ID of the ssh container, thus we can connect the new instance to it.
         ssh_container = self.dc.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
 
-        #Create a network. The bridge of an internal network is not connected
-        #to the host (i.e., the host has no interface attached to it).
+        #Create a network that connects the entry service with the ssh service.
         entry_to_ssh_network_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}'
+
+        #If it is internal, the host does not attach an interface to the bridge, and therefore there is no way
+        #of routing data to other endpoints then the two connected containers.
         entry_to_ssh_network = self.dc.create_network(name=entry_to_ssh_network_name, internal=not self.instance.exercise.entry_service.allow_internet)
         self.instance.network_id = entry_to_ssh_network.id
 
         #Make the ssh server join the network
-        log.info(f'connecting ssh server to network {self.instance.network_id}')
+        log.info(f'Connecting ssh server to network {self.instance.network_id}')
 
         #aliases makes the ssh_container available to other container through the hostname sshserver
-        entry_to_ssh_network.connect(ssh_container, aliases=['sshserver'])
+        try:
+            entry_to_ssh_network.connect(ssh_container, aliases=['sshserver'])
+        except:
+            #This will reraise automatically
+            with inconsistency_on_error():
+                self.dc.remove_network(entry_to_ssh_network)
 
         image_name = exercise.entry_service.image_name
         #Create container that is initally connected to the 'none' network
-
-        #Allow the usage of ptrace, thus we can use gdb
-        capabilities = ['SYS_PTRACE']
 
         #Apply a custom seccomp profile that allows the personality syscall to disable ASLR
         with open('/app/seccomp.json', 'r') as f:
             seccomp_profile = f.read()
 
+        #Get host path that we are going to mount into the container
         mounts = None
         if exercise_entry_service.persistance_container_path:
-            mounts = {
-                self.dc.local_path_to_host(instance_entry_service.overlay_merged): {'bind': '/home/user', 'mode': 'rw'}
-                }
+            assert not exercise_entry_service.readonly
+            try:
+                mounts = {
+                    self.dc.local_path_to_host(instance_entry_service.overlay_merged): {'bind': '/home/user', 'mode': 'rw'}
+                    }
+            except:
+                #This will reraise automatically
+                with inconsistency_on_error():
+                    entry_to_ssh_network.disconnect(ssh_container)
+                    self.dc.remove_network(entry_to_ssh_network)
 
+        default_config = self.__get_container_config_defaults()
 
-        cpu_period = current_app.config['EXERCISE_CONTAINER_CPU_PERIOD']
-        cpu_quota = current_app.config['EXERCISE_CONTAINER_CPU_QUOTA']
-        mem_limit = current_app.config['EXERCISE_CONTAINER_MEMORY_LIMIT']
+        entry_container_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}'
+        entry_container_name += f'{self.instance.exercise.short_name}-v{self.instance.exercise.version}-entry-{self.instance.id}'
 
-        # This profile allows the personality syscall which is required
-        # to disable ASLR on per exercise basis.
-        # FIXME: Can we remove this if ASLR is anabled? 
-        seccomp_profile = [f'seccomp={seccomp_profile}']
-
-        entry_container_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-entry-{self.instance.id}'
         log.info(f'Creating docker container {entry_container_name}')
-        container = self.dc.create_container(
-            image_name,
-            name=entry_container_name,
-            network_mode='none',
-            volumes=mounts,
-            cap_add=capabilities,
-            security_opt=seccomp_profile,
-            cpu_quota=cpu_quota,
-            cpu_period=cpu_period,
-            mem_limit=mem_limit,
-            read_only=exercise.entry_service.readonly,
-            hostname=self.instance.exercise.short_name
-        )
+        try:
+            container = self.dc.create_container(
+                image_name,
+                name=entry_container_name,
+                network_mode='none',
+                volumes=mounts,
+                read_only=exercise.entry_service.readonly,
+                hostname=self.instance.exercise.short_name,
+                **default_config
+            )
+        except:
+            #This will reraise automatically
+            with inconsistency_on_error():
+                entry_to_ssh_network.disconnect(ssh_container)
+                self.dc.remove_network(entry_to_ssh_network)
+
         instance_entry_service.container_id = container.id
 
+        #Scrip that is initially executed to setup the environment.
+        # 1. Add the SSH key of the user that owns the container to authorized_keys.
+        # 2. Store the instance ID as string in a file /etc/instance_id.
         container_setup_script = (
             '#!/bin/bash\n'
             'set -e\n'
@@ -407,27 +472,43 @@ class InstanceManager():
         )
 
         self.dc.container_add_file(container, '/tmp/setup.sh', container_setup_script.encode('utf-8'))
-        success = container.exec_run(f'bash -c "/tmp/setup.sh"')
-        log.info(f'running container setup script. ret={success}')
+        ret = container.exec_run(f'bash -c "/tmp/setup.sh"')
+        if ret.exit_code != 0:
+            log.info(f'Container setup script failed. ret={ret}')
+            with inconsistency_on_error():
+                self.dc.stop_container(container, remove=True)
+                entry_to_ssh_network.disconnect(ssh_container)
+                self.dc.remove_network(entry_to_ssh_network)
 
         #Get the instance specific key that is used to authenticate requests from the container to web.
         instance_key = self.instance.get_key()
         self.dc.container_add_file(container, '/etc/key', instance_key)
 
-        #Remove created container from 'none' network
-        none_network = self.dc.network('none')
-        none_network.disconnect(container)
+        try:
+            #Remove created container from 'none' network
+            none_network = self.dc.network('none')
+            none_network.disconnect(container)
 
-        #Join the network of the ssh server
-        entry_to_ssh_network.connect(container)
+            #Join the network of the ssh server
+            entry_to_ssh_network.connect(container)
+        except:
+            with inconsistency_on_error():
+                self.dc.stop_container(container, remove=True)
+                entry_to_ssh_network.disconnect(ssh_container)
+                self.dc.remove_network(entry_to_ssh_network)
 
-        #Create network for peripheral services (if any) and connect entry container
-        self.__start_peripheral_services(exercise, container)
+        try:
+            self.__start_peripheral_services(exercise, container)
+        except:
+            with inconsistency_on_error():
+                entry_to_ssh_network.disconnect(container)
+                self.dc.stop_container(container, remove=True)
+
+                entry_to_ssh_network.disconnect(ssh_container)
+                self.dc.remove_network(entry_to_ssh_network)
 
         current_app.db.session.add(self.instance)
         current_app.db.session.add(self.instance.entry_service)
-
-
 
     def _stop_networks(self):
         if self.instance.network_id:
@@ -559,6 +640,9 @@ class InstanceManager():
 
         return ret, output
 
+    def bequeath_submissions_to(self, instance: Instance):
+        instance.submissions = self.instance.submissions
+        self.instance.submissions = []
 
     def remove(self, bequeath_submissions_to=None):
         """
@@ -579,14 +663,10 @@ class InstanceManager():
             current_app.db.session.delete(service)
 
         #Check if the submissions of this instance should be bequeathed by another Instance.
-        if bequeath_submissions_to:
-             bequeath_submissions_to.submissions = self.instance.submissions
-        else:
-            for submission in self.instance.submissions:
-                mgr = InstanceManager(submission.submitted_instance)
-                mgr.remove()
-                current_app.db.session.delete(submission)
-        self.instance.submissions = []
+        for submission in self.instance.submissions:
+            mgr = InstanceManager(submission.submitted_instance)
+            mgr.remove()
+            current_app.db.session.delete(submission)
 
         #If this instance is part of a submission, delete the associated submission object.
         submission = self.instance.submission
