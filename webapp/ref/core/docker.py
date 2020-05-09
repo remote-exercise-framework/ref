@@ -345,6 +345,16 @@ class DockerClient():
             **kwargs
         )
 
+    def stop_container(self, container, timeout=5, remove=False):
+        container = self.container(container, raise_on_not_found=True)
+        container.stop(timeout=timeout)
+        if remove:
+            #Make sure it was not started with autremove
+            container = self.container(container.id, raise_on_not_found=False)
+            if container:
+                container.remove(force=True)
+
+
     def create_network(self, name=None, driver='bridge', internal=False):
         """
         Networks do not need a unique name. If name is not set, a random name
