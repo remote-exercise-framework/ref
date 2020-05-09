@@ -163,7 +163,17 @@ def main():
     print(msg)
 
     ip = resp['ip']
-    cmd = ['/usr/bin/ssh', '-t', '-o', ' StrictHostKeyChecking=no', '-i', '/home/sshserver/.ssh/container-key', '-p', '13370', '-l', 'user', ip]
+    cmd = [
+        '/usr/bin/ssh',
+        '-t',
+        '-o', ' StrictHostKeyChecking=no',
+        '-o', 'GlobalKnownHostsFile=/dev/null',
+        '-o', 'UserKnownHostsFile=/dev/null',
+        '-i', '/home/sshserver/.ssh/container-key',
+        '-p', '13370',
+        '-l', 'user',
+        ip
+        ]
 
     #Cmd provided by the client
     ssh_cmd = os.environ.get("SSH_ORIGINAL_COMMAND")
