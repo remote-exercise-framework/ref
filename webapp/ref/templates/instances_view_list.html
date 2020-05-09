@@ -61,9 +61,8 @@ Instances
                                         {% if i.new_exercise %}
                                             <a class="dropdown-item" href="{{ url_for('ref.instance_update', instance_id=i.id, next=request.path) }}">Update</a>
                                         {% endif %}
-                                        {% if i.running %}
-                                            <a class="dropdown-item" href="{{ url_for('ref.instance_stop', instance_id=i.id, next=request.path) }}">Stop</a>
-                                        {% endif %}
+
+                                        <a class="dropdown-item" href="{{ url_for('ref.instance_stop', instance_id=i.id, next=request.path) }}">Stop</a>
 
                                         <a class="dropdown-item confirm" href="{{ url_for('ref.instance_delete', instance_id=i.id, next=request.path) }}">Delete</a>
                                     </div>
@@ -77,7 +76,7 @@ Instances
         <div class="card-footer">
             <div class="text-center">
                 <div class="btn-group">
-                    <a role="button" id=stop-all-button class="btn btn-outline-success disabled" href="">Stop All</a>
+                    <a role="button" id=stop-all-button class="btn btn-outline-success" href="">Stop All</a>
                     <a role="button" id=update-all-button class="btn btn-outline-success disabled" href="">Update All</a>
                 </div>
             </div>
@@ -154,7 +153,7 @@ Instances
             let stopable = $( "tr" ).filter("[stopable]")
             let stop_url = "{{ url_for('ref.instance_stop', instance_id=123456789, next=request.path) }}"
             if (stopable.length > 0) {
-                stop_all_button.removeClass("disabled")
+                //stop_all_button.removeClass("disabled")
                 stop_all_button.click(function(event) {
                     //$( "tr" ).filter("[updateable]").each(function() { console.log(this.id)} );
                     let promises = []
@@ -184,7 +183,6 @@ Instances
                         displayToast('Stopping', 'Failed to stop all instances')
                     });
 
-                    stop_all_button.addClass('disabled')
                     return false
                 });
             }

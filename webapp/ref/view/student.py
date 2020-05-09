@@ -166,7 +166,7 @@ class GetKeyForm(Form):
                                      validators.DataRequired(), validate_password
                                  ]
                                  )
-    pubkey = StringField('Public-Key (if empty, a key-pair is generated for you)',
+    pubkey = StringField('Public RSA Key (if empty, a key-pair is generated for you)',
                          validators=[
                              validate_pubkey
                          ]

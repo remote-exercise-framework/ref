@@ -44,7 +44,7 @@ Instance Details
     </dl>
 
     {% for service in instance.peripheral_services  %}
-        <h5>service.name Service</h5>
+        <h5> {{ service.exercise_service.name }} Service</h5>
         <dl class="row">
             <dt class="col-sm-3">ID</dt>
             <dd class="col-sm-9">{{ service.id }}</dd>
