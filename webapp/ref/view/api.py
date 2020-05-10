@@ -516,21 +516,26 @@ def api_instance_submit():
         instance_id = int(instance_id)
     except ValueError:
         log.warning(f'Invalid instance id {instance_id}', exc_info=True)
-        return error_response('Invalid instance ID')
+        abort(400)
 
     log.info(f'Got submit request for instance_id={instance_id}')
 
-    #Lock the instance and the user
-    with retry_on_deadlock():
-        instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
-        if not instance:
-            log.warning(f'Invalid instance id {instance_id}')
-            return error_response('Invalid request')
+    try:
+        test_log = content['test_log']
+        test_ret = content['test_ret']
+    except:
+        log.warning('Invalid request', exc_info=True)
+        abort(400)
 
-        user = User.query.filter(User.id == instance.user.id).one_or_none()
-        if not user:
-            log.warning(f'Invalid user ID {instance.user.id}')
-            return error_response('Invalid request')
+    instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
+    if not instance:
+        log.warning(f'Invalid instance id {instance_id}')
+        return error_response('Invalid request')
+
+    user = User.query.filter(User.id == instance.user.id).one_or_none()
+    if not user:
+        log.warning(f'Invalid user ID {instance.user.id}')
+        return error_response('Invalid request')
 
     if instance.submission:
         log.warning(f'User tried to submit instance that is already submitted: {instance}')
@@ -550,8 +555,7 @@ def api_instance_submit():
         return error_response(f'Submission is currently disabled, please try again later.')
 
     mgr = InstanceManager(instance)
-    mgr.stop()
-    new_instance = mgr.create_submission()
+    new_instance = mgr.create_submission(test_ret, test_log)
 
     current_app.db.session.commit()
     log.info(f'Created submission: {new_instance.submission}')

@@ -85,15 +85,23 @@ def _run_tests():
     test_path = '/usr/local/bin/submission_tests'
     if not os.path.isfile(test_path):
         print_warn('[+] No testsuite found! Skipping tests..')
-        return True
+        return 0, 'No testsuit found'
 
-    ret = subprocess.run(test_path, shell=False, check=False)
-    return ret.returncode == 0
+    log_path = '/tmp/test_logfile'
+    with open(log_path, 'w') as logfile:
+        proc = subprocess.Popen(test_path, shell=False, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            logfile.write(line)
+        proc.wait()
+
+    return proc.returncode == 0, open(log_path, 'r').read()
 
 def cmd_submit(_):
     print_ok('[+] Submitting instance..', flush=True)
 
-    if not _run_tests():
+    ret, out = _run_tests()
+    if ret != 0:
         print_warn('[!] Failing tests may indicate that your solution is erroneous or not complete yet.')
         print_warn('[!] Are you sure you want to submit? [y/n] ', end='')
         if not check_answer():
@@ -103,7 +111,10 @@ def cmd_submit(_):
         if not check_answer():
             exit(0)
     print_ok("[+] Submitting now. In case of success, you will be disconnected from the instance.", flush=True)
-    req = {}
+    req = {
+        'test_log': out,
+        'test_ret': ret
+    }
     req = finalize_request(req)
     res = requests.post('http://sshserver:8000/api/instance/submit', json=req)
     handle_response(res)

@@ -94,7 +94,7 @@ class InstanceManager():
 
         return instance
 
-    def create_submission(self) -> Instance:
+    def create_submission(self, test_ret, test_out) -> Instance:
         """
         Creates a new instance that represents a snapshot of the current instance state.
         Raises:
@@ -106,6 +106,7 @@ class InstanceManager():
 
         #Make sure the instance is not running, since we are going to copy
         #some data from it.
+
         self.stop()
 
         user = self.instance.user
@@ -128,30 +129,9 @@ class InstanceManager():
                 new_mgr.remove()
             raise
 
-        #Start the new instance
-        try:
-            new_mgr.start()
-        except:
-            with inconsistency_on_error():
-                new_mgr.remove()
-            raise
-
-        #Run submission tests and safe result
-        try:
-            ret, test_out = new_mgr.run_tests()
-        except:
-            with inconsistency_on_error():
-                new_mgr.remove()
-            raise
-
         submission = Submission()
-        try:
-            submission.test_output = test_out.decode()
-        except:
-            log.error('Failed to decode output', exc_info=True)
-            submission.test_output = str(test_out)
-
-        submission.test_passed = ret == 0
+        submission.test_output = test_out
+        submission.test_passed = test_ret == 0
 
         submission.submission_ts = datetime.datetime.now()
         submission.origin_instance = self.instance
@@ -357,17 +337,6 @@ class InstanceManager():
 
             if service.exercise_service.allow_internet:
                 internet_network.connect(container)
-
-            #Make sure the network is up by testing if the entry service can ping this service.
-            wait_for_network_cmd = f'bash -c "wait-for-host {service.hostname} -t 3"'
-            log.info(f'Executing command: {wait_for_network_cmd}')
-            ret, output = entry_container.exec_run(wait_for_network_cmd)
-            log.info(f'Result ret={ret}, out={output}')
-
-            #Execute the actual service command.
-            log.info(f'Executing command: {service.exercise_service.cmd}')
-            ret, output = container.exec_run(service.exercise_service.cmd, detach=True)
-            log.info(f'Result ret={ret}, out={output}')
 
             current_app.db.session.add(service)
 
