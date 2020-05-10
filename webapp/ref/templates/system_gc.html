@@ -16,7 +16,7 @@ System Garbage Collector
     <h4 class="card-header">
         Found {{ dangling_networks|length }} dangling network(s)
         <div class="float-right">
-            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.sysmtem_gc_delete_dangling_networks', next=request.path) }}">Delete</a>
+            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.system_gc_delete_dangling_networks', next=request.path) }}">Delete</a>
         </div>
         <br>
     </h4>
@@ -48,7 +48,7 @@ System Garbage Collector
     <h4 class="card-header">
         Found {{ dangling_container|length }} dangling container(s)
         <div class="float-right">
-            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.sysmtem_gc_delete_dangling_container', next=request.path) }}">Delete</a>
+            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.system_gc_delete_dangling_container', next=request.path) }}">Delete</a>
         </div>
         <br>
     </h4>
@@ -76,8 +76,41 @@ System Garbage Collector
 </div>
 {% endif %}
 
+{% if old_submissions %}
+<div class="card">
+    <h4 class="card-header">
+        Found {{ old_submissions|length }} old submission(s)
+        <div class="float-right">
+            <a role="button" class="btn btn-outline-danger" href="{{ url_for('ref.system_gc_delete_old_submission', next=request.path) }}">Delete</a>
+        </div>
+        <br>
+    </h4>
+    <div class="card-body">
+      <h5 class="card-title">The following submissions have at least one successor.</h5>
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th scope="col">#id</th>
+                <th scope="col">Exercise</th>
+                <th scope="col">User</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for submission in old_submissions %}
+                <tr>
+                    <td>{{ submission.id }}</td>
+                    <td>{{ submission.submitted_instance.exercise.short_name }} v{{ submission.submitted_instance.exercise.version }}</td>
+                    <td>{{ submission.submitted_instance.user.first_name }} {{ submission.submitted_instance.user.surname  }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
-{% if not dangling_networks and not dangling_container %}
+
+{% if not dangling_networks and not dangling_container and not old_submissions %}
 No issues found.
 {% endif %}
 

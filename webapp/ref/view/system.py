@@ -5,7 +5,7 @@ from flask import current_app, redirect, render_template
 from ref import db, refbp
 from ref.core import DockerClient, admin_required
 from ref.core.util import redirect_to_next
-from ref.model import InstanceEntryService, InstanceService
+from ref.model import InstanceEntryService, InstanceService, Submission, Instance
 
 
 @dataclass
@@ -82,9 +82,23 @@ def _get_dangling_container():
 
     return dangling_container
 
+def _get_old_submissions():
+    """
+    Returns all submissions that have an successor (i.e., the same instance has a more recent submission).
+    """
+    ret = set()
+
+    instances = Instance.all()
+    for instance in instances:
+        if len(instance.submissions) > 1:
+            submissions = sorted(instance.submissions, key=lambda e: e.submission_ts)
+            ret |= set(submissions[0:-1])
+
+    return list(sorted(list(ret), key=lambda e: e.id))
+
 @refbp.route('/system/gc/delete_dangling_networks', methods=('GET',))
 @admin_required
-def sysmtem_gc_delete_dangling_networks():
+def system_gc_delete_dangling_networks():
     """
     Delete all networks that were created by us, but do not have any container attached.
     """
@@ -99,7 +113,7 @@ def sysmtem_gc_delete_dangling_networks():
 
 @refbp.route('/system/gc/delete_dangling_container', methods=('GET',))
 @admin_required
-def sysmtem_gc_delete_dangling_container():
+def system_gc_delete_dangling_container():
     """
     Delete all container that were created by us, but are not connected to the
     SSH entry server anymore.
@@ -112,6 +126,20 @@ def sysmtem_gc_delete_dangling_container():
 
     return redirect_to_next()
 
+@refbp.route('/system/gc/delete_old_submissions', methods=('GET',))
+@admin_required
+def system_gc_delete_old_submission():
+    """
+
+    """
+    # d = DockerClient()
+    # dangling_containers = _get_dangling_container()
+    # for c in dangling_containers:
+    #     c = d.container(c.id)
+    #     c.remove(force=True)
+
+    return redirect_to_next()
+
 @refbp.route('/system/gc', methods=('GET', 'POST'))
 @admin_required
 def system_gc():
@@ -120,4 +148,5 @@ def system_gc():
     """
     dangling_networks = _get_dangling_networks()
     dangling_container = _get_dangling_container()
-    return render_template('system_gc.html', dangling_networks=dangling_networks, dangling_container=dangling_container)
+    old_submissions = _get_old_submissions()
+    return render_template('system_gc.html', dangling_networks=dangling_networks, dangling_container=dangling_container, old_submissions=old_submissions)

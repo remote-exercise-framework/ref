@@ -33,7 +33,7 @@ class GeneralSettings(Form):
     allow_submission_deletion = BooleanField(
         'Allow admins to delete submissions')
     maintenance_enabled = BooleanField(
-        'Enable maintenance mode: Disallow any new access by non admin users. Beware: Already established connections are closed'
+        'Enable maintenance mode: Disallow any new access by non admin users. Beware: Already established connections are not closed.'
         )
     disable_submission = BooleanField('Disable submission for instances.')
     timezone = SelectField(
@@ -70,9 +70,10 @@ def view_system_settings():
     if general_settings.submit.data and general_settings.validate():
         SystemSettingsManager.COURSE_NAME.value = general_settings.course_name.data
         SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value = general_settings.allow_submission_deletion.data
-        SystemSettingsManager.MAINTENANCE_ENABLED.value = general_settings.maintenance_enabled.data
         SystemSettingsManager.SUBMISSION_DISABLED.value = general_settings.disable_submission.data
         SystemSettingsManager.TIMEZONE.value = general_settings.timezone.data
+        SystemSettingsManager.MAINTENANCE_ENABLED.value = general_settings.maintenance_enabled.data
+
     else:
         general_settings.course_name.data = SystemSettingsManager.COURSE_NAME.value
         general_settings.allow_submission_deletion.data = SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value
