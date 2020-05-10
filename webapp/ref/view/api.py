@@ -213,7 +213,7 @@ def api_provision():
 
     #Get the user account
     with retry_on_deadlock():
-        user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
+        user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
         if not user:
             log.warning('Unable to find user with provided publickey')
             return error_response('Unknown public key')
@@ -243,7 +243,7 @@ def api_provision():
         exercise_name = exercise_name[0]
 
     with retry_on_deadlock():
-        user: User = User.query.filter(User.pub_key_ssh==pubkey).with_for_update().one_or_none()
+        user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
         if not user:
             log.warning('Unable to find user with provided publickey')
             return error_response('Unknown public key')
@@ -436,7 +436,7 @@ def _sanitize_container_request(request, max_age=60) -> str:
         log.warning(f'Failed to convert {instance_id} to int', exc_info=True)
         raise Exception('Invalid instance ID')
 
-    instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
+    instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
     if not instance:
         log.warning(f'Failed to find instance with ID {instance_id}')
         raise Exception("Unable to find given instance")
@@ -479,12 +479,12 @@ def api_instance_reset():
 
     #Lock the instance and the user
     with retry_on_deadlock():
-        instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
+        instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
         if not instance:
             log.warning(f'Invalid instance id {instance_id}')
             return error_response('Invalid request')
 
-        user = User.query.filter(User.id == instance.user.id).with_for_update().one_or_none()
+        user = User.query.filter(User.id == instance.user.id).one_or_none()
         if not user:
             log.warning(f'Invalid user ID {instance.user.id}')
             return error_response('Invalid request')
@@ -522,12 +522,12 @@ def api_instance_submit():
 
     #Lock the instance and the user
     with retry_on_deadlock():
-        instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
+        instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
         if not instance:
             log.warning(f'Invalid instance id {instance_id}')
             return error_response('Invalid request')
 
-        user = User.query.filter(User.id == instance.user.id).with_for_update().one_or_none()
+        user = User.query.filter(User.id == instance.user.id).one_or_none()
         if not user:
             log.warning(f'Invalid user ID {instance.user.id}')
             return error_response('Invalid request')

@@ -13,6 +13,8 @@ Instances
 {% block admin_content %}
 
 {% if instances|length %}
+    {% set ssh_host = settings.SSH_HOSTNAME.value  %}
+    {% set ssh_port  = settings.SSH_PORT.value  %}
     <div class="card">
         <h4 class="card-header">
             All Instances
@@ -24,9 +26,7 @@ Instances
                 <th scope="col">Exercise</th>
                 <th scope="col">Version</th>
                 <th scope="col">User</th>
-                {% if instances|map(attribute='submission')|not|all %}
-                    <th scope="col">#Submissions</th>
-                {% endif %}
+                <th scope="col">#Submissions</th>
                 <th scope="col"></th>
                 </tr>
             </thead>
@@ -41,12 +41,10 @@ Instances
                             {% endif %}
                         </td>
                         <td>{{ i.user.first_name }} {{ i.user.surname }} ({{ i.user.id }})</td>
-                        {% if instances|map(attribute='submission')|not|all %}
-                            <td>{{ i.submissions|length }}</td>
-                        {% endif %}
+                        <td>{{ i.submissions|length }}</td>
                         <td>
                             <div class="btn-group" role="group">
-                                <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ i.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">SSH</a>
+                                <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ i.id  }}@{{ ssh_host }} -p {{ ssh_port  }}')">SSH</a>
                                 <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.instances_view_details', instance_id=i.id, next=request.path) }}">View</a>
                                 <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_review', instance_id=i.id, next=request.path) }}">Files</a>
 

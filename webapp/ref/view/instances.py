@@ -45,7 +45,7 @@ def get_newest_exercise_version(exercise: Exercise):
 def instance_update(instance_id):
 
     #Lock the instance
-    instance: Instance = Instance.query.filter(Instance.id == instance_id).with_for_update().first()
+    instance: Instance = Instance.query.filter(Instance.id == instance_id).first()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         abort(400)
@@ -172,7 +172,7 @@ def instances_view_all():
 @refbp.route('/admin/instances/stop/<int:instance_id>')
 @admin_required
 def instance_stop(instance_id):
-    instance = Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
+    instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         abort(400)
@@ -190,7 +190,7 @@ def instance_stop(instance_id):
 @refbp.route('/admin/instances/delete/<int:instance_id>')
 @admin_required
 def instance_delete(instance_id):
-    instance =  Instance.query.filter(Instance.id == instance_id).with_for_update().one_or_none()
+    instance =  Instance.query.filter(Instance.id == instance_id).one_or_none()
     if not instance:
         flash.error(f'Unknown instance ID {instance_id}')
         abort(400)

@@ -236,7 +236,7 @@ def exercise_view_all():
 @refbp.route('/admin/exercise/<int:exercise_id>/delete')
 @admin_required
 def exercise_delete(exercise_id):
-    exercise = Exercise.query.filter(Exercise.id == exercise_id).with_for_update().first()
+    exercise = Exercise.query.filter(Exercise.id == exercise_id).first()
     if not exercise:
         flash.error(f'Unknown exercise ID {exercise_id}')
         abort(400)
@@ -272,7 +272,7 @@ def exercise_delete(exercise_id):
 @refbp.route('/admin/exercise/default/toggle/<int:exercise_id>')
 @admin_required
 def exercise_toggle_default(exercise_id):
-    exercise = Exercise.query.filter(Exercise.id == exercise_id).with_for_update().one_or_none()
+    exercise = Exercise.query.filter(Exercise.id == exercise_id).one_or_none()
     if not exercise:
         log.info(f'Tried to toggle unknown exercise id={exercise_id}')
         flash.error(f'Unknown exercises id={exercise_id}')

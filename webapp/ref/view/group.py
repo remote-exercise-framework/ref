@@ -26,7 +26,7 @@ def group_view_all():
 @refbp.route('/admin/group/delete/<int:group_id>', methods=('GET', 'POST'))
 @admin_required
 def group_delete(group_id):
-    group = UserGroup.query.filter(UserGroup.id == group_id).with_for_update().one_or_none()
+    group = UserGroup.query.filter(UserGroup.id == group_id).one_or_none()
     if not group:
         flash.error(f'Unknown group ID {group_id}')
         abort(400)

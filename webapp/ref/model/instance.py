@@ -141,10 +141,10 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     creation_ts: datetime.datetime = db.Column(db.DateTime(), nullable=True)
 
     #All submission of this instance. If this list is empty, the instance was never submitted.
-    submissions: List['Submission']  = db.relationship('Submission', foreign_keys='Submission.origin_instance_id', back_populates='origin_instance', lazy=True, passive_deletes='all')
+    submissions: List['Submission']  = db.relationship('Submission', foreign_keys='Submission.origin_instance_id', lazy='joined', back_populates='origin_instance', passive_deletes='all')
 
     #If this instance is part of a subission, this field points to the Submission. If this field is set, submissions must be empty.
-    submission: List['Submission'] = db.relationship("Submission", foreign_keys='Submission.submitted_instance_id', uselist=False, back_populates="submitted_instance", passive_deletes='all')
+    submission: List['Submission'] = db.relationship("Submission", foreign_keys='Submission.submitted_instance_id', uselist=False, back_populates="submitted_instance", lazy='joined', passive_deletes='all')
 
     def get_latest_submission(self) -> 'Submission':
         assert not self.submission

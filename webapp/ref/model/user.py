@@ -48,7 +48,7 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     auth_groups = db.Column(db.PickleType(), nullable=False)
 
     #Exercise instances associated to the student
-    exercise_instances = db.relationship('Instance', back_populates='user', lazy=True,  passive_deletes='all')
+    exercise_instances = db.relationship('Instance', back_populates='user', lazy='joined',  passive_deletes='all')
 
     def __init__(self):
         self.login_token = str(uuid.uuid4())

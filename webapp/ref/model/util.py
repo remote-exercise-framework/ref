@@ -9,13 +9,13 @@ class CommonDbOpsMixin():
     @classmethod
     def get(cls: Type[T], id_, lock=False) -> T:
         if lock:
-            return cls.query.with_for_update().get(id_)
+            return cls.query.get(id_)
         return cls.query.get(id_)
 
     @classmethod
     def all(cls: Type[T], lock=False) -> Collection[T]:
         if lock:
-            return cls.query.with_for_update().all()
+            return cls.query.all()
         return cls.query.all()
 
     def refresh(self, lock=False):

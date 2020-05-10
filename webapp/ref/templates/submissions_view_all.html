@@ -6,6 +6,9 @@
 
 {% block admin_content %}
 {% if submissions %}
+    {% set ssh_host = settings.SSH_HOSTNAME.value  %}
+    {% set ssh_port = settings.SSH_PORT.value  %}
+    {% set delete_allowed = settings.SUBMISSION_ALLOW_DELETE.value %}
     <div class="card">
         <h4 class="card-header">
             {{ title or 'Submissions' }}
@@ -28,9 +31,9 @@
                     <td scope="row">{{ submission.submitted_instance.exercise.short_name }} (v{{ submission.submitted_instance.exercise.version}})</td>
                     <td scope="row">{{ moment(submission.submission_ts).fromNow() }}</td>
                     <td>
-                        <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ submission.submitted_instance.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">SSH</a>
+                        <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ submission.submitted_instance.id  }}@{{ ssh_host }} -p {{ ssh_port }}')">SSH</a>
                         <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_review', instance_id=submission.submitted_instance.id, next=request.path) }}">Files</a>
-                        {% if settings.SUBMISSION_ALLOW_DELETE.value %}
+                        {% if delete_allowed %}
                             <a role="button" class="btn btn-outline-success confirm" href="{{ url_for('ref.submission_delete', submission_id=submission.id, next=request.path) }}">Delete</a>
                         {% endif %}
                     </td>

@@ -252,8 +252,6 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         Returns and locks the default exercise for the given short_name.
         """
         q = Exercise.query.filter(Exercise.short_name == short_name).filter(Exercise.is_default == True)
-        if for_update:
-            q.with_for_update()
         return q.one_or_none()
 
     @staticmethod
@@ -264,8 +262,6 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
                 Exercise.version == version
                 )
         )
-        if for_update:
-            exercise.with_for_update()
         return exercise.one_or_none()
 
     @staticmethod

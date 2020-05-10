@@ -464,7 +464,7 @@ def student_edit(user_id):
             user.nickname = form.nickname.data
 
         group = UserGroup.query.filter(
-            UserGroup.name == form.group_name.data).with_for_update().one_or_none()
+            UserGroup.name == form.group_name.data).one_or_none()
 
         # Only create a group if the name was set
         if not group and form.group_name.data:

@@ -40,7 +40,7 @@ def submissions_view_all():
 @refbp.route('/admin/submissions/delete/<int:submission_id>')
 @admin_required
 def submission_delete(submission_id):
-    submission = Submission.query.filter(Submission.id == submission_id).with_for_update().one_or_none()
+    submission = Submission.query.filter(Submission.id == submission_id).one_or_none()
     if not submission:
         flash.error(f'Unknown submission ID {submission_id}')
         abort(400)
@@ -49,8 +49,8 @@ def submission_delete(submission_id):
         flash.error('It is not allowed to delete submissions')
         return redirect_to_next()
 
-    submission = Submission.query.filter(Submission.id == submission_id).with_for_update().one_or_none()
-    instance = Instance.query.filter(Instance.id == submission.submitted_instance_id).with_for_update().one_or_none()
+    submission = Submission.query.filter(Submission.id == submission_id).one_or_none()
+    instance = Instance.query.filter(Instance.id == submission.submitted_instance_id).one_or_none()
 
     instance_mgr = InstanceManager(instance)
     instance_mgr.remove()

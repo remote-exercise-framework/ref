@@ -3,6 +3,7 @@ import uuid
 from enum import Enum
 
 from flask import current_app
+from functools import lru_cache
 from sqlalchemy.orm import backref
 
 from flask_bcrypt import check_password_hash, generate_password_hash
@@ -11,7 +12,6 @@ from ref import db
 from ref.model.enums import CourseOfStudies
 
 from .util import CommonDbOpsMixin, ModelToStringMixin
-
 
 class SystemSetting(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
