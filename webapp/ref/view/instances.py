@@ -26,6 +26,7 @@ from ref.core.util import lock_db, redirect_to_next
 from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
                        Instance, SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
+from sqlalchemy.orm import joinedload, raiseload
 
 lerr = lambda msg: current_app.logger.error(msg)
 linfo = lambda msg: current_app.logger.info(msg)
@@ -165,9 +166,7 @@ def instance_view_submissions(instance_id):
 @admin_required
 def instances_view_all():
 
-    instances = Instance.query.all()
-    instances = list(filter(lambda e: not e.submission, instances))
-
+    instances = Instance.query.options(joinedload(Instance.exercise), joinedload(Instance.user)).filter(Instance.submission == None).all()
     return _instances_render_view(instances)
 
 @refbp.route('/admin/instances/stop/<int:instance_id>')

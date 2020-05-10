@@ -220,14 +220,14 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     #Reference to the Instance that was submitted. Hence, submitted_instance is a snapshot of origin_instance.
     origin_instance_id: int = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
-    origin_instance: Instance = db.relationship("Instance", foreign_keys=[origin_instance_id], back_populates="submissions")
+    origin_instance: Instance = db.relationship("Instance", foreign_keys=[origin_instance_id], back_populates="submissions", lazy='joined')
 
     """
     Reference to the Instance that represents the state of origin_instance at the time the submission was created.
     This instance uses the changed data (upper overlay) of the submitted instance as lower layer of its overlayfs.
     """
     submitted_instance_id: int = db.Column(db.Integer, db.ForeignKey('exercise_instance.id', ondelete='RESTRICT'), nullable=False)
-    submitted_instance: Instance = db.relationship("Instance", foreign_keys=[submitted_instance_id], back_populates="submission")
+    submitted_instance: Instance = db.relationship("Instance", foreign_keys=[submitted_instance_id], back_populates="submission", lazy='joined')
 
     #Point in time the submission was created.
     submission_ts: datetime.datetime = db.Column(db.DateTime(), nullable=False)
@@ -258,7 +258,7 @@ class Grading(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     id: int = db.Column(db.Integer, primary_key=True)
 
     #The graded submission
-    submission: List[Submission] = db.relationship("Submission", foreign_keys='Submission.grading_id', uselist=False, back_populates="grading", passive_deletes='all')
+    submission: List[Submission] = db.relationship("Submission", foreign_keys='Submission.grading_id', uselist=False, back_populates="grading", passive_deletes='all', lazy='joined')
     
     points_reached: int = db.Column(db.Integer(), nullable=False)
     comment: str = db.Column(db.Text(), nullable=True)
@@ -268,10 +268,10 @@ class Grading(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     #Reference to the last user that applied changes
     last_edited_by_id: int = db.Column(db.Integer(), db.ForeignKey('user.id'), nullable=False)
-    last_edited_by: User = db.relationship("User", foreign_keys=[last_edited_by_id])
+    last_edited_by: User = db.relationship("User", foreign_keys=[last_edited_by_id], lazy='joined')
     update_ts: datetime.datetime = db.Column(db.DateTime(), nullable=False)
 
     #Reference to the user that created this submission
     created_by_id: int = db.Column(db.Integer(), db.ForeignKey('user.id'), nullable=False)
-    created_by: User = db.relationship("User", foreign_keys=[created_by_id])
+    created_by: User = db.relationship("User", foreign_keys=[created_by_id], lazy='joined')
     created_ts: datetime.datetime = db.Column(db.DateTime(), nullable=False)

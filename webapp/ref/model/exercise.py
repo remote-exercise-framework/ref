@@ -18,6 +18,7 @@ import yaml
 from flask import current_app
 from rq.job import Job
 from sqlalchemy import Column, Integer, PickleType, and_, create_engine, or_
+from sqlalchemy.orm import joinedload, raiseload
 
 from flask_bcrypt import check_password_hash, generate_password_hash
 from ref import db
@@ -293,15 +294,18 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         ret = []
         submissions_per_user = defaultdict(list)
-        for instance in self.instances:
-            if not instance.submission:
-                continue
+        instances = Instance.query.options(
+            joinedload(Instance.user),
+            joinedload(Instance.submission)
+            ).filter(Instance.exercise == self, Instance.submission != None).all()
+
+        for instance in instances:
             submissions_per_user[instance.user] += [instance]
         for _, v in submissions_per_user.items():
             ret += [max(v, key=lambda e: e.creation_ts)]
         return [e.submission for e in ret if e.submission]
 
-    def submission_heads_global(self):
+    def submission_heads_global(self) -> List[Submission]:
         """
         Same as .submission_heads(), except only submissions
         that have no newer (based on a more recent exercise)
@@ -348,7 +352,10 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return [s for s in submissions if not s.grading and not s.successors()]
 
     def has_submissions(self) -> bool:
-        return self.submissions()
+        for i in self.instances:
+            if i.submission:
+                return True
+        return False
 
     def has_graded_submissions(self) -> bool:
         """
