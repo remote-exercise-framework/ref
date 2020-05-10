@@ -226,11 +226,6 @@ class ExerciseManager():
 
             service.allow_internet = ExerciseManager._parse_attr(service_values, 'allow-internet', bool, required=False, default=False)
 
-            service.health_check_cmd = ExerciseManager._parse_attr(service_values, 'health-check-cmd', list, required=True)
-            for part in service.health_check_cmd:
-                if not isinstance(part, str):
-                    raise ExerciseConfigError('All elements of health-check-cmd must be of type str.')
-
             flag_config = service_values.get('flag')
             if flag_config:
                 service.flag_path = ExerciseManager._parse_attr(flag_config, 'location', str, required=True)
