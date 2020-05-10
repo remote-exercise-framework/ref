@@ -308,7 +308,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         submission are returned.
         """
         submissions = []
-        own_submissions = exercise.submission_heads()
+        own_submissions = self.submission_heads()
         for exercise in [self] + self.successors():
             submissions += exercise.submission_heads()
 
