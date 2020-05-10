@@ -308,6 +308,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         submission are returned.
         """
         submissions = []
+        own_submissions = exercise.submission_heads()
         for exercise in [self] + self.successors():
             submissions += exercise.submission_heads()
 
@@ -319,7 +320,8 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             if user in seen_users:
                 continue
             seen_users.add(user)
-            ret += [submission]
+            if submission in own_submissions:
+                ret += [submission]
 
         return ret
 

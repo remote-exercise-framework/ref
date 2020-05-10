@@ -602,7 +602,7 @@ class InstanceManager():
         container = self.dc.container(self.instance.entry_service.container_id)
         if not container:
             return 1, 'Failed to access container!'
-        
+
         run_test_cmd = f'/usr/local/bin/submission_tests'
         ret, output = container.exec_run(run_test_cmd)
         log.info(f'Test output for instance {self.instance} is ret={ret}, out={output}')
