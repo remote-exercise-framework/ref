@@ -92,11 +92,13 @@ class ExerciseManager():
 
         exercise.submission_deadline_start = ExerciseManager._parse_attr(cfg, 'deadline-start', datetime.datetime, required=False, default=None)
         #Strip timezone from datetime and make it utc
-        exercise.submission_deadline_start = datetime_to_naive_utc(exercise.submission_deadline_start)
+        if exercise.submission_deadline_start:
+            exercise.submission_deadline_start = datetime_to_naive_utc(exercise.submission_deadline_start)
 
         exercise.submission_deadline_end = ExerciseManager._parse_attr(cfg, 'deadline-end', datetime.datetime, required=False, default=None)
         #Strip timezone from datetime and make it utc
-        exercise.submission_deadline_end = datetime_to_naive_utc(exercise.submission_deadline_end)
+        if exercise.submission_deadline_end:
+            exercise.submission_deadline_end = datetime_to_naive_utc(exercise.submission_deadline_end)
 
         exercise.submission_test_enabled = ExerciseManager._parse_attr(cfg, 'submission-test', bool, required=False, default=False)
 
