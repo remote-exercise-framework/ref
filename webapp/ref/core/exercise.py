@@ -24,6 +24,7 @@ from ref.model import (Exercise, ExerciseEntryService, ExerciseService,
                        Instance, InstanceEntryService, InstanceService, User)
 from ref.model.enums import ExerciseBuildStatus
 
+from ref.core.util import datetime_to_naive_utc
 from .docker import DockerClient
 from .image import ExerciseImageManager
 from .instance import InstanceManager
@@ -90,8 +91,12 @@ class ExerciseManager():
         exercise.version = ExerciseManager._parse_attr(cfg, 'version', int)
 
         exercise.submission_deadline_start = ExerciseManager._parse_attr(cfg, 'deadline-start', datetime.datetime, required=False, default=None)
+        #Strip timezone from datetime and make it utc
+        exercise.submission_deadline_start = datetime_to_naive_utc(exercise.submission_deadline_start)
 
         exercise.submission_deadline_end = ExerciseManager._parse_attr(cfg, 'deadline-end', datetime.datetime, required=False, default=None)
+        #Strip timezone from datetime and make it utc
+        exercise.submission_deadline_end = datetime_to_naive_utc(exercise.submission_deadline_end)
 
         exercise.submission_test_enabled = ExerciseManager._parse_attr(cfg, 'submission-test', bool, required=False, default=False)
 
