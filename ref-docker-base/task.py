@@ -95,7 +95,7 @@ def _run_tests():
             logfile.write(line)
         proc.wait()
 
-    return proc.returncode == 0, open(log_path, 'r').read()
+    return proc.returncode, open(log_path, 'r').read()
 
 def cmd_submit(_):
     print_ok('[+] Submitting instance..', flush=True)
