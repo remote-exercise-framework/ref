@@ -37,7 +37,7 @@ Grading of exercise {{ exercise.short_name }} - v{{ exercise.version }}
                         {% else  %}
                             <td>Disabled</td>
                         {% endif %}
-                        <td>{{ grading.points_reached|default('?') }} of 12</td>
+                        <td>{{ grading.points_reached|default('?') }} of  {{ exercise.max_grading_points }} </td>
                         <td>{{ moment(submission.submission_ts).fromNow()  }}</td>
                         <td>{{ modified }}</td>
                         <td>
