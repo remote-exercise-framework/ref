@@ -74,6 +74,8 @@ def start_and_return_instance(instance: Instance):
 
     if not instance.is_submission():
         latest_submission = instance.get_latest_submission()
+        if not exercise.has_deadline():
+            pass
         if not latest_submission:
             welcome_message += (
                 '    Last submitted: (No submission found)\n'
@@ -102,8 +104,6 @@ def start_and_return_instance(instance: Instance):
             welcome_message += ansi.red(msg)
         else:
             welcome_message += f'    Deadline: {deadline} ({since_in_str})\n'
-    else:
-        welcome_message += '    This task has no deadline\n'
 
     #trim trailing newline
     welcome_message = welcome_message.rstrip()
