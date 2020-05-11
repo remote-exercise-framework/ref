@@ -76,7 +76,7 @@ def start_and_return_instance(instance: Instance):
         latest_submission = instance.get_latest_submission()
         if not exercise.has_deadline():
             pass
-        if not latest_submission:
+        elif not latest_submission:
             welcome_message += (
                 '    Last submitted: (No submission found)\n'
             )
