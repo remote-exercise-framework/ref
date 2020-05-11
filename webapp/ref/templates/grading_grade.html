@@ -99,14 +99,17 @@ Grading for exercise {{ exercise.short_name }}
           <dd class="col-sm-9">{{ moment(grading.update_ts).format() }} ({{  moment(grading.update_ts).fromNow() }}) </dd>
         </dl>
       {% endif %}
-
-      
     </div>
-    
+
     <div class="col", id="aaa" style="margin-left: 5pt; margin-top: 5pt;">
       <form autocomplete="off" method="POST" action="#show-keys">
         {{ form.csrf_token }}
-        {{ wtf_utils.render_field(form.points, "number") }}
+        <dl class="row">
+          <dt class="col-sm-12">
+            {% set lbl = "Points (max. " ~ exercise.max_grading_points ~ ")" %}
+            {{ wtf_utils.render_field(form.points, "number", label=lbl) }}
+          </dt>
+        </dl>
         {{ wtf_utils.render_textarea(form.notes) }}
         <dl class="row">
           <dt class="col-sm-4">{{ wtf_utils.render_submit(form.save_and_next) }}</dt>

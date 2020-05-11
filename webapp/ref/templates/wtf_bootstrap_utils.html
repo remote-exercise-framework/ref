@@ -19,14 +19,14 @@
     {% endif %}
 {%- endmacro %}
 
-{% macro render_field(field, type, label_visible=true, placeholder='', readonly=False) -%}
+{% macro render_field(field, type, label_visible=true, placeholder='', readonly=False, label=None) -%}
     {% if readonly %}
         {% set readonly = 'readonly' %}
     {% else %}
         {% set readonly = '' %}
     {% endif %}
     {% if field.type != 'HiddenField' and label_visible %}
-        <label for="{{ field.id }}">{{ field.label }}</label>
+        <label for="{{ field.id }}">{{ label or field.label }}</label>
     {% endif %}
     {% if field.type == 'BooleanField' %}
         {{ field }}
