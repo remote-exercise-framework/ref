@@ -238,7 +238,7 @@ class ExerciseManager():
             exercise.services.append(service)
 
     @staticmethod
-    def _check_global_constraints(exercise: Exercise):
+    def check_global_constraints(exercise: Exercise):
         """
         Check whether the exercise violates any constraints in conjunction with already imported
         exercises of the same type.
@@ -298,8 +298,6 @@ class ExerciseManager():
 
         #Parse peripheral services configurations (if any)
         ExerciseManager._parse_peripheral_services(exercise, cfg)
-
-        ExerciseManager. _check_global_constraints(exercise)
 
         return exercise
 

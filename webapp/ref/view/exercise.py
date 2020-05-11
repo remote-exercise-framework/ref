@@ -202,7 +202,14 @@ def exercise_view_all():
             #Do not import exercises of same type with version <= the already imported versions.
             continue
 
-        importable.append(exercise)
+        try:
+            #Global constraints only need be be valid if we the exercise has a newer version
+            #than the currently imported once.
+            ExerciseManager.check_global_constraints(exercise)
+        except ExerciseConfigError as err:
+            flash.error(f'Template at {path} contains an error: {err}')
+        else:
+            importable.append(exercise)
 
     #Check whether our DB and the local docker repo are in sync.
     #This basically fixes situations where changes have been made to docker
