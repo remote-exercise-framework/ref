@@ -193,4 +193,4 @@ def grading_search_execute_query():
 @grading_assistant_required
 def grading_search():
     form = SearchForm(request.form)
-    return render_template('grading_search.html', form=form, user_assignment_submissions=user_assignment_submissions)
+    return render_template('grading_search.html', form=form)
