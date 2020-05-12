@@ -166,8 +166,8 @@ def grading_view_submission(submission_id):
 #         'version': submission.submitted_instance.exercise.version,
 #     }
 
-#@grading_assistant_required
 @refbp.route('/admin/grading/search/query', methods=('GET', 'POST'))
+@grading_assistant_required
 def grading_search_execute_query():
     user_assignment_submissions = defaultdict(lambda: defaultdict(list))
     query = request.values.get('query', None)
@@ -207,8 +207,8 @@ class SearchForm(Form):
     submit = SubmitField('Search')
 
 
-#@grading_assistant_required
 @refbp.route('/admin/grading/search', methods=('GET', 'POST'))
+@grading_assistant_required
 def grading_search():
     form = SearchForm(request.form)
     user_assignment_submissions = defaultdict(lambda: defaultdict(list))
