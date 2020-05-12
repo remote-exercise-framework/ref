@@ -1,0 +1,40 @@
+{% extends "admin_base.html" %}
+{% import "wtf_bootstrap_utils.html" as wtf_utils %}
+
+{% block title %}
+Grading Search
+{% endblock %}
+
+{% block admin_content %}
+<form autocomplete="off" method="POST" action="#show-keys">
+    {{ wtf_utils.render_field(form.query, "text") }}
+</form>
+
+<div id="result">
+
+</div>
+
+<script>
+    function process_query() {
+        let query = $('#{{ form.query.id }}').val()
+        $.post("{{ url_for('ref.grading_search_execute_query') }}", {
+            'query': query,
+        }, function (data) {
+            $('#result').html(data);
+        })
+        .fail(function (error) {
+            $('#result').html(error.responseText);
+        });
+    }
+
+    $(document).ready(function(){
+        process_query_debounce = debounce(process_query, 250)
+
+        $('#{{ form.query.id }}').on("input", function(){
+            process_query_debounce();
+        });
+
+    });
+</script>
+
+{% endblock %}

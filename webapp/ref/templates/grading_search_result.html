@@ -1,0 +1,54 @@
+{% import "wtf_bootstrap_utils.html" as wtf_utils %}
+
+{% for user, assignment_submissions  in user_assignment_submissions.items() %}
+    <div class="card mb-5">
+        <h4 class="card-header">
+            {{ user.full_name }} / {{ user.mat_num }}
+        </h4>
+
+        {% if assignment_submissions %}
+            {% for assignment, submissions in assignment_submissions.items()  %}
+                <div class="card mb-5">
+                    <h8 class="card-header">
+                        <div class="text-center"> {{ assignment }} </div>
+                    </h8>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">#ID</th>
+                                <th scope="col">Exercise</th>
+                                <th scope="col">Test Passed</th>
+                                <th scope="col">Grading</th>
+                                <th scope="col">
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for submission in submissions %}
+                                {% set exercise = submission.submitted_instance.exercise  %}
+                                {% set grading = submission.grading %}
+                                <tr class="table-{{ 'success' if grading else 'danger'  }}">
+                                    <td>{{ submission.id }}</td>
+                                    <td>{{ exercise.short_name  }}</td>
+                                    {% if exercise.submission_test_enabled %}
+                                        <td>{{ submission.test_passed  }}</td>
+                                    {% else  %}
+                                        <td>Disabled</td>
+                                    {% endif %}
+                                    <td>{{ grading.points_reached|default('?') }} of  {{ exercise.max_grading_points }} </td>
+                                    <td>
+                                        <a role="button" class="btn btn-outline-{{ 'success' if deadline_passed else 'danger'  }}" href="{{ url_for('ref.grading_view_submission', submission_id=submission.id, next=request.path)  }}">Grade</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endfor %}
+        {% else %}
+        <h8 class="card-header">
+            <div class="text-center" style="color: brown;">NO SUBMISSION</div>
+        </h8>
+        {% endif %}
+    </div>
+{% endfor %}

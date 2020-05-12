@@ -65,3 +65,4 @@ zipp==3.1.0
 pytz
 arrow
 returns
+fuzzywuzzy

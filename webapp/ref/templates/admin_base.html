@@ -33,8 +33,14 @@
             </li>
 {% endif %}
 {% if current_user.is_admin or current_user.is_grading_assistant %}
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('ref.grading_view_all') }}">Grading</a>
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Grading
+                </a>
+                <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                    <a class="dropdown-item" href="{{ url_for('ref.grading_view_all') }}">View All</a>
+                    <a class="dropdown-item" href="{{ url_for('ref.grading_search') }}">Search</a>
+                </div>
             </li>
 {% endif %}
 {% if current_user.is_admin %}
