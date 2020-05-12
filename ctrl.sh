@@ -363,6 +363,7 @@ function are_you_sure {
 }
 
 function up_testing {
+    export TESTING=1
     docker-compose -f docker-compose-testing.yml -p ref-testing up $@
 }
 

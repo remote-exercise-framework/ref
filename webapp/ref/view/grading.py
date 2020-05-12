@@ -178,14 +178,12 @@ def grading_search_execute_query():
 
     if query.isdigit():
         #Assume mat. num.
-        score_to_user = [(fuzz.ratio(user.mat_num, query), user) for user in users]
+        score_to_user = [(fuzz.partial_ratio(user.mat_num, query), user) for user in users]
     else:
         #Assume first and/or last name
         score_to_user = [(fuzz.ratio(user.full_name, query), user) for user in users]
 
     score_to_user = sorted(score_to_user, key=lambda e: e[0], reverse=True)
-    if len(score_to_user) > 5:
-        score_to_user = [e for e in score_to_user if e[0] > 20]
     score_to_user = score_to_user[:5]
 
     log.info(f'Found {len(score_to_user)} users')

@@ -19,8 +19,6 @@ services:
          - ssh-and-host
          - web-and-ssh
          - ssh-and-redis
-      depends_on:
-         - web
 
 {% if not testing %}
    pgadmin:
@@ -75,6 +73,7 @@ services:
          - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
          - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
          - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
+         - TESTING=${TESTING}
       cap_add:
          - SYS_ADMIN
       build:
@@ -109,6 +108,7 @@ services:
       depends_on:
          - db
          - redis
+         - sshserver
    redis:
       image: 'bitnami/redis:5.0'
       environment:
