@@ -40,6 +40,9 @@ class GradingForm(Form):
     save_and_next = SubmitField('Save and Next')
     reset = SubmitField('Reset')
 
+class SearchForm(Form):
+    query = StringField('Query')
+    submit = SubmitField('Search')
 
 @refbp.route('/admin/grading/')
 @grading_assistant_required
@@ -155,17 +158,6 @@ def grading_view_submission(submission_id):
         form.notes.data = '' if grading.private_note is None else grading.private_note
         return render()
 
-# def _submissions_to_json(submission: Submission):
-#     return {
-#         'submission_id': submission.id,
-#         'instance_id': submission.submitted_instance.id,
-#         'is_graded': submission.grading != None,
-#         'full_name': submission.submitted_instance.user.full_name,
-#         'mat_num': submission.submitted_instance.user.mat_num,
-#         'short_name': submission.submitted_instance.exercise.short_name,
-#         'version': submission.submitted_instance.exercise.version,
-#     }
-
 @refbp.route('/admin/grading/search/query', methods=('GET', 'POST'))
 @grading_assistant_required
 def grading_search_execute_query():
@@ -186,8 +178,6 @@ def grading_search_execute_query():
     score_to_user = sorted(score_to_user, key=lambda e: e[0], reverse=True)
     score_to_user = score_to_user[:5]
 
-    log.info(f'Found {len(score_to_user)} users')
-
     for _, user in score_to_user:
         for instance in user.submissions:
             if instance.submission.successors():
@@ -199,41 +189,8 @@ def grading_search_execute_query():
     return render_template('grading_search_result.html', user_assignment_submissions=user_assignment_submissions)
 
 
-
-class SearchForm(Form):
-    query = StringField('Query')
-    submit = SubmitField('Search')
-
-
 @refbp.route('/admin/grading/search', methods=('GET', 'POST'))
 @grading_assistant_required
 def grading_search():
     form = SearchForm(request.form)
-    user_assignment_submissions = defaultdict(lambda: defaultdict(list))
-
-    if form.submit.data and form.validate():
-        users = User.all()
-        query = form.query.data
-
-        if query.isdigit():
-            #Assume mat. num.
-            score_to_user = [(fuzz.ratio(user.mat_num, query), user) for user in users]
-        else:
-            #Assume first and/or last name
-            score_to_user = [(fuzz.ratio(user.full_name, query), user) for user in users]
-
-        score_to_user = sorted(score_to_user, key=lambda e: e[0], reverse=True)
-        if len(score_to_user) > 5:
-            score_to_user = [e for e in score_to_user if e[0] > 20]
-        score_to_user = score_to_user[:5]
-
-        log.info(f'Found {len(score_to_user)} users')
-
-        for _, user in score_to_user:
-            for instance in user.submissions:
-                if instance.submission.successors():
-                    continue
-                user_assignment_submissions[user][instance.exercise.category] += [instance.submission]
-
-
     return render_template('grading_search.html', form=form, user_assignment_submissions=user_assignment_submissions)

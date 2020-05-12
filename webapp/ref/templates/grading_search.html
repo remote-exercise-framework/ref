@@ -17,6 +17,9 @@ Grading Search
 <script>
     function process_query() {
         let query = $('#{{ form.query.id }}').val()
+        if (query == '')
+            return;
+
         $.post("{{ url_for('ref.grading_search_execute_query') }}", {
             'query': query,
         }, function (data) {
