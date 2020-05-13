@@ -3,7 +3,7 @@ import os
 import random
 import uuid
 from binascii import hexlify
-from functools import wraps
+from functools import wraps, partial
 
 from flask import current_app, jsonify, render_template, request
 from werkzeug.exceptions import (BadRequest, Forbidden, Gone,
@@ -24,12 +24,18 @@ def is_api_request():
 
 def errorhandler(code_or_exception):
     def decorator(func):
-        error_handlers.append({'func': func, 'code_or_exception': code_or_exception})
+        if hasattr(func, '__fn'):
+            f = getattr(func, '__fn')
+        f = partial(func, code_or_exception)
+        error_handlers.append({'func': f, 'code_or_exception': code_or_exception})
 
         @wraps(func)
         def wrapped(*args, **kwargs):
             return func(*args, **kwargs)
+        #Save reference to original fn
+        setattr(wrapped, '__fn', func)
         return wrapped
+
     return decorator
 
 def render_error_template(e, code):
@@ -44,22 +50,13 @@ def render_error_template(e, code):
                            text=e,
                            title='{}'.format(code)), code
 
-@errorhandler(NotFound.code)
-def not_found(e):
-    text = f'Not Found: Unable to find the requested ressource.'
-    return render_error_template(text, NotFound.code)
-
-@errorhandler(Forbidden.code)
-def forbidden(e):
-    return render_error_template(e, Forbidden.code)
-
-@errorhandler(BadRequest.code)
-def bad_request(e):
-    return render_error_template(e, BadRequest.code)
-
 @errorhandler(TooManyRequests.code)
-def too_many_requests(e):
-    return render_error_template(e, TooManyRequests.code)
+@errorhandler(BadRequest.code)
+@errorhandler(Forbidden.code)
+@errorhandler(NotFound.code)
+@errorhandler(MethodNotAllowed.code)
+def handle_common_errors(code, e):
+    return render_error_template(e, code)
 
 @errorhandler(Exception)
 @errorhandler(InternalServerError.code)
