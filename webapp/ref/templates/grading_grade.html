@@ -7,7 +7,6 @@ Grading for exercise {{ exercise.short_name }}
 {% endblock %}
 
 {% block admin_content_fluid %}
-
 ## CSS taken from the ansi2html python library (modified).
 <style type="text/css">
   .ansi2html-content { display: inline; white-space: pre-wrap; word-wrap: break-word; }
@@ -61,6 +60,9 @@ Grading for exercise {{ exercise.short_name }}
 <div class="card mb-5">
   <h4 class="card-header">
       Grading Details
+      {% if  submission.grading %}
+      <div class="float-right"><span class="badge badge-success">Graded</span></div>
+      {% endif %}
   </h4>
   <div class="row">
     <div class="col", id="aaa" style="margin-left: 5pt; margin-top: 5pt;">
@@ -112,11 +114,23 @@ Grading for exercise {{ exercise.short_name }}
         </dl>
         {{ wtf_utils.render_textarea(form.notes) }}
         <dl class="row">
-          <dt class="col-sm-4">{{ wtf_utils.render_submit(form.save_and_next) }}</dt>
-          <dt class="col-sm-4">{{ wtf_utils.render_submit(form.save) }}</dt>
-          <dt class="col-sm-4">{{ wtf_utils.render_submit(form.next) }}</dt>
+          <dt class="col-sm-6">{{ wtf_utils.render_submit(form.save_next_user_task) }}</dt>
+          <dt class="col-sm-6">{{ wtf_utils.render_submit(form.next_user_task) }}</dt>
         </dl>
-        {{ wtf_utils.render_submit(form.reset) }}
+        
+        <dl class="row">
+          <dt class="col-sm-6">{{ wtf_utils.render_submit(form.save_and_next) }}</dt>
+          <dt class="col-sm-6">{{ wtf_utils.render_submit(form.next) }}</dt>
+        </dl>
+
+        <dl class="row">
+        <dt class="col-sm-6">
+          {{ wtf_utils.render_submit(form.reset) }}
+        </dt>
+        <dt class="col-sm-6">
+          {{ wtf_utils.render_submit(form.save) }}
+        </dt>
+      </dl>
       </form>
     </div>
   </div>

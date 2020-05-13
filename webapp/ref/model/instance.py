@@ -236,7 +236,6 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     grading_id: int = db.Column(db.Integer, db.ForeignKey('grading.id', ondelete='RESTRICT'), nullable=True)
     grading: 'Grading' = db.relationship("Grading", foreign_keys=[grading_id], back_populates="submission")
 
-    
     test_output: str = db.Column(db.Text(), nullable=True)
     test_passed: bool = db.Column(db.Boolean(), nullable=True)
 

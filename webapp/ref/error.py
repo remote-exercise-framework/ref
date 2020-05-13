@@ -60,7 +60,7 @@ def handle_common_errors(code, e):
 
 @errorhandler(Exception)
 @errorhandler(InternalServerError.code)
-def internal_error(e):
+def internal_error(_, e):
     code = uuid.uuid4()
     current_app.logger.error(f"InternalServerError: {e}", exc_info=True)
 
