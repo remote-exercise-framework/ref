@@ -187,6 +187,7 @@ class RestoreKeyForm(Form):
 
 
 @refbp.route('/student/download/pubkey/<string:signed_mat>')
+@limiter.limit('16 per minute;1024 per day')
 def student_download_pubkey(signed_mat: str):
     """
     Returns the public key of the given matriculation number as
@@ -215,6 +216,7 @@ def student_download_pubkey(signed_mat: str):
 
 
 @refbp.route('/student/download/privkey/<string:signed_mat>')
+@limiter.limit('16 per minute;1024 per day')
 def student_download_privkey(signed_mat: str):
     """
     Returns the private key of the given matriculation number as
