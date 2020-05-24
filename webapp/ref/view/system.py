@@ -23,18 +23,15 @@ def _get_dangling_networks():
     dangling_networks = []
 
     d = DockerClient()
-    networks = d.networks()
+    networks = d.networks(filters={'name': current_app.config['DOCKER_RESSOURCE_PREFIX']})
 
     ssh_container = d.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
 
     for network in networks:
-        if not network.name.startswith(current_app.config['DOCKER_RESSOURCE_PREFIX']):
-            continue
-
         connected_containers = d.get_connected_container(network)
 
-        if connected_containers and set(connected_containers) != set(ssh_container.id):
-            #Containers connected, ignore it
+        if connected_containers and set(connected_containers) != set([ssh_container.id]):
+            #Containers connected (besides the SSH container), ignore it
             continue
 
         dn = danglingNetwork(network.id, network.name)
@@ -43,9 +40,14 @@ def _get_dangling_networks():
     return dangling_networks
 
 def _is_connected_to_sshserver(container):
+    """
+    Check whether the container is connected to the SSH server.
+    Returns:
+        True, if the container is connected to the SSH server
+        Else, False.
+    """
     d = DockerClient()
-    if isinstance(container, str):
-        container = d.container(container)
+    container = d.container(container)
 
     if not container:
         return False
@@ -59,6 +61,12 @@ def _is_connected_to_sshserver(container):
     return ssh_container.id in containers
 
 def _is_in_db(container_id):
+    """
+    Check if the given container ID is contained in any DB record.
+    Returns:
+        True, if the container ID is found in the DB.
+        Else, False.
+    """
     return (
         InstanceService.query.filter(InstanceService.container_id == container_id).one_or_none()
         or InstanceEntryService.query.filter(InstanceEntryService.container_id == container_id).one_or_none()
@@ -67,15 +75,16 @@ def _is_in_db(container_id):
 def _get_dangling_container():
     dangling_container = []
     d = DockerClient()
-    containers = d.containers(include_stopped=True)
+    #Get all container that have a name that contains the provided prefix
+    containers = d.containers(include_stopped=True, sparse=True, filters={'name': current_app.config['DOCKER_RESSOURCE_PREFIX']})
 
     for container in containers:
-        if not container.name.startswith(current_app.config['DOCKER_RESSOURCE_PREFIX']):
-            continue
-
         if _is_in_db(container.id) and _is_connected_to_sshserver(container.id):
             #Check if it is connected to the ssh server
             continue
+
+        #Get the name attribute
+        container.reload()
 
         dc = danglingContainer(container.id, container.name, container.status)
         dangling_container.append(dc)
@@ -96,7 +105,7 @@ def _get_old_submissions():
 
     return list(sorted(list(ret), key=lambda e: e.id))
 
-@refbp.route('/system/gc/delete_dangling_networks', methods=('GET',))
+@refbp.route('/system/gc/delete_dangling_networks')
 @admin_required
 def system_gc_delete_dangling_networks():
     """
@@ -111,11 +120,11 @@ def system_gc_delete_dangling_networks():
 
     return redirect_to_next()
 
-@refbp.route('/system/gc/delete_dangling_container', methods=('GET',))
+@refbp.route('/system/gc/delete_dangling_container')
 @admin_required
 def system_gc_delete_dangling_container():
     """
-    Delete all container that were created by us, but are not connected to the
+    Delete all container that belong to REF, but are not connected to the
     SSH entry server anymore.
     """
     d = DockerClient()
@@ -126,21 +135,13 @@ def system_gc_delete_dangling_container():
 
     return redirect_to_next()
 
-@refbp.route('/system/gc/delete_old_submissions', methods=('GET',))
+@refbp.route('/system/gc/delete_old_submissions')
 @admin_required
 def system_gc_delete_old_submission():
-    """
-
-    """
-    # d = DockerClient()
-    # dangling_containers = _get_dangling_container()
-    # for c in dangling_containers:
-    #     c = d.container(c.id)
-    #     c.remove(force=True)
-
+    #TODO: Implement
     return redirect_to_next()
 
-@refbp.route('/system/gc', methods=('GET', 'POST'))
+@refbp.route('/system/gc')
 @admin_required
 def system_gc():
     """

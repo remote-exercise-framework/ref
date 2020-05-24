@@ -165,7 +165,7 @@ class DockerClient():
         """
         return self.client.images.remove(name, force=force)
 
-    def containers(self, include_stopped=False, sparse=False) -> List[docker.models.containers.Container]:
+    def containers(self, include_stopped=False, sparse=False, filters=None) -> List[docker.models.containers.Container]:
         """
         Get a list of all running containers.
         Args:
@@ -175,15 +175,15 @@ class DockerClient():
         Raises:
             - docker.errors.APIError
         """
-        return self.client.containers.list(all=include_stopped, sparse=sparse)
+        return self.client.containers.list(all=include_stopped, sparse=sparse, filters=filters)
 
-    def networks(self) -> List[docker.models.networks.Network]:
+    def networks(self, filters=None) -> List[docker.models.networks.Network]:
         """
         Get all networks.
         Raises:
             - docker.errors.APIError
         """
-        return self.client.networks.list(greedy=True)
+        return self.client.networks.list(greedy=True, filters=filters)
 
     def get_connected_container(self, network: Union[str, docker.models.networks.Network]) -> List[str]:
         """
