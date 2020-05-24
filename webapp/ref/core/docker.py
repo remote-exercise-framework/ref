@@ -9,7 +9,6 @@ from typing import List, Optional, Union
 import docker
 from docker import errors
 from flask import current_app
-from returns.maybe import Maybe, maybe
 from werkzeug.local import LocalProxy
 
 log = LocalProxy(lambda: current_app.logger)
