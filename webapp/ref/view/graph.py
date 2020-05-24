@@ -113,4 +113,6 @@ def graph():
         nodes += n
         links += l
 
+    executor.shutdown()
+
     return render_template('container_graph.html', nodes=nodes, links=links)

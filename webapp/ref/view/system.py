@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-
+from concurrent.futures import ThreadPoolExecutor
 from flask import current_app, redirect, render_template
-
+from functools import partial
 from ref import db, refbp
 from ref.core import DockerClient, admin_required
 from ref.core.util import redirect_to_next
@@ -14,7 +14,7 @@ class danglingNetwork():
     name: str
 
 @dataclass
-class danglingContainer():
+class DanglingContainer():
     id: str
     name: str
     status: str
@@ -39,27 +39,6 @@ def _get_dangling_networks():
 
     return dangling_networks
 
-def _is_connected_to_sshserver(container):
-    """
-    Check whether the container is connected to the SSH server.
-    Returns:
-        True, if the container is connected to the SSH server
-        Else, False.
-    """
-    d = DockerClient()
-    container = d.container(container)
-
-    if not container:
-        return False
-
-    ssh_container = d.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
-    if ssh_container == container:
-        return True
-
-    containers = d.container_transitive_closure_get_containers(container)
-
-    return ssh_container.id in containers
-
 def _is_in_db(container_id):
     """
     Check if the given container ID is contained in any DB record.
@@ -72,22 +51,45 @@ def _is_in_db(container_id):
         or InstanceEntryService.query.filter(InstanceEntryService.container_id == container_id).one_or_none()
         )
 
+def _is_connected_to_sshserver(dc, ssh_container, container):
+    """
+    Check whether the container is connected to the SSH server.
+    Returns:
+        True, if the container is connected to the SSH server
+        Else, False.
+    """
+    if ssh_container == container:
+        return container, True
+
+    containers = dc.container_transitive_closure_get_containers(container)
+
+    return container, ssh_container.id in containers
+
 def _get_dangling_container():
     dangling_container = []
-    d = DockerClient()
+    dc = DockerClient()
     #Get all container that have a name that contains the provided prefix
-    containers = d.containers(include_stopped=True, sparse=True, filters={'name': current_app.config['DOCKER_RESSOURCE_PREFIX']})
+    containers = dc.containers(include_stopped=True, sparse=True, filters={'name': current_app.config['DOCKER_RESSOURCE_PREFIX']})
+    ssh_container = dc.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
+
+    executor = ThreadPoolExecutor(max_workers=16)
+    is_connected_to_ssh = {}
+    is_connected_to_ssh_futures = set()
+
+    is_connected_to_sshserver = partial(_is_connected_to_sshserver, dc, ssh_container)
 
     for container in containers:
-        if _is_in_db(container.id) and _is_connected_to_sshserver(container.id):
-            #Check if it is connected to the ssh server
-            continue
+        if not _is_in_db(container.id):
+            container.reload()
+            dangling_container.append(DanglingContainer(container.id, container.name, container.status))
+        is_connected_to_ssh_futures.add(executor.submit(is_connected_to_sshserver, container))
 
-        #Get the name attribute
-        container.reload()
+    for future in is_connected_to_ssh_futures:
+        c, is_connected = future.result()
+        if not is_connected:
+            dangling_container.append(DanglingContainer(container.id, container.name, container.status))
 
-        dc = danglingContainer(container.id, container.name, container.status)
-        dangling_container.append(dc)
+    executor.shutdown()
 
     return dangling_container
 
