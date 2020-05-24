@@ -91,7 +91,11 @@ def start_and_return_instance(instance: Instance):
         ts = datetime_to_local_tz(instance.submission.submission_ts)
         since_in_str = arrow.get(ts).humanize()
         ts = ts.strftime('%A, %B %dth @ %H:%M')
+        user_name = instance.user.full_name
         welcome_message += f'    This is a submission from {ts} ({since_in_str})\n'
+        welcome_message += f'    User     : {user_name}\n'
+        welcome_message += f'    Exercise : {exercise.short_name}\n'
+        welcome_message += f'    Version  : {exercise.version}\n'
         if instance.is_modified():
             welcome_message += ansi.red('This submission was modified!\nUse `task reset` to restore the initially submitted state.\n')
 

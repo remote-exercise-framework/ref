@@ -87,8 +87,7 @@ def _get_next_ungraded_submission(exercise: Exercise, current: Submission):
 def _get_next_by_user(submission: Submission):
     user = submission.submitted_instance.user
     instances = user.submissions
-    submissions = [i.submission for i in instances if not i.submission.successors() and i.exercise.has_deadline() and i.exercise.deadine_passed()]
-    submissions = [s for s in submissions]
+    submissions = [i.submission for i in instances if not i.submission.successors() and i.exercise.has_deadline()]
     submissions = sorted(submissions, key=lambda e: e.id)
     current_idx = submissions.index(submission)
     return submissions[(current_idx+1)%len(submissions)]
