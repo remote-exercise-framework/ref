@@ -61,7 +61,7 @@ RUN chown root:root /usr/local/bin/_task \
     && chmod 500 /usr/local/bin/_task
 
 # Allow user to reset the instance
-RUN echo 'sudo /usr/local/bin/_task $@' > /usr/local/bin/task \
+RUN echo -e 'printenv > /tmp/_user_environ\nsudo /usr/local/bin/_task $@' > /usr/local/bin/task \
     && chmod 555 /usr/local/bin/task
 RUN echo "user ALL=(ALL) NOPASSWD: /usr/local/bin/_task" >> /etc/sudoers
 
