@@ -247,7 +247,7 @@ class ExerciseManager():
     @staticmethod
     def check_global_constraints(exercise: Exercise):
         """
-        Check whether the exercise violates any constraints in conjunction with already imported
+        Check whether the exercise violates any constraints in combination with already imported
         exercises of the same type.
         Args:
             exercise: The exercises that should be checked for constraint violations.
