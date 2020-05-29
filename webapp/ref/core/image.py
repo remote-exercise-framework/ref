@@ -288,7 +288,7 @@ class ExerciseImageManager():
                 else:
                     app.logger.error(f'Error during build', exc_info=True)
                 log += traceback.format_exc()
-                exercise: Exercise = Exercise.query.options(joinedload('*')).filter(Exercise.id == exercise_id)
+                exercise: Exercise = Exercise.query.options(joinedload('*')).filter(Exercise.id == exercise_id).one_or_none()
                 exercise.build_job_status = ExerciseBuildStatus.FAILED
                 failed = True
         else:
