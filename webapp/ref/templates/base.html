@@ -48,7 +48,6 @@
     {% block content %}
     {% endblock content %}
 
-
     <script>
 
     //Copy the given string into the clipboard
@@ -128,5 +127,12 @@
     };
 
     </script>
+
+
+    <footer class="footer">
+        <div class="container">
+            <p class="text-center">Rendered in {{ g.request_time() }}ms</span>
+        </div>
+    </footer>
 </body>
 </html>
