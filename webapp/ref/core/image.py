@@ -4,7 +4,6 @@ import subprocess
 import traceback
 from threading import Thread
 from typing import List
-from sqlalchemy.orm import joinedload, raiseload
 
 import docker
 from flask import Flask, current_app
@@ -265,7 +264,7 @@ class ExerciseImageManager():
                 dc.rmi(name)
 
     @staticmethod
-    def __run_build(app, exercise_id):
+    def __run_build(app, exercise: Exercise):
         """
         Builds all docker images that are needed by the passed exercise.
         """
@@ -288,7 +287,7 @@ class ExerciseImageManager():
                 else:
                     app.logger.error(f'Error during build', exc_info=True)
                 log += traceback.format_exc()
-                exercise: Exercise = Exercise.query.options(joinedload('*')).filter(Exercise.id == exercise_id)
+                exercise: Exercise = app.db.get(Exercise, id=exercise.id)
                 exercise.build_job_status = ExerciseBuildStatus.FAILED
                 failed = True
         else:
@@ -323,7 +322,7 @@ class ExerciseImageManager():
         assert not self.is_build()
 
         log.info(f'Starting build of exercise {self.exercise}')
-        t = Thread(target=ExerciseImageManager.__run_build, args=(current_app._get_current_object(), self.exercise.id))
+        t = Thread(target=ExerciseImageManager.__run_build, args=(current_app._get_current_object(), self.exercise))
         t.start()
 
     def remove(self):
