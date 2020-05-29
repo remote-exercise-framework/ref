@@ -52,9 +52,9 @@ def handle_response(resp, expected_status=(200, )) -> typing.Tuple[int, typing.D
         return status_code, json
     else:
         if 'error' in json:
-            print_err(f'[!] ', json['error'])
+            print_err(f'[!]', json['error'])
         else:
-            print_err(f'[!] ', 'Unknown error! Please contact the staff')
+            print_err(f'[!]', 'Unknown error! Please contact the staff')
         exit(1)
 
 def check_answer(prompt=None):
