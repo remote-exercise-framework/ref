@@ -440,6 +440,9 @@ class InstanceManager():
             f'echo -n {self.instance.id} > /etc/instance_id && chmod 400 /etc/instance_id\n'
         )
 
+        if self.instance.submission:
+            container_setup_script += 'touch /etc/is_submission\n'
+
         self.dc.container_add_file(container, '/tmp/setup.sh', container_setup_script.encode('utf-8'))
         ret = container.exec_run(f'bash -c "/tmp/setup.sh"')
         if ret.exit_code != 0:

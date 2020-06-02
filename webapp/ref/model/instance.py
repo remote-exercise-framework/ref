@@ -144,7 +144,7 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     submissions: List['Submission']  = db.relationship('Submission', foreign_keys='Submission.origin_instance_id', lazy='joined', back_populates='origin_instance', passive_deletes='all')
 
     #If this instance is part of a subission, this field points to the Submission. If this field is set, submissions must be empty.
-    submission: List['Submission'] = db.relationship("Submission", foreign_keys='Submission.submitted_instance_id', uselist=False, back_populates="submitted_instance", lazy='joined', passive_deletes='all')
+    submission: 'Submission' = db.relationship("Submission", foreign_keys='Submission.submitted_instance_id', uselist=False, back_populates="submitted_instance", lazy='joined', passive_deletes='all')
 
     def get_latest_submission(self) -> 'Submission':
         assert not self.submission

@@ -60,10 +60,13 @@ COPY task.py /usr/local/bin/_task
 RUN chown root:root /usr/local/bin/_task \
     && chmod 500 /usr/local/bin/_task
 
-# Allow user to reset the instance
-RUN echo -e 'printenv > /tmp/_user_environ\nsudo /usr/local/bin/_task $@' > /usr/local/bin/task \
-    && chmod 555 /usr/local/bin/task
+#Allow the user run _task using sudo. We can not use setuid since
+#this is a python script.
 RUN echo "user ALL=(ALL) NOPASSWD: /usr/local/bin/_task" >> /etc/sudoers
+
+# Install wrapper for the _task script.
+COPY task-wrapper.sh /usr/local/bin/task
+RUN chmod 555 /usr/local/bin/task
 
 CMD ["/usr/sbin/sshd", "-D"]
 

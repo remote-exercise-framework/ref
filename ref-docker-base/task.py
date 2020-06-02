@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import typing
+import shutil
 
 import requests
 from itsdangerous import TimedSerializer
@@ -16,6 +17,8 @@ with open('/etc/key', 'rb') as f:
 
 with open('/etc/instance_id', 'r') as f: # type: ignore
     INSTANCE_ID = int(f.read())
+
+IS_SUBMISSION = os.path.isfile('/etc/is_submission')
 
 def finalize_request(req):
     signer = TimedSerializer(KEY, salt='from-container-to-web')
@@ -133,6 +136,9 @@ def main():
     parser = argparse.ArgumentParser(prog="task")
     subparsers = parser.add_subparsers(dest='command')
     subparsers.required = True
+
+    if not IS_SUBMISSION:
+        shutil.copy('/tmp/.user_environ', '/home/user/.user_environ')
 
     reset_parser = subparsers.add_parser('reset',
         help='Revert all modifications applied to your instance. WARNING: This cannot be undone; all user data will be lost permanently.'
