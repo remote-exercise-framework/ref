@@ -132,6 +132,15 @@ def cmd_id(_):
     print_ok(f'[+] If you need support, please provide this ID alongside your request.')
     print_ok(f'[+] Instance ID: {INSTANCE_ID}')
 
+def cmd_info(_):
+    req = {
+    }
+    req = finalize_request(req)
+    res = requests.post('http://sshserver:8000/api/instance/info', json=req)
+    _, info = handle_response(res)
+    print(info)
+
+
 def main():
     parser = argparse.ArgumentParser(prog="task")
     subparsers = parser.add_subparsers(dest='command')
@@ -159,6 +168,11 @@ def main():
         help='Get your instance ID. This ID is needed for all support requests.'
         )
     id_parser.set_defaults(func=cmd_id)
+
+    info_parser = subparsers.add_parser('info',
+        help='Get various details of this instance.'
+        )
+    info_parser.set_defaults(func=cmd_info)
 
     # diff_parser = subparsers.add_parser('diff',
     #     help='Get your instance ID. This ID is needed for all support requests.'

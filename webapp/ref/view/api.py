@@ -567,6 +567,50 @@ def api_instance_submit():
 
     return ok_response('OK')
 
+@refbp.route('/api/instance/info', methods=('GET', 'POST'))
+@limiter.limit('10 per minute')
+def api_instance_info():
+    """
+    {
+        'instance_id': <ID>
+    }
+    """
+    try:
+        content = _sanitize_container_request(request)
+    except Exception as e:
+        return error_response(str(e))
+
+    instance_id = content.get('instance_id')
+    try:
+        instance_id = int(instance_id)
+    except ValueError:
+        log.warning(f'Invalid instance id {instance_id}', exc_info=True)
+        return error_response('Invalid instance ID')
+
+    log.info(f'Received info request for instance_id={instance_id}')
+
+    instance: Instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
+    if not instance:
+        log.warning(f'Invalid instance id {instance_id}')
+        return error_response('Invalid request')
+
+    user = instance.user
+    exercise = instance.exercise
+
+    ret = ''
+    type_ = 'Submission' if instance.submission else 'Instance'
+    user_name = instance.user.full_name
+
+    ret += f'Type     : {type_}\n'
+    ret += f'User     : {user_name}\n'
+    ret += f'Exercise : {exercise.short_name}\n'
+    ret += f'Version  : {exercise.version}\n'
+
+    ret = ret.rstrip()
+
+    return ok_response(ret)
+
+
 # @refbp.route('/api/instance/diff', methods=('GET', 'POST'))
 # @limiter.limit('6 per minute')
 # def api_instance_diff():
