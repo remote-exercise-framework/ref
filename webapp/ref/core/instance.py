@@ -662,8 +662,10 @@ class InstanceManager():
             if path.is_dir():
                 for path in path.glob('*'):
                     if path.parts[-1] in ['.ssh']:
+                        #Do not purge the .ssh file since it contains the SSH keys
+                        #that are allowed to connect to the instance.
                         continue
-                    subprocess.check_call(f'sudo rm -rf {path.as_posix()}', shell=True)
+                    subprocess.check_call(['/usr/bin/sudo', '/bin/rm', '-rf', '--', path.as_posix()], shell=False)
         except:
             log.error(f'Error during purgeing of persisted data {self.instance}', exc_info=True)
             raise
