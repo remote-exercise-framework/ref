@@ -109,7 +109,7 @@ Grading for exercise {{ exercise.short_name }}
         <dl class="row">
           <dt class="col-sm-12">
             {% set lbl = "Points (max. " ~ exercise.max_grading_points ~ ")" %}
-            {{ wtf_utils.render_field(form.points, "number", label=lbl) }}
+            {{ wtf_utils.render_field(form.points, "text", label=lbl) }}
           </dt>
         </dl>
         {{ wtf_utils.render_textarea(form.notes) }}
