@@ -7,7 +7,7 @@
         </h4>
 
         {% if assignment_submissions %}
-            {% for assignment, submissions in assignment_submissions.items()  %}
+            {% for assignment, submissions in assignment_submissions.items()|sort(attribute='0', reverse=True)  %}
                 <div class="card mb-5">
                     <h8 class="card-header">
                         <div class="text-center"> {{ assignment }} </div>
