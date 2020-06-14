@@ -38,6 +38,10 @@ Grading Search
         });
 
         setInterval(process_query_debounce, 5000);
+
+        $('#{{ form.query.id }}').on("keydown", function(event){
+            return event.key != "Enter";
+        });
     });
 </script>
 
