@@ -47,10 +47,12 @@ Grading for exercise {{ exercise.short_name }}
     </div>
 </div>
 {% endif %}
-
 <div class="card mb-5">
   <h4 class="card-header">
       Files <div class="float-right">
+        {% if submission.is_modified() %}
+          <span class="badge badge-danger">Modified Files</span>
+        {% endif %}
         <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ instance.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">Copy SSH Command</a>
       </div>
   </h4>

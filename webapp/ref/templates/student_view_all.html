@@ -16,7 +16,6 @@ Students
             <th scope="col">#Mat.</th>
             <th scope="col">Name</th>
             <th scope="col">#Instances<br>#Submissions</th>
-            <th scope="col">Admin</th>
             <th scope='col'></th>
             </tr>
         </thead>
@@ -24,12 +23,21 @@ Students
     {% for student in students %}
         <tr>
             <th scope="row">{{student.id}}</th>
-            <th scope="row">{{student.mat_num}}</th>
-            <td>{{student.first_name}} {{student.surname}} ({{student.nickname}})</td>
+            <th scope="row">
+                {{student.mat_num}}
+            </th>
+            <td>{{student.first_name}} {{student.surname}} ({{student.nickname}})
+                <br>
+                {% if student.is_admin %}
+                <span class="badge badge-danger">Admin</span>
+                {% endif %}
+                {% if student.is_grading_assistant %}
+                <span class="badge badge-primary">Grading Assistant</span>
+                {% endif %}
+            </td>
             <td>
                 {{ student.instances|length }}<br>{{ student.submissions|length }}
             </td>
-            <td>{{student.is_admin}}</td>
             <td>
                 <div class="btn-group">
                     <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.student_view_single', user_id=student.id) }}">View</a>
