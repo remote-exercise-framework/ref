@@ -194,7 +194,7 @@ def grading_search_execute_query():
         score_to_user = [(fuzz.partial_ratio(user.mat_num, query), user) for user in users]
     else:
         #Assume first and/or last name
-        score_to_user = [(fuzz.ratio(user.full_name, query), user) for user in users]
+        score_to_user = [(fuzz.ratio(user.full_name.lower(), query.lower()), user) for user in users]
 
     score_to_user = sorted(score_to_user, key=lambda e: e[0], reverse=True)
     score_to_user = score_to_user[:5]
