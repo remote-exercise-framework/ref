@@ -19,7 +19,6 @@ Grading of exercise {{ exercise.short_name }} - v{{ exercise.version }}
                 <th scope="col">Test Passed</th>
                 <th scope="col">Grading</th>
                 <th scope="col">Submitted at</th>
-                <th scope="col">Modified</th>
                 <th></th>
                 </tr>
             </thead>
@@ -27,7 +26,6 @@ Grading of exercise {{ exercise.short_name }} - v{{ exercise.version }}
                 {% for submission in submissions|sort(attribute='submission_ts', reverse=true) %}
                     {% set instance = submission.submitted_instance  %}
                     {% set deadline_passed = exercise.deadine_passed() %}
-                    {% set modified = submission.is_modified() %}
                     {% set grading = submission.grading %}
                     <tr class="table-{{ 'success' if grading else 'danger'  }}">
                         <td>{{ instance.user.mat_num }}</td>
@@ -39,7 +37,6 @@ Grading of exercise {{ exercise.short_name }} - v{{ exercise.version }}
                         {% endif %}
                         <td>{{ grading.points_reached|default('?') }} of  {{ exercise.max_grading_points }} </td>
                         <td>{{ moment(submission.submission_ts).fromNow()  }}</td>
-                        <td>{{ modified }}</td>
                         <td>
                             <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ instance.id  }}@{{ settings.SSH_HOSTNAME.value}} -p {{ settings.SSH_PORT.value }}')">SSH</a>
                             <a role="button" class="btn btn-outline-{{ 'success' if deadline_passed else 'danger'  }}" href="{{ url_for('ref.grading_view_submission', submission_id=submission.id, next=request.path)  }}">Grade</a>
