@@ -97,7 +97,7 @@ def start_and_return_instance(instance: Instance):
         welcome_message += f'    Exercise : {exercise.short_name}\n'
         welcome_message += f'    Version  : {exercise.version}\n'
         if instance.is_modified():
-            welcome_message += ansi.red('This submission was modified!\nUse `task reset` to restore the initially submitted state.\n')
+            welcome_message += ansi.red('    This submission was modified!\n    Use `task reset` to restore the initially submitted state.\n')
 
     if exercise.has_deadline():
         ts = datetime_to_local_tz(exercise.submission_deadline_end)
