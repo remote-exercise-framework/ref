@@ -245,6 +245,7 @@ class InstanceManager():
                 log.info('Already mounted.')
                 return
             assert not exercise_entry_service.readonly
+
             #Create overlay for the container persistance. All changes made by the student are recorded in the upper dir.
             #In case an update of the container is necessary, we can replace the lower dir with a new one and reuse the upper
             #dir. The directory used as mount target (overlay_merged) has shared mount propagation, i.e., mounts done in this

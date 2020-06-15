@@ -99,7 +99,7 @@ Exercises
                         <td>{{ e.max_grading_points }}</td>
                         <td>{{ e.build_job_status.value }}</td>
                         <td>
-                            {{ e.active_instances|length }} <br> {{ e.submissions()|length }}
+                            {{ e.active_instances|length }} <br> {{ e.submission_heads()|length }} ({{ e.submissions()|length }})
                         </td>
                         <td>
                             <div class="btn-group">
