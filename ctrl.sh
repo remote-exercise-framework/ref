@@ -160,7 +160,10 @@ if ! has_binary "pip3"; then
     exit 1
 fi
 
-has_python_module "jinja2" || { echo "Please install the jinja2 python module"; exit 1 }
+if ! has_python_module "jinja2"; then
+     echo "Please install the jinja2 python module"
+     exit 1
+fi
 
 if ! has_binary "kpatch" || ! has_binary "kpatch-build"; then
     warning "kpatch or kpatch-build are not installed but are required for disabling"
