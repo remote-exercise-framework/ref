@@ -114,6 +114,11 @@ function has_binary {
     return $?
 }
 
+function has_python_module {
+    pip3 show "$1" >/dev/null 2>&1
+    return $?
+}
+
 if [[ $# -lt 1 ]]; then
     error "Not enough arguments"
     usage
@@ -145,9 +150,19 @@ if ! has_binary docker-compose; then
     exit 1
 fi
 
-if ! has_binary jq; then
+if ! has_binary "jq"; then
     error "Please install jq"
     exit 1
+fi
+
+if ! has_binary "pip3"; then
+    error "Please install pip3"
+    exit 1
+fi
+
+if ! has_python_module "jinja2"; then
+     echo "Please install the jinja2 python module"
+     exit 1
 fi
 
 if ! has_binary "kpatch" || ! has_binary "kpatch-build"; then
@@ -256,8 +271,8 @@ else
     fi
 fi
 
-
-python generate-configs.py
+# Generate docker-compose files
+./generate-configs.py
 
 function build {
     (

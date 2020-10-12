@@ -330,7 +330,6 @@
 				"sync_file_range",
 				"syncfs",
 				"sysinfo",
-				"syslog",
 				"tee",
 				"tgkill",
 				"time",
@@ -562,6 +561,7 @@
 				"setdomainname",
 				"sethostname",
 				"setns",
+				"syslog",
 				"umount",
 				"umount2",
 				"unshare"
@@ -744,6 +744,20 @@
 			"includes": {
 				"caps": [
 					"CAP_SYS_TTY_CONFIG"
+				]
+			},
+			"excludes": {}
+		},
+		{
+			"names": [
+				"syslog"
+			],
+			"action": "SCMP_ACT_ALLOW",
+			"args": [],
+			"comment": "",
+			"includes": {
+				"caps": [
+					"CAP_SYSLOG"
 				]
 			},
 			"excludes": {}

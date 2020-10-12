@@ -1,4 +1,4 @@
-from .api import api_get_header, api_getkeys, api_getuserinfo, api_provision
+from .api import api_get_header, api_getkeys, api_getuserinfo, api_provision, api_instance_info
 from .exercise import (admin_default_routes, exercise_browse, exercise_build,
                        exercise_diff, exercise_do_import, exercise_view,
                        exercise_view_all)
