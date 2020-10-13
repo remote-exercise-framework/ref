@@ -277,7 +277,7 @@ fi
 function build {
     (
         info "=> Updating submodules"
-        git submodule update --recursive --rebase
+        #git submodule update --recursive --rebase
     )
     #Build the base image for all exercises
     (
