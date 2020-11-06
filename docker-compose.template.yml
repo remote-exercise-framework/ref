@@ -39,7 +39,7 @@ services:
 {% endif %}
 
    db:
-      image: postgres
+      image: postgres:13
       restart: always
 {% if not testing %}
       volumes:
