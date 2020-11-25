@@ -53,7 +53,7 @@ def grading_view_all():
     exercises_by_category = defaultdict(lambda: defaultdict(list))
 
     for exercise in sorted(exercises, key=lambda e: (e.category, e.short_name, e.version)):
-        if not exercise.has_deadline() or not exercise.has_submissions():
+        if not exercise.has_deadline() or not exercise.submission_heads_global():
             continue
         exercises_by_category[exercise.category][exercise.short_name] += [exercise]
 
