@@ -67,6 +67,7 @@ class ReleaseConfig(object):
     if DEBUG_TOOLBAR:
         DEBUG_TB_ENABLED = True
 
+    DISABLE_RESPONSE_CACHING = os.environ.get('DISABLE_RESPONSE_CACHING', False)
 
 class DebugConfig(ReleaseConfig):
     debug = True
