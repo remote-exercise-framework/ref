@@ -74,6 +74,7 @@ services:
          - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
          - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
          - TESTING=${TESTING}
+         - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
       cap_add:
          - SYS_ADMIN
       build:

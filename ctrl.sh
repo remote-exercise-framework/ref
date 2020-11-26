@@ -304,6 +304,11 @@ function up {
                 debug=true
                 shift
             ;;
+            '--disable-response-caching')
+                disable_response_caching=true
+                shift
+            ;;
+
             '--maintenance')
                 maintenance=true
                 shift
@@ -325,6 +330,10 @@ function up {
 
     if [[ "$debug" == 'true' ]]; then
         export DEBUG=1
+    fi
+
+    if [[ "$disable_response_caching" == 'true' ]]; then
+        export DISABLE_RESPONSE_CACHING=1
     fi
 
     if [[ "$maintenance" == 'true' ]]; then
