@@ -23,7 +23,7 @@ Grading of exercise {{ exercise.short_name }} - v{{ exercise.version }}
                 </tr>
             </thead>
             <tbody>
-                {% for submission in submissions|sort(attribute='submission_ts', reverse=true) %}
+                {% for submission in submissions|sort(attribute='submitted_instance.user.surname') %}
                     {% set instance = submission.submitted_instance  %}
                     {% set deadline_passed = exercise.deadine_passed() %}
                     {% set grading = submission.grading %}
