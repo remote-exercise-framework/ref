@@ -65,7 +65,8 @@ RUN chown root:root /usr/local/bin/_task \
 RUN echo "user ALL=(ALL) NOPASSWD: /usr/local/bin/_task" >> /etc/sudoers
 
 # Install wrapper for the _task script.
-COPY task-wrapper.sh /usr/local/bin/task
+COPY task-wrapper.c /tmp/task-wrapper.c
+RUN gcc /tmp/task-wrapper.c -o /usr/local/bin/task
 RUN chmod 555 /usr/local/bin/task
 
 CMD ["/usr/sbin/sshd", "-D"]
