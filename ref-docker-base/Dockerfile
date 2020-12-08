@@ -44,6 +44,8 @@ RUN mkdir -p /run/sshd
 RUN groupadd -g 9999 user && useradd -g 9999 -u 9999 -d /home/user -m -s /bin/bash user
 WORKDIR /home/user
 
+RUN echo 'export HISTTIMEFORMAT="%F %T "' >> .bashrc
+
 RUN mkdir .ssh
 COPY container-key/container-key.pub .ssh/authorized_keys
 RUN chown root:root .ssh/authorized_keys \
