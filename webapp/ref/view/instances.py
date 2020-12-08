@@ -220,7 +220,7 @@ def instance_review(instance_id):
         return Response('Instance not existing', status=400)
 
     instance_directory = instance.entry_service.overlay_merged
-    title = f'Review Instance ({instance_id})'
+    title = f'Review of Instance ({instance_id})'
 
 
-    return render_template('instances_review.html', title=title, file_browser_path=instance_directory)
+    return render_template('instances_review.html', title=title, file_browser_path=instance_directory, instance=instance)

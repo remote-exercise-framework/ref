@@ -2,7 +2,7 @@
 {% import "file_browser/file_browser.html" as file_browser with context%}
 
 {% block title %}
-{{ title }}
+{{ title }} ({{ instance.user.first_name }} {{ instance.user.surname }})
 {% endblock %}
 
 {% block admin_content %}
