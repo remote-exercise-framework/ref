@@ -287,7 +287,9 @@ class InstanceManager():
 
     def __start_peripheral_services(self, exercise: Exercise, entry_container):
         """
-        Start the peripheral services and the associated networks.
+        Start the peripheral services and the associated networks. Peripheral service
+        normally proved a service to the entry service like an application that must be
+        exploited over the network.
         """
         services = self.instance.peripheral_services
         if not services:
@@ -296,15 +298,17 @@ class InstanceManager():
         #List of services that are allowed to connect to the internet
         internet_services = [service for service in services if service.exercise_service.allow_internet]
 
+        DOCKER_RESSOURCE_PREFIX = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}'
+
         internet_network = None
         if internet_services:
-            network_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}'
+            network_name = f'{DOCKER_RESSOURCE_PREFIX}'
             network_name += f'{self.instance.exercise.short_name}'
             network_name += f'-v{self.instance.exercise.version}-peripheral-internet-{self.instance.id}'
             internet_network = self.dc.create_network(name=network_name, internal=False)
             self.instance.peripheral_services_internet_network_id = internet_network.id
 
-        network_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}'
+        network_name = f'{DOCKER_RESSOURCE_PREFIX}'
         network_name += f'{self.instance.exercise.short_name}'
         network_name += f'-v{self.instance.exercise.version}-peripheral-to-entry-{self.instance.id}'
         to_entry_network = self.dc.create_network(name=network_name, internal=True)
@@ -316,7 +320,7 @@ class InstanceManager():
 
         #Create container for all services
         for service in services:
-            container_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.instance.exercise.short_name}'
+            container_name = f'{DOCKER_RESSOURCE_PREFIX}{self.instance.exercise.short_name}'
             container_name += f'-v{self.instance.exercise.version}-{service.exercise_service.name}-{self.instance.id}'
             log.info(f'Creating peripheral container {container_name}')
 

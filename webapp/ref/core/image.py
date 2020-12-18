@@ -50,18 +50,19 @@ class ExerciseImageManager():
         return True
 
     @staticmethod
-    def __build_template(app: Flask, files: List[str], build_cmd: List[str], disable_aslr: bool, cmds: List[str] = [], cmd: List[str] = ['/usr/sbin/sshd', '-D']) -> str:
+    def __build_template(app: Flask, files: List[str], build_cmd: List[str], disable_aslr: bool, custom_build_cmd: List[str] = [], default_cmd: List[str] = ['/usr/sbin/sshd', '-D']) -> str:
         """
+        FIXME: Replace this with jinja.
         Generates a Dockerfile in memory and returns it as a string.
         Args:
             app: The Flask app.
             files: Files to COPY into the image.
             build_cmd: Command to executes using RUN {cmd}.
             disabe_aslr: Disabel aslr for the whole container.
-            cmds: Arbitrary strings that are injected into the template.
-            cmd: The default cmd that is executed when the image is started.
+            custom_cmds: List of arbitrary strings that are injected into the template.
+            default_cmd: The default cmd that is executed when the image is started.
         """
-        assert isinstance(cmds, list)
+        assert isinstance(custom_cmds, list)
         assert isinstance(cmd, list)
 
         with app.app_context():
@@ -78,16 +79,16 @@ class ExerciseImageManager():
             for line in build_cmd:
                 template += f'RUN {line}\n'
 
-        for c in cmds:
+        for c in custom_cmds:
             template += f'{c}\n'
 
         if disable_aslr:
             template += 'CMD ["/usr/bin/setarch", "x86_64", "-R"'
-            for w in cmd:
+            for w in default_cmd:
                 template += f', "{w}"'
         else:
             template += f'CMD ['
-            for w in cmd:
+            for w in default_cmd:
                 template += f'"{w}", '
             template = template.rstrip(', ')
 
@@ -110,16 +111,18 @@ class ExerciseImageManager():
         return cmd
 
     @staticmethod
-    def __docker_build(build_ctx_path: str, tag: str, dockerfile='Dockerfile'):
+    def __docker_build(build_ctx_path: str, tag: str, dockerfile='Dockerfile') -> str:
         """
-        Builds a docker image using the dockerfile named 'dockerfile'
-        that is located at path 'build_ctx_path'.
+        Builds a docker image using the dockerfile named 'Dockerfile'
+        that is located in the folder 'build_ctx_path' points to.
         Args:
             build_ctx_path: The docker build context.
             tag: The image name.
             dockerfile: Name of the target Dockerfile.
         Raises:
             *: If the image building process fails.
+        Return:
+            The build log.
         """
         log = ""
         try:
