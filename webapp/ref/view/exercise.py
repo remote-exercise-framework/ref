@@ -293,14 +293,12 @@ def exercise_toggle_default(exercise_id):
     exercises_same_version = Exercise.get_exercises(exercise.short_name)
     exercises_same_version.remove(exercise)
 
-    if exercise.is_default:
-        exercise.is_default = False
-    elif any([e.is_default for e in exercises_same_version]):
-        log.info(f'There is already another version of {exercise} marked as default')
-        flash.error(f'At most one exercise of {exercise.short_name} can be set to default')
-    else:
-        #No other task with same name is default
-        exercise.is_default = True
+    # Make sure there are not multiple default exercises of the same version
+    for e in exercises_same_version:
+        e.is_default = False
+
+    # Toggle the state
+    exercise.is_default = not exercise.is_default
 
     db.session.add(exercise)
     db.session.commit()
