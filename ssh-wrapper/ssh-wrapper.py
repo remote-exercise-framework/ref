@@ -161,6 +161,10 @@ def main():
     msg = resp['welcome_message']
     print(msg)
 
+    # FIXME: We use for all containers the same ssh key for authentication (see -i below).
+    # Consequently we have right now two "trust chains":
+    # [ssh-client] -> [ssh-entry-server] and
+    # [ssh-entry-server] -> [container]
     ip = resp['ip']
     cmd = [
         '/usr/bin/ssh',
