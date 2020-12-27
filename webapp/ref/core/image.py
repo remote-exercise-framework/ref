@@ -59,11 +59,12 @@ class ExerciseImageManager():
             files: Files to COPY into the image.
             build_cmd: Command to executes using RUN {cmd}.
             disabe_aslr: Disabel aslr for the whole container.
-            custom_cmds: List of arbitrary strings that are injected into the template.
+            custom_build_cmd: List of arbitrary strings that are injected into the template.
             default_cmd: The default cmd that is executed when the image is started.
         """
-        assert isinstance(custom_cmds, list)
-        assert isinstance(cmd, list)
+        assert isinstance(build_cmd, list)
+        assert isinstance(custom_build_cmd, list)
+        assert isinstance(default_cmd, list)
 
         with app.app_context():
             base = app.config['BASE_IMAGE_NAME']
@@ -79,7 +80,7 @@ class ExerciseImageManager():
             for line in build_cmd:
                 template += f'RUN {line}\n'
 
-        for c in custom_cmds:
+        for c in custom_build_cmd:
             template += f'{c}\n'
 
         if disable_aslr:
@@ -172,7 +173,7 @@ class ExerciseImageManager():
             exercise.entry_service.files,
             exercise.entry_service.build_cmd,
             exercise.entry_service.disable_aslr,
-            cmds=cmds
+            custom_build_cmd=cmds
         )
 
         build_ctx = exercise.template_path
