@@ -410,7 +410,6 @@ def _sanitize_container_request(request, max_age=60) -> str:
         }
     }
     """
-
     content = request.get_json(force=True, silent=True)
     if not content:
         log.warning('Got request without JSON body')
@@ -527,7 +526,10 @@ def api_instance_submit():
 
     try:
         test_log = content['test_log']
-        test_ret = content['test_ret']
+        # Apparently postgres does not like \x00 bytes in strings,
+        # hence we replace them by a printable error mark.
+        test_log = test_log.replace("\x00", "\uFFFD")
+        test_ret = int(content['test_ret'])
     except:
         log.warning('Invalid request', exc_info=True)
         abort(400)
@@ -560,6 +562,10 @@ def api_instance_submit():
         return error_response(f'Submission is currently disabled, please try again later.')
 
     mgr = InstanceManager(instance)
+
+    # This will stop the instance the submission was initiated from.
+    # If the commit down below fails, the user does not receive any feedback
+    # about the error!
     new_instance = mgr.create_submission(test_ret, test_log)
 
     current_app.db.session.commit()
