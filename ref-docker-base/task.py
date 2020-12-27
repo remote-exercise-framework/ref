@@ -19,6 +19,7 @@ with open('/etc/instance_id', 'r') as f: # type: ignore
     INSTANCE_ID = int(f.read())
 
 IS_SUBMISSION = os.path.isfile('/etc/is_submission')
+MAX_TEST_OUTPUT_LENGTH = 10000
 
 def finalize_request(req):
     signer = TimedSerializer(KEY, salt='from-container-to-web')
@@ -118,6 +119,12 @@ def cmd_submit(_):
         'test_log': out,
         'test_ret': ret
     }
+
+    if len(out) > MAX_TEST_OUTPUT_LENGTH:
+        print_err(f'[!] Test output exceeded maximum length of {MAX_TEST_OUTPUT_LENGTH} characters.')
+        print_err(f'[!] You need to trim the output of your solution script(s) to submit!')
+        exit(0)
+
     req = finalize_request(req)
     res = requests.post('http://sshserver:8000/api/instance/submit', json=req)
     handle_response(res)

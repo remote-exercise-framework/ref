@@ -100,7 +100,6 @@ def get_header() -> str:
 
     _, ret = do_post('http://web:8000/api/header', json=req)
     return ret
-    
 
 def get_user_info(pubkey):
     """
@@ -166,14 +165,14 @@ def main():
     cmd = [
         '/usr/bin/ssh',
         '-t',
-        '-o', ' StrictHostKeyChecking=no',
+        '-o', 'StrictHostKeyChecking=no',
         '-o', 'GlobalKnownHostsFile=/dev/null',
         '-o', 'UserKnownHostsFile=/dev/null',
         '-i', '/home/sshserver/.ssh/container-key',
         '-p', '13370',
         '-l', 'user',
         ip
-        ]
+    ]
 
     #Cmd provided by the client
     ssh_cmd = os.environ.get("SSH_ORIGINAL_COMMAND")
@@ -202,6 +201,7 @@ def main():
         print('If the problem persist, please contact your system administrator.', flush=True)
         exit(1)
 
+    # XXX: cmd contains user controlled contend, thus do not pass it to a shell!
     os.execvp('/usr/bin/ssh', cmd)
 
 if __name__ == "__main__":

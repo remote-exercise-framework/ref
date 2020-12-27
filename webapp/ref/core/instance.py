@@ -435,6 +435,8 @@ class InstanceManager():
 
         #Scrip that is initially executed to setup the environment.
         # 1. Add the SSH key of the user that owns the container to authorized_keys.
+        # FIXME: This key is not actually used for anything right now, since the ssh entry server
+        # uses the master key (docker base image authorized_keys) for authentication for all containers.
         # 2. Store the instance ID as string in a file /etc/instance_id.
         container_setup_script = (
             '#!/bin/bash\n'
@@ -457,7 +459,7 @@ class InstanceManager():
                 entry_to_ssh_network.disconnect(ssh_container)
                 self.dc.remove_network(entry_to_ssh_network)
 
-        #Get the instance specific key that is used to authenticate requests from the container to web.
+        #Get the instance specific key that is used to sign requests from the container to web.
         instance_key = self.instance.get_key()
         self.dc.container_add_file(container, '/etc/key', instance_key)
 
