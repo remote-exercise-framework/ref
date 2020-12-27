@@ -27,11 +27,12 @@ Instances
                 <th scope="col">Version</th>
                 <th scope="col">User</th>
                 <th scope="col">#Submissions</th>
+                <th scope="col">Created</th>
                 <th scope="col"></th>
                 </tr>
             </thead>
             <tbody>
-                {% for i in instances %}
+                {% for i in instances|sort(attribute='id', reverse=True) %}
                     <tr id="{{ i.id }}" {{ "updateable" if i.new_exercise }} {{ "stopable" if i.running }}>
                         <td>{{ i.id }}</td>
                         <td>{{ i.exercise.short_name }}</td>
@@ -42,6 +43,7 @@ Instances
                         </td>
                         <td>{{ i.user.first_name }} {{ i.user.surname }} ({{ i.user.id }})</td>
                         <td>{{ i.submissions|length }}</td>
+                        <td scope="row">{{ moment(i.creation_ts).fromNow() }}</td>
                         <td>
                             <div class="btn-group" role="group">
                                 <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ i.id  }}@{{ ssh_host }} -p {{ ssh_port  }}')">SSH</a>
