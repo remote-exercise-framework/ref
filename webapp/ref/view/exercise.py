@@ -23,7 +23,7 @@ from flask_login import login_required
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, admin_required, flash,
-                      inconsistency_on_error)
+                      inconsistency_on_error, InstanceManager)
 from ref.core.security import sanitize_path_is_subdir
 from ref.core.util import failsafe, redirect_to_next
 from ref.model import ConfigParsingError, Exercise, User
@@ -249,13 +249,16 @@ def exercise_delete(exercise_id):
         flash.error(f'Unknown exercise ID {exercise_id}')
         abort(400)
 
-    if exercise.is_default:
-        flash.error("Exercise marked as default can not be deleted")
-        return redirect_to_next()
-
-    if exercise.instances:
-        flash.error("Exercise has associated instances or submissions, unable to delete!")
-        return redirect_to_next()
+    instances = exercise.instances
+    if instances:
+        if all([i.user.is_admin for i in instances]):
+            for i in instances:
+                mgr = InstanceManager(i)
+                mgr.remove()
+                #FIXME: What happens if we fails after n-1 instances?
+        else:
+            flash.error("Exercise has associated instances or submissions owned by non admin users, unable to delete!")
+            return redirect_to_next()
 
     if exercise.build_job_status == ExerciseBuildStatus.BUILDING:
         flash.error('Unable to delete exercise during building')

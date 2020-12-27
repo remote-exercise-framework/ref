@@ -165,7 +165,6 @@ def instance_view_submissions(instance_id):
 @refbp.route('/admin/instances/view')
 @admin_required
 def instances_view_all():
-
     instances = Instance.query.options(joinedload(Instance.exercise), joinedload(Instance.user)).filter(Instance.submission == None).all()
     return _instances_render_view(instances)
 
