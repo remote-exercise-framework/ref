@@ -109,6 +109,7 @@ class ExerciseManager():
             exercise.submission_deadline_start = datetime_is_local(datetime.datetime.combine(start_date, start_time))
             exercise.submission_deadline_end = datetime_is_local(datetime.datetime.combine(end_date, end_time))
         else:
+            # TODO: Legacy -> Remove
             exercise.submission_deadline_start = ExerciseManager._parse_attr(cfg, 'deadline-start', datetime.datetime, required=False, default=None)
             #Strip timezone from datetime and make it utc
             if exercise.submission_deadline_start:

@@ -87,6 +87,7 @@ Exercises
                     <th scope="col">Points</th>
                     <th scope="col">Status</th>
                     <th scope="col">#Instances<br>#Submissions</th>
+                    <th scope="col">Deadline</th>
                     <th scope="col"></th>
                     </tr>
                 </thead>
@@ -101,6 +102,7 @@ Exercises
                         <td>
                             {{ e.active_instances|length }} <br> {{ e.submission_heads()|length }} ({{ e.submissions()|length }})
                         </td>
+                        <td scope="row">{{ moment(e.submission_deadline_end).fromNow() if e.submission_deadline_end else 'None' }}</td>
                         <td>
                             <div class="btn-group">
                                 {% if e.build_job_status.value == 'FINISHED' %}
