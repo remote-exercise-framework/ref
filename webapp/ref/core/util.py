@@ -111,6 +111,10 @@ def datetime_to_local_tz(ts: datetime):
     utc = ts.replace(tzinfo=from_zone)
     return utc.astimezone(to_zone)
 
+def datetime_is_local(dt: datetime):
+    to_zone = tz.gettz(SystemSettingsManager.TIMEZONE.value)
+    return dt.replace(tzinfo=to_zone)
+
 def datetime_to_naive_utc(dt):
     return dt.astimezone(tz.tzutc()).replace(tzinfo=None)
 

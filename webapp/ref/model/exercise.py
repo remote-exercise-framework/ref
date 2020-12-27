@@ -304,7 +304,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     def submission_heads_global(self) -> List[Submission]:
         """
         Same as .submission_heads(), except only submissions
-        that have no newer (based on a more recent exercise)
+        that have no newer (based on a more recent exercise version)
         submission are returned.
         """
         submissions = []
@@ -315,6 +315,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         seen_users = set()
         ret = []
 
+        # Iterate starting with the submissions belonging to the most recent exercise (highest version)
         for submission in submissions[::-1]:
             user = submission.submitted_instance.user
             if user in seen_users:

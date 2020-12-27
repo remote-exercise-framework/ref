@@ -24,7 +24,7 @@ from ref.model import (Exercise, ExerciseEntryService, ExerciseService,
                        Instance, InstanceEntryService, InstanceService, User)
 from ref.model.enums import ExerciseBuildStatus
 
-from ref.core.util import datetime_to_naive_utc
+from ref.core.util import datetime_to_naive_utc, datetime_is_local
 from .docker import DockerClient
 from .image import ExerciseImageManager
 from .instance import InstanceManager
@@ -62,6 +62,12 @@ class ExerciseManager():
                     del yaml_dict[attr_name]
                 return default
 
+        if expected_type == datetime.time:
+            try:
+                yaml_dict[attr_name] = datetime.time.fromisoformat(yaml_dict[attr_name])
+            except:
+                pass
+
         if not isinstance(yaml_dict[attr_name], expected_type):
             t = type(yaml_dict[attr_name])
             raise ExerciseConfigError(f'Type of attribute "{attr_name}" is {t}, but {expected_type} was expected.')
@@ -90,15 +96,28 @@ class ExerciseManager():
 
         exercise.version = ExerciseManager._parse_attr(cfg, 'version', int)
 
-        exercise.submission_deadline_start = ExerciseManager._parse_attr(cfg, 'deadline-start', datetime.datetime, required=False, default=None)
-        #Strip timezone from datetime and make it utc
-        if exercise.submission_deadline_start:
-            exercise.submission_deadline_start = datetime_to_naive_utc(exercise.submission_deadline_start)
+        deadline = ExerciseManager._parse_attr(cfg, 'deadline', dict, required=False, default=None)
+        if deadline:
+            start = ExerciseManager._parse_attr(deadline, 'start', dict, required=False, default=None)
+            end = ExerciseManager._parse_attr(deadline, 'end', dict, required=False, default=None)
+            if not start or not end:
+                raise ExerciseConfigError('Missing "start" or "end" in deadline entry!')
+            start_date = ExerciseManager._parse_attr(start, 'date', datetime.date, required=True, default=None)
+            start_time = ExerciseManager._parse_attr(start, 'time', datetime.time, required=True, default=None)
+            end_date = ExerciseManager._parse_attr(end, 'date', datetime.date, required=True, default=None)
+            end_time = ExerciseManager._parse_attr(end, 'time', datetime.time, required=True, default=None)
+            exercise.submission_deadline_start = datetime_is_local(datetime.datetime.combine(start_date, start_time))
+            exercise.submission_deadline_end = datetime_is_local(datetime.datetime.combine(end_date, end_time))
+        else:
+            exercise.submission_deadline_start = ExerciseManager._parse_attr(cfg, 'deadline-start', datetime.datetime, required=False, default=None)
+            #Strip timezone from datetime and make it utc
+            if exercise.submission_deadline_start:
+                exercise.submission_deadline_start = datetime_to_naive_utc(exercise.submission_deadline_start)
 
-        exercise.submission_deadline_end = ExerciseManager._parse_attr(cfg, 'deadline-end', datetime.datetime, required=False, default=None)
-        #Strip timezone from datetime and make it utc
-        if exercise.submission_deadline_end:
-            exercise.submission_deadline_end = datetime_to_naive_utc(exercise.submission_deadline_end)
+            exercise.submission_deadline_end = ExerciseManager._parse_attr(cfg, 'deadline-end', datetime.datetime, required=False, default=None)
+            #Strip timezone from datetime and make it utc
+            if exercise.submission_deadline_end:
+                exercise.submission_deadline_end = datetime_to_naive_utc(exercise.submission_deadline_end)
 
         exercise.submission_test_enabled = ExerciseManager._parse_attr(cfg, 'submission-test', bool, required=False, default=False)
 
