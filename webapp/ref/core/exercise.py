@@ -191,7 +191,7 @@ class ExerciseManager():
 
         flag_config = entry_cfg.get('flag')
         if flag_config:
-            entry.flag_path = ExerciseManager._parse_attr(flag_config, 'location', str, required=True)
+            entry.flag_path = ExerciseManager._parse_attr(flag_config, 'location', str, required=False, default='/home/user/flag')
             entry.flag_value = ExerciseManager._parse_attr(flag_config, 'value', str, required=True)
             entry.flag_user = ExerciseManager._parse_attr(flag_config, 'user', str, required=False, default='admin')
             entry.flag_group = ExerciseManager._parse_attr(flag_config, 'group', str, required=False, default='admin')

@@ -32,9 +32,9 @@ class ReleaseConfig(object):
     HOSTNAME = os.environ['HOSTNAME']
     SSH_HOST_PORT = os.environ['SSH_HOST_PORT']
 
-    #NOTE: This name must be adapated if the name of the ssh server is changed
-    #or the parent directory of the docker-compose.yml file is renamed.
-    SSHSERVER_CONTAINER_NAME = None # 'remote-exercises-framework_sshserver_1'
+    # The container name of the ssh entry server.
+    # NOTE: Filled during initialization.
+    SSHSERVER_CONTAINER_NAME = None
 
     SECRET_KEY = os.environ['SECRET_KEY']
     SSH_TO_WEB_KEY = os.environ['SSH_TO_WEB_KEY']
