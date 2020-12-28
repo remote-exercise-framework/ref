@@ -32,19 +32,14 @@ class ExerciseImageManager():
         Raises:
             *: If communication with the docker deamon fails.
         """
-
-        log.info(f'Checking if image of exercise {self.exercise} was build')
-
         #Check entry service docker image
         image_name = self.exercise.entry_service.image_name
         image = self.dc.image(image_name)
         if not image:
-            log.info(f'Entry service {image_name} was not build')
             return False
 
         for service in self.exercise.services:
             if not self.dc.image(service.image_name):
-                log.info(f'Service image {service.image_name} was not build')
                 return False
 
         return True
