@@ -1,5 +1,10 @@
 import os
 
+def env_var_to_bool(env_key):
+    val = os.environ.get(env_key, False)
+    if val is False:
+        return val
+    return val == '1' or val == 'True' or val == 'true'
 
 class ReleaseConfig(object):
     BASEDIR = '/data'
@@ -55,19 +60,18 @@ class ReleaseConfig(object):
     """
     EXERCISE_CONTAINER_MEMORY_LIMIT = '256m'
 
-    #If True, only admin are allowed to use the API
-    MAINTENANCE_ENABLED = (os.environ.get('MAINTENANCE_ENABLED') and os.environ.get('MAINTENANCE_ENABLED') == '1')
+    #If True, only admin are allowed to use the API.
+    MAINTENANCE_ENABLED = env_var_to_bool('MAINTENANCE_ENABLED')
 
     # TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
     # TELEGRAM_BOT_CHAT_ID = os.environ.get('TELEGRAM_BOT_CHAT_ID')
 
-    DISABLE_TELEGRAM = os.environ.get('DISABLE_TELEGRAM') or None
+    DISABLE_TELEGRAM = env_var_to_bool('DISABLE_TELEGRAM')
 
-    DEBUG_TOOLBAR = os.environ.get('DEBUG_TOOLBAR') or None
-    if DEBUG_TOOLBAR:
-        DEBUG_TB_ENABLED = True
+    DEBUG_TOOLBAR = env_var_to_bool('DEBUG_TOOLBAR')
+    DEBUG_TB_ENABLED = DEBUG_TOOLBAR
 
-    DISABLE_RESPONSE_CACHING = os.environ.get('DISABLE_RESPONSE_CACHING', False)
+    DISABLE_RESPONSE_CACHING = env_var_to_bool('DISABLE_RESPONSE_CACHING')
 
 class DebugConfig(ReleaseConfig):
     debug = True
