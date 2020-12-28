@@ -94,8 +94,11 @@ class InstanceManager():
 
         return instance
 
-    def create_submission(self, test_ret, test_out) -> Instance:
+    def create_submission(self, test_ret: int, test_out: str) -> Instance:
         """
+        Args:
+            test_ret: The return value of the submission test (user controlled!)
+            test_out: The output of the submission test (user controlled!)
         Creates a new instance that represents a snapshot of the current instance state.
         Raises:
             *: If the instance submission failed.
@@ -104,11 +107,6 @@ class InstanceManager():
         """
         assert not self.instance.submission, f'Can not submit instance {self.instance}, cause it is already part of a submission'
 
-        #Make sure the instance is not running, since we are going to copy
-        #some data from it.
-
-        self.stop()
-
         user = self.instance.user
         exercise = self.instance.exercise
 
@@ -116,8 +114,8 @@ class InstanceManager():
         new_mgr = InstanceManager(new_instance)
 
         #Copy user data from the original instance as second lower dir to new instance.
-        #NOTE: We are accessing the overlay, make sure nothing is currently mounted!
-        src = self.instance.entry_service.overlay_upper
+        # XXX: We are working here with mounted overlayfs directories.
+        src = self.instance.entry_service.overlay_merged
         dst = new_instance.entry_service.overlay_submitted
         # -a is mandatory, since the upper dir might contain files with extended file attrbiutes (used by overlayfs).
         cmd = f'sudo cp -arT {src} {dst}'

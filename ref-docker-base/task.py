@@ -114,7 +114,7 @@ def cmd_submit(_):
         print_ok('[+] Are you sure you want to submit? [y/n] ', end='')
         if not check_answer():
             exit(0)
-    print_ok("[+] Submitting now. In case of success, you will be disconnected from the instance.", flush=True)
+    print_ok("[+] Submitting now...", flush=True)
     req = {
         'test_log': out,
         'test_ret': ret
@@ -127,7 +127,8 @@ def cmd_submit(_):
 
     req = finalize_request(req)
     res = requests.post('http://sshserver:8000/api/instance/submit', json=req)
-    handle_response(res)
+    _, ret = handle_response(res)
+    print_ok(ret)
 
 def cmd_check(_):
     """

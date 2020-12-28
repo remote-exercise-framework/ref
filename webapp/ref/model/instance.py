@@ -100,7 +100,7 @@ class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     @property
     def overlay_merged(self) -> str:
         """
-        Path to the directory that contains the merged content of the upper and lower directory.
+        Path to the directory that contains the merged content of the upper, submitted, and lower directory.
         """
         return f'{self.instance.persistance_path}/entry-merged'
 

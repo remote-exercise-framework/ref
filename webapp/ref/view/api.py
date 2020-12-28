@@ -571,7 +571,7 @@ def api_instance_submit():
     current_app.db.session.commit()
     log.info(f'Created submission: {new_instance.submission}')
 
-    return ok_response('OK')
+    return ok_response(f'[+] Submission with ID {new_instance.id} successfully created!')
 
 @refbp.route('/api/instance/info', methods=('GET', 'POST'))
 @limiter.limit('10 per minute')
