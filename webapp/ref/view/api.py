@@ -224,7 +224,7 @@ def api_provision():
             return error_response('Unknown public key')
 
     #If we are in maintenance, reject connections from normal users.
-    if current_app.config['MAINTENANCE_ENABLED'] or SystemSettingsManager.MAINTENANCE_ENABLED.value and not user.is_admin:
+    if (current_app.config['MAINTENANCE_ENABLED'] or SystemSettingsManager.MAINTENANCE_ENABLED.value) and not user.is_admin:
         log.info('Rejecting connection since maintenance mode is enabled and user is not an administrator')
         return error_response('-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------')
 
