@@ -234,8 +234,8 @@ class ExerciseImageManager():
                 service.files,
                 service.build_cmd,
                 service.disable_aslr,
-                cmds=flag_cmds,
-                cmd=service.cmd
+                custom_build_cmd=flag_cmds,
+                default_cmd=service.cmd
             )
             build_ctx = exercise.template_path
             try:
