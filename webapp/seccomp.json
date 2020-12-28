@@ -359,7 +359,8 @@
 				"waitid",
 				"waitpid",
 				"write",
-				"writev"
+				"writev",
+				"ptrace"
 			],
 			"action": "SCMP_ACT_ALLOW",
 			"args": [],

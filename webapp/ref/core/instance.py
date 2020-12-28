@@ -213,10 +213,11 @@ class InstanceManager():
     def __get_container_config_defaults(self):
         config = {}
 
-        #Allow the usage of ptrace, thus we can use gdb
-        config['cap_add'] = ['SYS_PTRACE']
-
-        #Apply a custom seccomp profile that allows the personality syscall to disable ASLR
+        #Apply a custom seccomp:
+        # - Allow the personality syscall to disable ASLR
+        # - Allow the ptrace syscall by default without requiring SYS_PTRACE.
+        #   Thus, gdb can be used but we do not have to grand additional capabilities.
+        #   XXX: SYS_PTRACE normally grants additional syscalls. Maybe we need to add them (see seccomp profile).
         with open('/app/seccomp.json', 'r') as f:
             seccomp_profile = f.read()
         config['security_opt'] = [f'seccomp={seccomp_profile}']
