@@ -47,6 +47,9 @@ WORKDIR /home/user
 # Log timestamps for each executed command in the bashrc
 RUN echo 'export HISTTIMEFORMAT="%F %T "' >> .bashrc
 
+# Flush commands immediately to the history
+RUN echo 'export PROMPT_COMMAND="history -a"' >> .bashrc
+
 # Deploy the default ssh-key that is used for authentication by the ssh entry server.
 RUN mkdir .ssh
 COPY container-key/container-key.pub .ssh/authorized_keys
