@@ -225,6 +225,8 @@ class InstanceManager():
         config['cpu_period'] = current_app.config['EXERCISE_CONTAINER_CPU_PERIOD']
         config['cpu_quota'] = current_app.config['EXERCISE_CONTAINER_CPU_QUOTA']
         config['mem_limit'] = current_app.config['EXERCISE_CONTAINER_MEMORY_LIMIT']
+        # Max number of allocatable PIDs per instance.
+        config['pids_limit'] = 32
 
         return config
 

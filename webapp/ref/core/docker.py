@@ -317,12 +317,12 @@ class DockerClient():
                          cpu_quota=None,
                          mem_limit=None,
                          read_only=False,
-                         hostname=None):
+                         hostname=None,
+                         **kwargs):
         if not name:
             name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}' + \
                 ''.join(random.choices(string.ascii_uppercase, k=10))
 
-        kwargs = {}
         if hostname:
             kwargs['hostname'] = hostname
 
