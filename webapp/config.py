@@ -47,7 +47,7 @@ class ReleaseConfig(object):
 
     # This is a hardlimit and determines howmany CPUs an instance
     # can use.
-    INSTANCE_CONTAINER_CPUS = 0.25
+    INSTANCE_CONTAINER_CPUS = 0.5
 
     # Relative weight for each instance. In case of contention,
     # this value determines how many cycles are assigned to each container.
