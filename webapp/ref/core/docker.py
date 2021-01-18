@@ -69,7 +69,7 @@ class DockerClient():
         """
         try:
             own_id = subprocess.check_output(
-                'cat /proc/self/cgroup | head -n 1 | cut -d "/" -f3', shell=True)
+                'echo $(basename $(cat /proc/self/cgroup | grep "cpu,cpuacct"))', shell=True)
             own_id = own_id.decode()
             own_id = own_id.rstrip()
         except Exception as e:

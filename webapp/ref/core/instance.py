@@ -222,11 +222,19 @@ class InstanceManager():
             seccomp_profile = f.read()
         config['security_opt'] = [f'seccomp={seccomp_profile}']
 
-        config['cpu_period'] = current_app.config['EXERCISE_CONTAINER_CPU_PERIOD']
-        config['cpu_quota'] = current_app.config['EXERCISE_CONTAINER_CPU_QUOTA']
-        config['mem_limit'] = current_app.config['EXERCISE_CONTAINER_MEMORY_LIMIT']
+        cpus = current_app.config['INSTANCE_CONTAINER_CPUS']
+        config['cpu_period'] = 100000
+        config['cpu_quota'] = int(100000 * cpus)
+
+        config['cpu_shares'] = current_app.config['INSTANCE_CONTAINER_CPU_SHARES']
+
+        config['mem_limit'] = current_app.config['INSTANCE_CONTAINER_MEM_LIMIT']
         # Max number of allocatable PIDs per instance.
-        config['pids_limit'] = 32
+        config['pids_limit'] = current_app.config['INSTANCE_CONTAINER_PIDS_LIMIT']
+
+        cgroup = current_app.config['CGROUP_PARENT']
+        if cgroup:
+            config['cgroup_parent'] = f'{cgroup}/instances'
 
         return config
 

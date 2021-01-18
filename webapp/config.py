@@ -45,20 +45,25 @@ class ReleaseConfig(object):
     #Prefix for container and network names created by REF
     DOCKER_RESSOURCE_PREFIX = 'ref-ressource-'
 
-    EXERCISE_CONTAINER_CPU_PERIOD = 100000
+    # This is a hardlimit and determines howmany CPUs an instance
+    # can use.
+    INSTANCE_CONTAINER_CPUS = 0.25
 
-    """
-    Number of microseconds a container is allowed to consume from the --cpu-period.
-    I.e., a value of 50000 allows a container to use 50% of the CPU time of a single cpu at maximum.
-    """
-    EXERCISE_CONTAINER_CPU_QUOTA = 50000
+    # Relative weight for each instance. In case of contention,
+    # this value determines how many cycles are assigned to each container.
+    INSTANCE_CONTAINER_CPU_SHARES = 1024
 
     """
     Maximum amount of memory a container is allowed to consume.
     If --memory-swap is unset, the container is allowed to use X*2 swap in adddition
     to the 'real' memory.
     """
-    EXERCISE_CONTAINER_MEMORY_LIMIT = '256m'
+    INSTANCE_CONTAINER_MEM_LIMIT = '256m'
+
+    # Number of PIDs an instance is allowed to allocate.
+    INSTANCE_CONTAINER_PIDS_LIMIT = 32
+
+    CGROUP_PARENT = os.environ.get('CGROUP_PARENT', None)
 
     #If True, only admin are allowed to use the API.
     MAINTENANCE_ENABLED = env_var_to_bool('MAINTENANCE_ENABLED')
@@ -72,6 +77,7 @@ class ReleaseConfig(object):
     DEBUG_TB_ENABLED = DEBUG_TOOLBAR
 
     DISABLE_RESPONSE_CACHING = env_var_to_bool('DISABLE_RESPONSE_CACHING')
+
 
 class DebugConfig(ReleaseConfig):
     debug = True
