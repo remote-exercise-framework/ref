@@ -101,7 +101,7 @@
         }
 
 
-        $(document).on('click', '.load-file', function () {
+        $(document).on('click', '.load-file', function (event) {
             var fileName = $(this).data('filename');
 
             load_file(fileName)
