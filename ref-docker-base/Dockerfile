@@ -115,7 +115,8 @@ RUN apt update && apt install -y \
     nano \
     nasm \
     screen tmux \
-    vim
+    vim \
+    clang
 
 RUN pip install --upgrade pwntools
 
