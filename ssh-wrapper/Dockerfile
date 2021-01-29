@@ -1,7 +1,7 @@
-FROM python:3.7
-MAINTAINER Nils Bars <nils.bars@rub.de>
+FROM python:3.9
 
-RUN apt update && apt install -y sudo gcc git autoconf zlib1g-dev libssl-dev build-essential valgrind netcat tinyproxy wget netcat
+RUN apt update && apt install -y sudo gcc git autoconf zlib1g-dev \
+    libssl-dev build-essential valgrind netcat tinyproxy wget netcat
 RUN mkdir -p /var/run/sshd
 
 RUN wget https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
@@ -22,8 +22,8 @@ WORKDIR /home/sshserver
 
 COPY openssh-portable openssh-portable
 RUN cd openssh-portable \
-    && autoconf && autoheader && ./configure \
-    && make && make install
+    && autoreconf && ./configure \
+    && make -j && make install
 
 COPY sshd_config /etc/ssh/sshd_config
 COPY ssh_config /etc/ssh/ssh_config

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.7
+#!/usr/local/bin/python3.9
 
 """
 This script is executed each time a SSH connection is successfully established
@@ -13,7 +13,7 @@ import time
 import traceback
 import typing
 
-sys.path.append('/usr/local/lib/python3.7/site-packages')
+sys.path.append('/usr/local/lib/python3.9/site-packages')
 try:
     import requests
     from itsdangerous import Serializer

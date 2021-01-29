@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.7
+#!/usr/local/bin/python3.9
 
 """
 This script acts as a replacement for the .authorized_keys file.
@@ -9,7 +9,7 @@ expected to return a list of accepted public keys.
 import os
 import sys
 #TODO: This path is not part of the default path, fix the container! :-(
-sys.path.append('/usr/local/lib/python3.7/site-packages')
+sys.path.append('/usr/local/lib/python3.9/site-packages')
 import requests
 from itsdangerous import Serializer
 

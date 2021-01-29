@@ -20,6 +20,13 @@ services:
          - web-and-ssh
          - ssh-and-redis
       cgroup_parent: "{{ cgroup_parent }}/core_services"
+      cap_drop:
+         - ALL
+      cap_add:
+         - SYS_CHROOT
+         - SETUID
+         - SETGID
+         - CHOWN
 
 {% if not testing %}
    pgadmin:
