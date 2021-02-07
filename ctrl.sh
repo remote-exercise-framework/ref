@@ -52,11 +52,22 @@ Commands:
             --debug
             Enables debug mode. This causes exception to be printed
             on the webinterface. Use this only for development.
+            --debug-toolbar
+            Enable the debug toolbar. This should never be enabled in
+            production (not even in the maintenance mode).
             --maintenance
             Only allow admin users to login.
+            --disable-telegram
+            Disable error reporting via telegram.
 
     stop
         Stop all services without removing the associated containers.
+
+    ps
+        List all running containers.
+
+    top
+        List all processes running inside the containers.
 
     restart-web
         Only restart the webinterface without the other services, thus
