@@ -371,6 +371,10 @@ function ps {
     docker-compose -p ref ps $@
 }
 
+function top {
+    docker-compose -p ref top $@
+}
+
 function flask-cmd {
     info "FLASK_APP=ref python3 -m flask $*"
     docker-compose -p ref run --rm web bash -c "FLASK_APP=ref python3 -m flask $*"
@@ -430,6 +434,9 @@ case "$cmd" in
     ;;
     ps)
         ps $@
+    ;;
+    top)
+        top $@
     ;;
     flask-cmd)
         flask-cmd $@
