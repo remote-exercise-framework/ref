@@ -226,7 +226,7 @@ def api_provision():
     #If we are in maintenance, reject connections from normal users.
     if (SystemSettingsManager.MAINTENANCE_ENABLED.value) and not user.is_admin:
         log.info('Rejecting connection since maintenance mode is enabled and user is not an administrator')
-        return error_response('-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------')
+        return error_response('\n-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------\n')
 
     #Check whether a admin requested access to a specififc instance
     if exercise_name.startswith('instance-'):
