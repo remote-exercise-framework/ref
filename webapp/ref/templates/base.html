@@ -39,7 +39,7 @@
 
     <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true"></div>
 
-    {% if config['MAINTENANCE_ENABLED'] %}
+    {% if settings.MAINTENANCE_ENABLED.value %}
     <div class="alert alert-warning" role="alert">
         Maintenance mode enabled!
     </div>
