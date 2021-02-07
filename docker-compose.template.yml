@@ -45,6 +45,18 @@ services:
       depends_on:
          - db
       cgroup_parent: "{{ cgroup_parent }}/core_services"
+      cap_drop:
+         - ALL
+      cap_add:
+         # Set owner of files
+         - CAP_FOWNER
+         - CAP_CHOWN
+         - CAP_DAC_OVERRIDE
+         # Drop privileges
+         - CAP_SETUID
+         - CAP_SETGID
+         # FIXME: Bind to port 80 (PGADMIN_LISTEN_PORT seems to not solve this)
+         - NET_BIND_SERVICE
 {% endif %}
 
    db:
@@ -62,6 +74,16 @@ services:
          - web-and-db
          - db-and-pgadmin
       cgroup_parent: "{{ cgroup_parent }}/core_services"
+      cap_drop:
+         - ALL
+      cap_add:
+         # Set owner of DB files to the correct user
+         - CAP_FOWNER
+         - CAP_CHOWN
+         - CAP_DAC_OVERRIDE
+         # Drop privileges to postgres user
+         - CAP_SETUID
+         - CAP_SETGID
 
    web:
       security_opt:
