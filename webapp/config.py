@@ -63,7 +63,7 @@ class ReleaseConfig(object):
     # Number of PIDs an instance is allowed to allocate.
     INSTANCE_CONTAINER_PIDS_LIMIT = 32
 
-    #
+    # The capabilities granted by default to instance containers.
     INSTANCE_CAP_WHITELIST = [
         # Capabilities needed to run the per instance SSH-Server inside the container.
         'SYS_CHROOT',
@@ -72,6 +72,11 @@ class ReleaseConfig(object):
         'CHOWN',
     ]
 
+    # The parent cgroup for REF. This group has two child groups.
+    # One for the core services (i.e., webserver, ssh server, db, ...) and
+    # a another one for the instance containers. For now we leave the cgroup
+    # settings alone, such that both child groups are guranteed 50% CPU time
+    # in case of congestion.
     CGROUP_PARENT = os.environ.get('CGROUP_PARENT', None)
 
     #If True, only admin are allowed to use the API.
