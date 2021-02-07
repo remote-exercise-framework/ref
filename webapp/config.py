@@ -63,6 +63,15 @@ class ReleaseConfig(object):
     # Number of PIDs an instance is allowed to allocate.
     INSTANCE_CONTAINER_PIDS_LIMIT = 32
 
+    #
+    INSTANCE_CAP_WHITELIST = [
+        # Capabilities needed to run the per instance SSH-Server inside the container.
+        'SYS_CHROOT',
+        'SETUID',
+        'SETGID',
+        'CHOWN',
+    ]
+
     CGROUP_PARENT = os.environ.get('CGROUP_PARENT', None)
 
     #If True, only admin are allowed to use the API.

@@ -229,8 +229,14 @@ class InstanceManager():
         config['cpu_shares'] = current_app.config['INSTANCE_CONTAINER_CPU_SHARES']
 
         config['mem_limit'] = current_app.config['INSTANCE_CONTAINER_MEM_LIMIT']
+
         # Max number of allocatable PIDs per instance.
         config['pids_limit'] = current_app.config['INSTANCE_CONTAINER_PIDS_LIMIT']
+
+        # Drop all capabilities
+        config['cap_drop'] = ['ALL']
+        # Whitelist
+        config['cap_add'] = current_app.config['INSTANCE_CAP_WHITELIST']
 
         cgroup = current_app.config['CGROUP_PARENT']
         if cgroup:
