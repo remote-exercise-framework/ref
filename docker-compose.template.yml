@@ -19,7 +19,7 @@ services:
          - ssh-and-host
          - web-and-ssh
          - ssh-and-redis
-      cgroup_parent: "{{ cgroup_parent }}/core_services"
+      cgroup_parent: "{{ cgroup_parent }}-core.slice"
       cap_drop:
          - ALL
       cap_add:
@@ -44,7 +44,7 @@ services:
          - db-and-pgadmin
       depends_on:
          - db
-      cgroup_parent: "{{ cgroup_parent }}/core_services"
+      cgroup_parent: "{{ cgroup_parent }}-core.slice"
       cap_drop:
          - ALL
       cap_add:
@@ -73,7 +73,7 @@ services:
       networks:
          - web-and-db
          - db-and-pgadmin
-      cgroup_parent: "{{ cgroup_parent }}/core_services"
+      cgroup_parent: "{{ cgroup_parent }}-core.slice"
       cap_drop:
          - ALL
       cap_add:
@@ -107,7 +107,7 @@ services:
          - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
          - TESTING=${TESTING}
          - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
-         - CGROUP_PARENT={{ cgroup_parent }}
+         - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
       cap_add:
          - SYS_ADMIN
       build:
@@ -143,7 +143,7 @@ services:
          - db
          - redis
          - sshserver
-      cgroup_parent: "{{ cgroup_parent }}/core_services"
+      cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
    redis:
       image: 'bitnami/redis:5.0'
@@ -157,7 +157,7 @@ services:
       networks:
          - web-and-redis
          - ssh-and-redis
-      cgroup_parent: "{{ cgroup_parent }}/core_services"
+      cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
 # volumes:
 #    redis_data:

@@ -238,9 +238,7 @@ class InstanceManager():
         # Whitelist
         config['cap_add'] = current_app.config['INSTANCE_CAP_WHITELIST']
 
-        cgroup = current_app.config['CGROUP_PARENT']
-        if cgroup:
-            config['cgroup_parent'] = f'{cgroup}/instances'
+        config['cgroup_parent'] = current_app.config['INSTANCES_CGROUP_PARENT']
 
         return config
 
@@ -473,6 +471,7 @@ class InstanceManager():
                 self.dc.stop_container(container, remove=True)
                 entry_to_ssh_network.disconnect(ssh_container)
                 self.dc.remove_network(entry_to_ssh_network)
+            raise Exception('Failed to start instance')
 
         #Get the instance specific key that is used to sign requests from the container to web.
         instance_key = self.instance.get_key()
@@ -490,6 +489,7 @@ class InstanceManager():
                 self.dc.stop_container(container, remove=True)
                 entry_to_ssh_network.disconnect(ssh_container)
                 self.dc.remove_network(entry_to_ssh_network)
+            raise Exception('Failed to establish the instances network connection')
 
         try:
             self.__start_peripheral_services(exercise, container)
@@ -500,6 +500,7 @@ class InstanceManager():
 
                 entry_to_ssh_network.disconnect(ssh_container)
                 self.dc.remove_network(entry_to_ssh_network)
+            raise Exception('Failed to peripheral instance')
 
         current_app.db.session.add(self.instance)
         current_app.db.session.add(self.instance.entry_service)

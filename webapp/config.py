@@ -78,7 +78,7 @@ class ReleaseConfig(object):
     # a another one for the instance containers. For now we leave the cgroup
     # settings alone, such that both child groups are guranteed 50% CPU time
     # in case of congestion.
-    CGROUP_PARENT = os.environ.get('CGROUP_PARENT', None)
+    INSTANCES_CGROUP_PARENT = os.environ.get('INSTANCES_CGROUP_PARENT', None)
 
     #If True, only admin are allowed to use the API.
     MAINTENANCE_ENABLED = env_var_to_bool('MAINTENANCE_ENABLED')
