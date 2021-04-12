@@ -282,8 +282,8 @@ else
     fi
 fi
 
-# Generate docker-compose files
-./generate-configs.py
+# Generate docker-compose files. If the 'settings.ini' is erroneous, we exit here.
+./generate-configs.py || exit 1
 
 function build {
     (
