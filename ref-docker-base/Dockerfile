@@ -84,7 +84,9 @@ RUN gcc -O3 -Wall -Werror -Wl,-z,rel -D_FORTIFY_SOURCE=2 -pie -fPIE \
     -fstack-protector-strong /tmp/task-wrapper.c -o /usr/local/bin/task
 RUN chmod 555 /usr/local/bin/task
 
-CMD ["/usr/sbin/sshd", "-D"]
+# -D: Deamon
+# -e: Log to stdout instead of syslog
+CMD ["/usr/sbin/sshd", "-D", "-e"]
 
 # 3. Convenience stuff
 # Create users: user, admin
