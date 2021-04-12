@@ -56,7 +56,7 @@ RUN echo 'export PROMPT_COMMAND="history -a"' >> .bashrc
 RUN mkdir .ssh
 COPY container-key/container-key.pub .ssh/authorized_keys
 RUN chown root:root .ssh/authorized_keys \
-    && chmod 444 .ssh/authorized_keys
+    && chmod 644 .ssh/authorized_keys
 
 COPY sshd_config /etc/ssh/sshd_config
 
