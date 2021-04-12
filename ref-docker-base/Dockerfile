@@ -1,4 +1,4 @@
-FROM ubuntu:18.04 as ref_utils_builder
+FROM ubuntu:20.04 as ref_utils_builder
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt update && \
@@ -11,7 +11,7 @@ RUN cd /home/ref-utils && \
 
 
 
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -26,10 +26,12 @@ RUN apt update && apt install -y \
     make \
     openssh-server \
     python3 python3-pip \
-    python python-dev python-pip \
+    python python-dev \
     software-properties-common \
     sudo \
-    netcat
+    netcat \
+    hexcurse \
+    clang
 
 RUN wget https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
     && chmod 555 /usr/bin/wait-for
@@ -118,7 +120,7 @@ RUN apt update && apt install -y \
     vim \
     clang
 
-RUN pip install --upgrade pwntools
+RUN python3 -m pip install --upgrade pwntools
 
 # Import and install ref-utils
 COPY --from=ref_utils_builder /home/ref-utils/dist/ref_utils-*-py3-none-any.whl /tmp
