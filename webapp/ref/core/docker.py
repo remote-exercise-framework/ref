@@ -1,5 +1,6 @@
 import random
 import string
+import re
 import subprocess
 import tarfile
 from io import BytesIO, StringIO
@@ -67,19 +68,19 @@ class DockerClient():
         Returns the container ID of the executing container.
         For example 7bb6c606c363fc63210e70afaa1cc93288c7318d54674c99be81312b0989ae39
         """
+
         try:
-            own_id = subprocess.check_output(
-                'echo $(basename $(cat /proc/self/cgroup | grep "cpu,cpuacct"))', shell=True)
-            own_id = own_id.decode()
-            own_id = own_id.rstrip()
+            mounts = Path('/proc/self/mountinfo').read_text()
         except Exception as e:
-            raise Exception(
-                'Failed to get ID. Are we running inside a container?') from e
+            raise Exception('Failed to get container ID') from e
 
-        if len(own_id) != 64:
-            raise Exception(f'This does not look like a container ID {own_id}')
+        # Grep the ID from the /etc/hostname mount point.
+        # 391 382 254:0 /var/lib/docker/containers/19ea1ca788b40ecf52ca33807d465697d730ae5d95994bef869fb9644bcb495b/hostname /etc/hostname rw,relatime - ext4 /dev/mapper/dec_root rw
+        container_id = re.findall("/([a-f0-9]{64})/hostname /etc/hostname", mounts)
+        if len(container_id) != 1:
+            raise Exception(f'Failed to find container ID. lines={mounts}')
 
-        return own_id
+        return container_id[0]
 
     def local_path_to_host(self, path: str) -> str:
         """
@@ -246,6 +247,8 @@ class DockerClient():
             docker.errors.NotFound
         """
         if not name_or_id:
+            if raise_on_not_found:
+                raise
             return None
 
         if isinstance(name_or_id, docker.models.containers.Container):
