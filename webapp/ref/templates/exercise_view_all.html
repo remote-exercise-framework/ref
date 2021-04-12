@@ -67,6 +67,8 @@ Exercises
 </div>
 {% endif %}
 
+{% set ssh_host = settings.SSH_HOSTNAME.value  %}
+{% set ssh_port  = settings.SSH_PORT.value  %}
 
 {% for category, tasks in categories.items() %}
     <div class="card mb-5">
@@ -118,6 +120,10 @@ Exercises
                                     <div class="dropdown-menu" aria-labelledby="btnGroupDrop1">
                                         {% if e.active_instances|length %}
                                             <a class="dropdown-item"  href="{{ url_for('ref.instances_view_by_exercise', exercise_name=e.short_name|quote_plus, exercise_version=e.version) }}">Instances</a>
+                                        {% endif %}
+
+                                        {% if e.build_job_status.value == 'FINISHED' %}
+                                            <a class="dropdown-item" href='.' onclick="return copyStringToClipboard('ssh {{ e.short_name }}@{{ ssh_host }} -p {{ ssh_port  }}')">SSH</a>
                                         {% endif %}
 
                                         {% if e.build_job_status.value not in ['BUILDING'] %}
