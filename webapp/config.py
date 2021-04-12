@@ -70,6 +70,7 @@ class ReleaseConfig(object):
         'SETUID',
         'SETGID',
         'CHOWN',
+        'AUDIT_WRITE', # sshd audit logging
     ]
 
     # The parent cgroup for REF. This group has two child groups.

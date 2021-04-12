@@ -24,7 +24,7 @@ Port 13370
 
 # Logging
 #SyslogFacility AUTH
-#LogLevel INFO
+LogLevel DEBUG3
 
 # Authentication:
 

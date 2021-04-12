@@ -45,7 +45,7 @@ class ExerciseImageManager():
         return True
 
     @staticmethod
-    def __build_template(app: Flask, files: List[str], build_cmd: List[str], disable_aslr: bool, custom_build_cmd: List[str] = [], default_cmd: List[str] = ['/usr/sbin/sshd', '-D']) -> str:
+    def __build_template(app: Flask, files: List[str], build_cmd: List[str], disable_aslr: bool, custom_build_cmd: List[str] = [], default_cmd: List[str] = ['/usr/sbin/sshd', '-D', '-e']) -> str:
         """
         FIXME: Replace this with jinja.
         Generates a Dockerfile in memory and returns it as a string.
