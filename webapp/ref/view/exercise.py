@@ -29,6 +29,8 @@ from ref.core.util import failsafe, redirect_to_next
 from ref.model import ConfigParsingError, Exercise, User
 from ref.model.enums import ExerciseBuildStatus
 
+from ref.core import InconsistentStateError
+
 log = LocalProxy(lambda: current_app.logger)
 
 @refbp.route('/admin/exercise/build/<int:exercise_id>')
@@ -274,6 +276,7 @@ def exercise_delete(exercise_id):
     for service in exercise.services:
         db.session.delete(service)
 
+    # FIXME: Move this DB related stuff into the core!
     db.session.delete(exercise.entry_service)
     db.session.delete(exercise)
     db.session.commit()

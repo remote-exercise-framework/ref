@@ -22,6 +22,11 @@ System Settings
             </div>
             <div class="col-md-12">
                 <div class="form-group">
+                    {{ wtf_utils.render_field(general_settings.regestration_enabled, "checkbox") }}
+                </div>
+            </div>
+            <div class="col-md-12">
+                <div class="form-group">
                     {{ wtf_utils.render_field(general_settings.allow_submission_deletion, "checkbox") }}
                 </div>
             </div>

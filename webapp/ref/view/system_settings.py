@@ -28,6 +28,8 @@ def field_to_str(_, field):
 
 
 class GeneralSettings(Form):
+    regestration_enabled = BooleanField(
+        'Allow users to register.')
     submit = SubmitField('Save')
     course_name = TextField('Course Name')
     allow_submission_deletion = BooleanField(
@@ -68,6 +70,7 @@ def view_system_settings():
     # General settings
     general_settings = GeneralSettings(request.form, prefix='general_settings')
     if general_settings.submit.data and general_settings.validate():
+        SystemSettingsManager.REGESTRATION_ENABLED.value = general_settings.regestration_enabled.data
         SystemSettingsManager.COURSE_NAME.value = general_settings.course_name.data
         SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value = general_settings.allow_submission_deletion.data
         SystemSettingsManager.SUBMISSION_DISABLED.value = general_settings.disable_submission.data
@@ -75,6 +78,7 @@ def view_system_settings():
         SystemSettingsManager.MAINTENANCE_ENABLED.value = general_settings.maintenance_enabled.data
 
     else:
+        general_settings.regestration_enabled.data = SystemSettingsManager.REGESTRATION_ENABLED.value
         general_settings.course_name.data = SystemSettingsManager.COURSE_NAME.value
         general_settings.allow_submission_deletion.data = SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value
         general_settings.maintenance_enabled.data = SystemSettingsManager.MAINTENANCE_ENABLED.value

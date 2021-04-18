@@ -60,6 +60,7 @@ default_ssh_welcome_msg = """
                                     /___/"""
 
 class SystemSettingsManager():
+    REGESTRATION_ENABLED = Setting('REGESTRATION_ENABLED', bool, True)
     MAINTENANCE_ENABLED = Setting('MAINTENANCE_ENABLED', bool, False)
     SUBMISSION_DISABLED = Setting('SUBMISSION_DISABLED', bool, False)
 

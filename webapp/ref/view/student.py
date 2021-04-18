@@ -252,6 +252,10 @@ def student_getkey():
     for authentication to get access to the exercises.
     """
 
+    regestration_enabled = SystemSettingsManager.REGESTRATION_ENABLED.value
+    if not regestration_enabled:
+        flash.warning("Regestration is currently disabled. Please contact the staff if you need to register.")
+
     form = GetKeyForm(request.form)
 
     # Get valid group names
@@ -274,7 +278,7 @@ def student_getkey():
                                          groups_enabled=groups_enabled
                                          )
 
-    if form.submit.data and form.validate():
+    if regestration_enabled and form.submit.data and form.validate():
         student = User.query.filter(
             User.mat_num == form.mat_num.data).one_or_none()
         if not student:

@@ -71,7 +71,8 @@ class InstanceManager():
             Path(entry_service.overlay_upper),
             Path(entry_service.overlay_work),
             Path(entry_service.overlay_merged),
-            Path(entry_service.overlay_submitted)
+            Path(entry_service.overlay_submitted),
+            Path(entry_service.shared_folder)
         ]
 
         def delete_dirs():
@@ -409,19 +410,34 @@ class InstanceManager():
             seccomp_profile = f.read()
 
         #Get host path that we are going to mount into the container
-        mounts = None
+        mounts = {}
         if exercise_entry_service.persistance_container_path:
             assert not exercise_entry_service.readonly
             try:
-                mounts = {
-                    self.dc.local_path_to_host(instance_entry_service.overlay_merged): {'bind': '/home/user', 'mode': 'rw'}
-                    }
+                mounts[self.dc.local_path_to_host(instance_entry_service.overlay_merged)] = {'bind': '/home/user', 'mode': 'rw'}
             except:
                 #This will reraise automatically
                 with inconsistency_on_error():
                     entry_to_ssh_network.disconnect(ssh_container)
                     self.dc.remove_network(entry_to_ssh_network)
 
+        # A folder that can be used to share data with an instance
+        shared_folder_path = '/shared'
+        local_shared_folder_path = Path(instance_entry_service.shared_folder)
+
+        # If this is no virgin instance, remove stale shared content.
+        if local_shared_folder_path.exists():
+            try:
+                shutil.rmtree(local_shared_folder_path)
+            except:
+                with inconsistency_on_error():
+                    entry_to_ssh_network.disconnect(ssh_container)
+                    self.dc.remove_network(entry_to_ssh_network)
+
+        mounts[self.dc.local_path_to_host(local_shared_folder_path.as_posix())] = {'bind': shared_folder_path, 'mode': 'rw'}
+
+
+        # Default setting shared by the entry service and the peripheral services.
         default_config = self.__get_container_config_defaults()
 
         entry_container_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}'
@@ -473,7 +489,7 @@ class InstanceManager():
                 self.dc.remove_network(entry_to_ssh_network)
             raise Exception('Failed to start instance')
 
-        #Get the instance specific key that is used to sign requests from the container to web.
+        #Store the instance specific key that is used to sign requests from the container to web.
         instance_key = self.instance.get_key()
         self.dc.container_add_file(container, '/etc/key', instance_key)
 
@@ -493,14 +509,39 @@ class InstanceManager():
 
         try:
             self.__start_peripheral_services(exercise, container)
-        except:
+        except Exception as e:
             with inconsistency_on_error():
                 entry_to_ssh_network.disconnect(container)
                 self.dc.stop_container(container, remove=True)
 
                 entry_to_ssh_network.disconnect(ssh_container)
                 self.dc.remove_network(entry_to_ssh_network)
-            raise Exception('Failed to peripheral instance')
+            raise Exception('Failed to start peripheral services') from e
+
+        # Setup SOCKS proxy for SSH port forwarding support.
+
+        # Create a unix domain socket that the SSH entry server will send
+        # proxy requests to.
+        # We listen on `unix_socket_path` and forward each incoming connection to
+        # 127.0.0.1 on port 37777 (where our SOCKS proxy is going to listen on).
+        unix_socket_path = f'{shared_folder_path}/socks_proxy'
+        unix_to_proxy_cmd = f'socat -d -d -d -lf {shared_folder_path}/proxy-socat.log UNIX-LISTEN:{unix_socket_path},reuseaddr,fork,su=socks TCP:127.0.0.1:37777'
+        proxy_cmd = f'/usr/local/bin/microsocks -i 127.0.0.1 -p 37777'
+        try:
+            log.info(f'Running {unix_to_proxy_cmd}')
+            container.exec_run(unix_to_proxy_cmd, detach=True)
+            log.info(f'Running {proxy_cmd}')
+            ret = container.exec_run(proxy_cmd, user='socks', detach=True)
+            log.info(ret)
+        except Exception as e:
+            with inconsistency_on_error():
+                entry_to_ssh_network.disconnect(container)
+                self.dc.stop_container(container, remove=True)
+
+                entry_to_ssh_network.disconnect(ssh_container)
+                self.dc.remove_network(entry_to_ssh_network)
+            raise Exception('Failed start SOCKS proxy') from e
+
 
         current_app.db.session.add(self.instance)
         current_app.db.session.add(self.instance.entry_service)

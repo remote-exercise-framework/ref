@@ -14,6 +14,13 @@ import docker
 import redis
 import rq
 import yaml
+import threading
+from queue import Queue
+import socket
+import socks
+
+import typing
+
 from flask import (Blueprint, Flask, abort, current_app, jsonify,
                    make_response, redirect, render_template, request, url_for)
 from itsdangerous import Serializer, TimedSerializer
@@ -33,11 +40,42 @@ from ref.model.enums import ExerciseBuildStatus
 
 log = LocalProxy(lambda: current_app.logger)
 
+class ApiRequestError(Exception):
+    """
+    Raised if the API request was not executed successfully.
+    E.g., because the requesting user did not have sufficient permissions.
+    """
+
+    def __init__(self, response):
+        """
+        Args:
+            response: The response that the called view might use to indicate
+                      that the request failed.
+        """
+        super().__init__(self)
+        self.response = response
+
+
 def error_response(msg, code=400):
+    """
+    Create a error response that must be send by the API if a request fails.
+    Format of the response:
+    {
+        'error': <msg as JSON>
+    }
+    Args:
+        msg: A object that is converted into JSON and used as 'error' attribute
+             in the response.
+    """
     msg = jsonify({'error': msg})
     return msg, code
 
 def ok_response(msg):
+    """
+    Create a ok response that is send by API views on success.
+    Args:
+        msg: A object that is converted to JSON and used as response.
+    """
     msg = jsonify(msg)
     return msg, 200
 
@@ -53,7 +91,7 @@ def start_and_return_instance(instance: Instance):
     #Check if the instances exercise image is build
     if not ExerciseImageManager(instance.exercise).is_build():
         log.error(f'User {instance.user} has an instance ({instance}) of an exercise that is not built. Possibly someone deleted the docker image?')
-        return error_response('Inconsistent build state! Please notify the system administrator immediately')
+        raise ApiRequestError(error_response('Inconsistent build state! Please notify the system administrator immediately'))
 
     instance_manager = InstanceManager(instance)
     if not instance_manager.is_running():
@@ -121,47 +159,347 @@ def start_and_return_instance(instance: Instance):
 
     return ok_response(resp)
 
-def handle_instance_introspection_request(exercise_name, pubkey):
+def handle_instance_introspection_request(query, pubkey) ->  tuple[Flask.response_class, Instance]:
     """
     Handeles deploy request that are targeting a specific instances.
     This feature allows, e.g., admin users to connect to an arbitrary
     instance using 'instance-<INSTANCE_ID>' as exercise name during
     authentication.
-    On error an 'Exception' is raised containing a string that can be provided
-    to the requesting user as error message.
+    Raises:
+        ApiRequestError: If the request could not be served.
     """
     #The ID of the requested instance
-    instance_id = re.findall(r"^instance-([0-9]+)", exercise_name)
+    instance_id = re.findall(r"^instance-([0-9]+)", query)
     try:
         instance_id = int(instance_id[0])
     except:
-        log.warning(f'Invalid instance ID {instance_id}', exc_info=True)
-        raise Exception('Invalid request')
+        log.warning(f'Invalid instance ID {instance_id}')
+        raise ApiRequestError(error_response('Invalid instance ID.'))
 
+    # TODO: We should pass the user instead of the pubkey arg.
     instance: Instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
     user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
 
     if not user:
         log.warning('User not found.')
-        return error_response('Unknown user.')
+        raise ApiRequestError(error_response('Unknown user.'))
 
     if not SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value:
         m = f'Instance SSH introspection is disabled!'
         log.warning(m)
-        return error_response('Introspection is disabled.')
+        raise ApiRequestError(error_response('Introspection is disabled.'))
 
     if not user.is_admin and not user.is_grading_assistant:
         log.warning(f'Only administrators and grading assistants are allowed to request access to specific instances.')
-        return error_response('Insufficient permissions')
+        raise ApiRequestError(error_response('Insufficient permissions'))
 
     if not instance:
         log.warning(f'Invalid instance_id={instance_id}')
-        return error_response('Invalid instance ID')
+        raise ApiRequestError(error_response('Invalid instance ID'))
 
     if not instance.is_submission() and not user.is_admin:
-        return error_response('Insufficient permissions.')
+        raise ApiRequestError(error_response('Insufficient permissions.'))
 
-    return start_and_return_instance(instance)
+    return start_and_return_instance(instance), instance
+
+
+def parse_instance_request_query(query: str):
+    """
+        Args:
+            query: A query string that specifies the type of the instance that
+            was requested. Currently we support these formats:
+                - [a-z|_|-|0-9]+ => A instance of the exercise with the given name.
+                - [a-z|_|-|0-9]+@[1-9][0-9]* => A instance of the exercise with
+                the given name and version ([name]@[version]).
+                - instance-[0-9] => Request access to the instance with the given ID.
+    """
+    pass
+
+def process_instance_request(query: str, pubkey: str) -> (any, Instance):
+    """
+    query: A query that describes the kind of instance the user
+    requests.
+    pubkey: The pubkey of the user that issued the request.
+    Returns:
+        response: flask.Request, instance: Instance
+    Raises:
+        ApiRequestError: The request was rejected.
+        *: In case of unexpected errors.
+    """
+
+    name = query
+
+    #Get the user account
+    user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
+    if not user:
+        log.warning('Unable to find user with provided publickey')
+        raise ApiRequestError(error_response('Unknown public key'))
+
+    #If we are in maintenance, reject connections from normal users.
+    if (SystemSettingsManager.MAINTENANCE_ENABLED.value) and not user.is_admin:
+        log.info('Rejecting connection since maintenance mode is enabled and user is not an administrator')
+        raise ApiRequestError(error_response('\n-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------\n'))
+
+    #Check whether a admin requested access to a specififc instance
+    if name.startswith('instance-'):
+        try:
+            response, instance = handle_instance_introspection_request(name, pubkey)
+            db.session.commit()
+            return response, instance
+        except:
+            raise
+
+    exercise_version = None
+    if '@' in name:
+        if not SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value:
+            raise ApiRequestError(error_response('Settings: Non-default provisioning is not allowed'))
+        if not user.is_admin:
+            raise ApiRequestError(error_response('Insufficient permissions: Non-default provisioning is only allowed for admins'))
+        name = name.split('@')
+        exercise_version = name[1]
+        name = name[0]
+
+    with retry_on_deadlock():
+        user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
+        if not user:
+            log.warning('Unable to find user with provided publickey')
+            raise ApiRequestError(error_response('Unknown public key'))
+
+        if exercise_version is not None:
+            requested_exercise = Exercise.get_exercise(name, exercise_version, for_update=True)
+        else:
+            requested_exercise = Exercise.get_default_exercise(name, for_update=True)
+        log.info(f'Requested exercise is {requested_exercise}')
+        if not requested_exercise:
+            raise ApiRequestError(error_response('Requested task not found'))
+
+    user_instances = list(filter(lambda e: e.exercise.short_name == requested_exercise.short_name, user.exercise_instances))
+    #Filter submissions
+    user_instances = list(filter(lambda e: not e.submission, user_instances))
+
+    #If we requested a version, remove all instances that do not match
+    if exercise_version is not None:
+        user_instances = list(filter(lambda e: e.exercise.version == exercise_version, user_instances))
+
+    #Highest version comes first
+    user_instances = sorted(user_instances, key=lambda e: e.exercise.version, reverse=True)
+    user_instance = None
+
+    if user_instances:
+        log.info(f'User has instance {user_instances} of requested exercise')
+        user_instance = user_instances[0]
+        #Make sure we are not dealing with a submission here!
+        assert not user_instance.submission
+        if exercise_version is None and user_instance.exercise.version < requested_exercise.version:
+            old_instance = user_instance
+            log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {requested_exercise}')
+            mgr = InstanceManager(old_instance)
+            user_instance = mgr.update_instance(requested_exercise)
+            mgr.bequeath_submissions_to(user_instance)
+
+            try:
+                db.session.begin_nested()
+                mgr.remove()
+            except Exception as e:
+                #Remove failed, do not commit the changes to the DB.
+                db.session.rollback()
+                #Commit the new instance to the DB.
+                db.session.commit()
+                raise InconsistentStateError('Failed to remove old instance after upgrading.') from e
+            else:
+                db.session.commit()
+    else:
+        user_instance = InstanceManager.create_instance(user, requested_exercise)
+
+    response, instance = start_and_return_instance(user_instance)
+
+    db.session.commit()
+    return response, instance
+
+# @refbp.route('/api/ssh-authenticated', methods=('GET', 'POST'))
+# @limiter.exempt
+# def api_ssh_authenticated():
+#     """
+#     Called from the ssh entry server as soon a user was successfully authenticated.
+#     We use this hook to prepare the instance that will be handed out via, e.g.,
+#     api_provision(). After this function returns, and the request is granted,
+#     the instance must be up and running. Thus the ssh entry service can setup,
+#     e.g., port forwarding to the instance before actually calling
+#     api_provision() (if called at all).
+#     Expected JSON body:
+#     {
+#         'name': name,
+#         'pubkey': pubkey
+#     }
+#     """
+#     content = request.get_json(force=True, silent=True)
+#     if not content:
+#         log.warning('Received provision request without JSON body')
+#         return error_response('Request is missing JSON body')
+
+#     #Check for valid signature and valid request type
+#     s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
+#     try:
+#         content = s.loads(content)
+#     except Exception as e:
+#         log.warning(f'Invalid request {e}')
+#         return error_response('Invalid request')
+
+#     if not isinstance(content, dict):
+#         log.warning(f'Unexpected data type {type(content)}')
+#         return error_response('Invalid request')
+
+#     #Parse request args
+
+#     #The public key the user used to authenticate
+#     pubkey = content.get('pubkey', None)
+#     if not pubkey:
+#         log.warning('Missing pubkey')
+#         return error_response('Invalid request')
+
+#     #The user name used for authentication
+#     name = content.get('name', None)
+#     if not name:
+#         log.warning('Missing name')
+#         return error_response('Invalid request')
+
+#     #name is user provided, make sure it is valid UTF8.
+#     #If its not, sqlalchemy will raise an unicode error.
+#     try:
+#         name.encode()
+#     except Exception as e:
+#         log.error(f'Invalid exercise name {str(e)}')
+#         return error_response('Requested task not found')
+
+#     # Now it is safe to use name.
+#     log.info(f'Got request from pubkey={pubkey:32}, name={name}')
+
+#     # Request a new instance using the provided arguments.
+#     try:
+#         _, instance = process_instance_request(name, pubkey)
+#     except ApiRequestError as e:
+#         return e.response
+
+#     # NOTE: Since we committed in request_instance(), we do not hold the lock anymore.
+#     ret = {
+#         'instance_id': instance.id,
+#         'is_admin': instance.user.is_admin(),
+#         'is_grading_assistent': instance.user.is_grading_assistent()
+#     }
+
+#     # TODO: Return a ticket that can be used to request port forwarding for the
+#     # returned instance ID.
+
+#     return ok_response(ret)
+
+# @refbp.route('/api/proxy/request', methods=('GET', 'POST'))
+# @limiter.exempt
+# def api_proxy_request():
+#     """
+#     Request a proxy for the passed instance ID and port. (must be signed)
+#     """
+#     content = request.get_json(force=True, silent=True)
+#     if not content:
+#         log.warning('Missing JSON body')
+#         return error_response('Missing JSON body in request')
+
+#     #Check for valid signature and unpack
+#     s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
+#     try:
+#         content = s.loads(content)
+#     except Exception as e:
+#         log.warning(f'Invalid request {e}')
+#         return error_response('Invalid request')
+
+#     if not isinstance(content, dict):
+#         log.warning(f'Unexpected data type {type(content)}')
+#         return error_response('Invalid request')
+
+#     instance_id = content.get('instance_id')
+#     if not instance_id:
+#         log.warning('Got request without instance_id attribute')
+#         return error_response('Invalid request')
+
+#     dst_ip = content.get('dst_ip')
+#     if not dst_ip:
+#         log.warning('Got request without dst_ip attribute')
+#         return error_response('Invalid request')
+
+#     dst_port = content.get('dst_port')
+#     if not dst_port:
+#         log.warning('Got request without dst_port attribute')
+#         return error_response('Invalid request')
+
+#     instance = Instance.get(instance_id)
+#     if not instance:
+#         log.warning(f'No instance with ID {instance_id}')
+#         return error_response('Invalid request')
+
+#     q = Queue()
+#     socket_path = instance.entry_service.shared_folder + '/socks_proxy'
+#     t = threading.Thread(target=_proxy_worker_loop, args=[q, socket_path, dst_ip, dst_port])
+#     t.start()
+
+#     # Release the DB lock here.
+
+#     msg = q.get()
+#     if msg is False:
+#         t.join()
+
+
+# def _proxy_worker_loop(ipc_queue, socket_path, dst_ip, dst_port):
+#     # Connect to the unix socket
+#     con = socks.socksocket()
+#     # con = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+#     # con.settimeout(1.0)
+
+#     con.settimeout(1.0)
+#     con.set_proxy(socks.SOCKS5, socket_path)
+
+#     try:
+#         con.connect(dst_ip, dst_port)
+#     except:
+#         log.info('Failed to connect {dst_ip}:{dst_port}@{socket_path}', exc_info=True)
+#         ipc_queue.put(False)
+#         return
+
+#     # Talk to the socks proxy
+
+# @refbp.route('/api/proxy/connect', methods=('GET', 'POST'))
+# @limiter.exempt
+# def api_proxy_connect():
+#     """
+#     Request a proxy for the passed instance and port.
+#     """
+#     """
+#     Request a proxy for the passed instance ID and port. (must be signed)
+#     """
+#     content = request.get_json(force=True, silent=True)
+#     if not content:
+#         log.warning('Missing JSON body')
+#         return error_response('Missing JSON body in request')
+
+#     #Check for valid signature and unpack
+#     s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
+#     try:
+#         content = s.loads(content)
+#     except Exception as e:
+#         log.warning(f'Invalid request {e}')
+#         return error_response('Invalid request')
+
+#     if not isinstance(content, dict):
+#         log.warning(f'Unexpected data type {type(content)}')
+#         return error_response('Invalid request')
+
+#     instance_id = content.get('instance_id')
+#     if not instance_id:
+#         log.warning('Got request without instance_id attribute')
+#         return error_response('Invalid request')
+
+#     port = content.get('port')
+#     if not instance_id:
+#         log.warning('Got request without port attribute')
+#         return error_response('Invalid request')
 
 @refbp.route('/api/provision', methods=('GET', 'POST'))
 @limiter.exempt
@@ -173,6 +511,11 @@ def api_provision():
     to decide whether it is necessary to create a new instance for the user,
     or if he already has one to which the connection just needs to be forwarded.
     This function might be called concurrently.
+    Expected JSON body:
+    {
+        'exercise_name': exercise_name,
+        'pubkey': pubkey
+    }
     """
     content = request.get_json(force=True, silent=True)
     if not content:
@@ -213,96 +556,15 @@ def api_provision():
         log.error(f'Invalid exercise name {str(e)}')
         return error_response('Requested task not found')
 
-    #Now it is safe to use exercise_name
+    # Now it is safe to use exercise_name.
     log.info(f'Got request from pubkey={pubkey:32}, exercise_name={exercise_name}')
 
-    #Get the user account
-    with retry_on_deadlock():
-        user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
-        if not user:
-            log.warning('Unable to find user with provided publickey')
-            return error_response('Unknown public key')
+    try:
+        response, _ = process_instance_request(exercise_name, pubkey)
+    except ApiRequestError as e:
+        return e.response
 
-    #If we are in maintenance, reject connections from normal users.
-    if (SystemSettingsManager.MAINTENANCE_ENABLED.value) and not user.is_admin:
-        log.info('Rejecting connection since maintenance mode is enabled and user is not an administrator')
-        return error_response('\n-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------\n')
-
-    #Check whether a admin requested access to a specififc instance
-    if exercise_name.startswith('instance-'):
-        try:
-            ret = handle_instance_introspection_request(exercise_name, pubkey)
-            db.session.commit()
-            return ret
-        except:
-            raise
-
-    exercise_version = None
-    if '@' in exercise_name:
-        if not SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value:
-            return error_response('Settings: Non-default provisioning is not allowed')
-        if not user.is_admin:
-            return error_response('Insufficient permissions: Non-default provisioning is only allowed for admins')
-        exercise_name = exercise_name.split('@')
-        exercise_version = exercise_name[1]
-        exercise_name = exercise_name[0]
-
-    with retry_on_deadlock():
-        user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
-        if not user:
-            log.warning('Unable to find user with provided publickey')
-            return error_response('Unknown public key')
-
-        if exercise_version is not None:
-            requested_exercise = Exercise.get_exercise(exercise_name, exercise_version, for_update=True)
-        else:
-            requested_exercise = Exercise.get_default_exercise(exercise_name, for_update=True)
-        log.info(f'Requested exercise is {requested_exercise}')
-        if not requested_exercise:
-            return error_response('Requested task not found')
-
-    user_instances = list(filter(lambda e: e.exercise.short_name == requested_exercise.short_name, user.exercise_instances))
-    #Filter submissions
-    user_instances = list(filter(lambda e: not e.submission, user_instances))
-
-    #If we requested a version, remove all instances that do not match
-    if exercise_version is not None:
-        user_instances = list(filter(lambda e: e.exercise.version == exercise_version, user_instances))
-
-    #Highest version comes first
-    user_instances = sorted(user_instances, key=lambda e: e.exercise.version, reverse=True)
-    user_instance = None
-
-    if user_instances:
-        log.info(f'User has instance {user_instances} of requested exercise')
-        user_instance = user_instances[0]
-        #Make sure we are not dealing with a submission here!
-        assert not user_instance.submission
-        if exercise_version is None and user_instance.exercise.version < requested_exercise.version:
-            old_instance = user_instance
-            log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {requested_exercise}')
-            mgr = InstanceManager(old_instance)
-            user_instance = mgr.update_instance(requested_exercise)
-            mgr.bequeath_submissions_to(user_instance)
-
-            try:
-                db.session.begin_nested()
-                mgr.remove()
-            except Exception as e:
-                #Remove failed, do not commit the changes to the DB.
-                db.session.rollback()
-                #Commit the new instance to the DB.
-                db.session.commit()
-                raise InconsistentStateError('Failed to remove old instance after upgrading.') from e
-            else:
-                db.session.commit()
-    else:
-        user_instance = InstanceManager.create_instance(user, requested_exercise)
-
-    ret = start_and_return_instance(user_instance)
-
-    db.session.commit()
-    return ret
+    return response
 
 @refbp.route('/api/getkeys', methods=('GET', 'POST'))
 @limiter.exempt

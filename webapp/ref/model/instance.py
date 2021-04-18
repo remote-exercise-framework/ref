@@ -108,6 +108,14 @@ class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     def hostname(self):
         return self.instance.exercise.short_name
 
+    """
+    A folder that is mounted into the instance and can be used to transfer data
+    between the host and the instance.
+    """
+    @property
+    def shared_folder(self):
+        return f'{self.instance.persistance_path}/shared-folder'
+
 class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     An Instance represents a instance of an exercise.

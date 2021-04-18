@@ -70,6 +70,7 @@ class ReleaseConfig(object):
         'SETUID',
         'SETGID',
         'CHOWN',
+        'CAP_DAC_OVERRIDE',
         'AUDIT_WRITE', # sshd audit logging
     ]
 

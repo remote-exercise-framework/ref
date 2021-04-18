@@ -1,7 +1,13 @@
 FROM python:3.9
+SHELL ["/bin/bash", "-c"]
 
 RUN apt update && apt install -y sudo gcc git autoconf zlib1g-dev \
-    libssl-dev build-essential valgrind netcat tinyproxy wget netcat
+    libssl-dev build-essential valgrind netcat tinyproxy wget netcat curl
+
+# Install cargo
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
+
 RUN mkdir -p /var/run/sshd
 
 RUN wget https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
@@ -9,6 +15,8 @@ RUN wget https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /
 
 RUN useradd -m -d /home/sshd -s /bin/bash sshd
 
+# This is the user that is used for login for all connections
+# that could successfully be authenticated. 
 #It looks like the sshserver needs a password to allow
 #login through SSH. So, we set a random one.
 RUN useradd -m -d /home/sshserver -s /bin/bash sshserver \
@@ -18,11 +26,19 @@ WORKDIR /tmp
 COPY requirements.txt /tmp/
 RUN pip install -r requirements.txt && rm requirements.txt
 
+# Install the interfacing library that is used by sshd to communicate
+# via rest with the web server.
+COPY "ref-interface" ./ref-interface
+RUN cd "ref-interface" \
+    && bash -c "source $HOME/.bashrc && cargo build" \
+    && cp "$(find $PWD/target -name 'libref_interface.so' | head -n 1)" /usr/lib/libref_interface.so \
+    && cp libref_interface.h /usr/include/
+
 WORKDIR /home/sshserver
 
 COPY openssh-portable openssh-portable
 RUN cd openssh-portable \
-    && autoreconf && ./configure \
+    && autoreconf && LDFLAGS="-lref_interface" ./configure \
     && make -j && make install
 
 COPY sshd_config /etc/ssh/sshd_config
