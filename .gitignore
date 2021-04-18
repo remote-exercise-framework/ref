@@ -16,3 +16,6 @@ webapp/.testmondata
 webapp/htmlcov/
 
 ref-docker-base/task-wrapper
+
+ref-interface/target
+ref-interface/Cargo.lock
