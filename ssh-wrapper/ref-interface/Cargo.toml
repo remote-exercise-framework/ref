@@ -1,0 +1,19 @@
+[package]
+name = "ref-interface"
+version = "0.1.0"
+authors = ["Nils Bars <nils.bars@rub.de>"]
+edition = "2018"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "ref_interface"
+crate-type = ["cdylib"]
+
+[dependencies]
+libc = "~0"
+itsdangerous = "~0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.11", features = ["blocking"] }
