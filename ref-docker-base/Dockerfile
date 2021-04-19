@@ -56,6 +56,14 @@ RUN groupadd -g 9911 socks && useradd -g 9911 -u 9911 -s /bin/false socks
 
 # Create user and use its home as workdir
 RUN groupadd -g 9999 user && useradd -g 9999 -u 9999 -d /home/user -m -s /bin/bash user
+
+WORKDIR /root
+
+RUN mkdir .ssh
+COPY container-key/root-container.pub .ssh/authorized_keys
+RUN chown root:root .ssh/authorized_keys \
+    && chmod 644 .ssh/authorized_keys
+
 WORKDIR /home/user
 
 # Log timestamps for each executed command in the bashrc
@@ -64,9 +72,9 @@ RUN echo 'export HISTTIMEFORMAT="%F %T "' >> .bashrc
 # Flush commands immediately to the history
 RUN echo 'export PROMPT_COMMAND="history -a"' >> .bashrc
 
-# Deploy the default ssh-key that is used for authentication by the ssh entry server.
+# Deploy the default ssh-key that is used for authentication by the ssh entry server as user "user".
 RUN mkdir .ssh
-COPY container-key/container-key.pub .ssh/authorized_keys
+COPY container-key/user-container.pub .ssh/authorized_keys
 RUN chown root:root .ssh/authorized_keys \
     && chmod 644 .ssh/authorized_keys
 

@@ -79,12 +79,16 @@ def ok_response(msg):
     msg = jsonify(msg)
     return msg, 200
 
-def start_and_return_instance(instance: Instance):
+def start_and_return_instance(instance: Instance, requesting_user: User, requests_root_access: bool):
     """
     Returns the ip and default command (that should be executed on connect) of the given instance.
     In case the instance is not running, it is started.
     In case some operation fails, the function returns a description of the error
     using error_response().
+    Args:
+        instance: The instance that should be stareted (this must not necessarily be owned by requesting_user)
+        requesting_user: The user who requested the start of the instance (NOTE: Use this for permission checks).
+        requests_root_access: Whether `requesting_user` wants root access for the given `instance`.
     """
     log.info(f'Start of instance {instance} was requested.')
 
@@ -154,7 +158,8 @@ def start_and_return_instance(instance: Instance):
     resp = {
         'ip': ip,
         'cmd': instance.exercise.entry_service.cmd,
-        'welcome_message': welcome_message
+        'welcome_message': welcome_message,
+        'as_root': requests_root_access and requesting_user.is_admin
     }
 
     return ok_response(resp)
@@ -200,7 +205,7 @@ def handle_instance_introspection_request(query, pubkey) ->  tuple[Flask.respons
     if not instance.is_submission() and not user.is_admin:
         raise ApiRequestError(error_response('Insufficient permissions.'))
 
-    return start_and_return_instance(instance), instance
+    return start_and_return_instance(instance, user, False), instance
 
 
 def parse_instance_request_query(query: str):
@@ -240,6 +245,11 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
         log.info('Rejecting connection since maintenance mode is enabled and user is not an administrator')
         raise ApiRequestError(error_response('\n-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------\n'))
 
+    requests_root_access = False
+    if name.startswith('root@'):
+        name = name.removeprefix('root@')
+        requests_root_access = True
+
     #Check whether a admin requested access to a specififc instance
     if name.startswith('instance-'):
         try:
@@ -259,19 +269,18 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
         exercise_version = name[1]
         name = name[0]
 
-    with retry_on_deadlock():
-        user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
-        if not user:
-            log.warning('Unable to find user with provided publickey')
-            raise ApiRequestError(error_response('Unknown public key'))
+    user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
+    if not user:
+        log.warning('Unable to find user with provided publickey')
+        raise ApiRequestError(error_response('Unknown public key'))
 
-        if exercise_version is not None:
-            requested_exercise = Exercise.get_exercise(name, exercise_version, for_update=True)
-        else:
-            requested_exercise = Exercise.get_default_exercise(name, for_update=True)
-        log.info(f'Requested exercise is {requested_exercise}')
-        if not requested_exercise:
-            raise ApiRequestError(error_response('Requested task not found'))
+    if exercise_version is not None:
+        requested_exercise = Exercise.get_exercise(name, exercise_version, for_update=True)
+    else:
+        requested_exercise = Exercise.get_default_exercise(name, for_update=True)
+    log.info(f'Requested exercise is {requested_exercise}')
+    if not requested_exercise:
+        raise ApiRequestError(error_response('Requested task not found'))
 
     user_instances = list(filter(lambda e: e.exercise.short_name == requested_exercise.short_name, user.exercise_instances))
     #Filter submissions
@@ -311,7 +320,7 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
     else:
         user_instance = InstanceManager.create_instance(user, requested_exercise)
 
-    response, instance = start_and_return_instance(user_instance)
+    response, instance = start_and_return_instance(user_instance, user, requests_root_access)
 
     db.session.commit()
     return response, instance

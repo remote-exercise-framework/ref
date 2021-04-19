@@ -81,7 +81,7 @@ ChallengeResponseAuthentication no
 # and ChallengeResponseAuthentication to 'no'.
 #UsePAM no
 
-#AllowAgentForwarding yes
+AllowAgentForwarding no
 AllowTcpForwarding yes
 #GatewayPorts no
 X11Forwarding no

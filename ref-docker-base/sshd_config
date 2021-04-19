@@ -29,7 +29,7 @@ LogLevel DEBUG3
 # Authentication:
 
 #LoginGraceTime 2m
-#PermitRootLogin prohibit-password
+PermitRootLogin prohibit-password
 StrictModes no
 #MaxAuthTries 6
 #MaxSessions 10
@@ -83,8 +83,8 @@ ChallengeResponseAuthentication no
 # and ChallengeResponseAuthentication to 'no'.
 UsePAM yes
 
-#AllowAgentForwarding yes
-AllowTcpForwarding yes
+AllowAgentForwarding no
+AllowTcpForwarding no
 #GatewayPorts no
 X11Forwarding no
 #X11DisplayOffset 10

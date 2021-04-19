@@ -166,15 +166,23 @@ def main():
     # [ssh-client] -> [ssh-entry-server] and
     # [ssh-entry-server] -> [container]
     ip = resp['ip']
+    if resp['as_root']:
+        user = 'root'
+        key_path = '/home/sshserver/.ssh/root-container.key'
+    else:
+        user = 'user'
+        key_path = '/home/sshserver/.ssh/user-container.key'
+
     cmd = [
         '/usr/bin/ssh',
         '-t',
+        '-vvvvv',
         '-o', 'StrictHostKeyChecking=no',
         '-o', 'GlobalKnownHostsFile=/dev/null',
         '-o', 'UserKnownHostsFile=/dev/null',
-        '-i', '/home/sshserver/.ssh/container-key',
+        '-i', key_path,
         '-p', '13370',
-        '-l', 'user',
+        '-l', user,
         ip
     ]
 
