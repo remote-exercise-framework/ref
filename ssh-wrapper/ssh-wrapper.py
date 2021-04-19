@@ -176,7 +176,6 @@ def main():
     cmd = [
         '/usr/bin/ssh',
         '-t',
-        '-vvvvv',
         '-o', 'StrictHostKeyChecking=no',
         '-o', 'GlobalKnownHostsFile=/dev/null',
         '-o', 'UserKnownHostsFile=/dev/null',
