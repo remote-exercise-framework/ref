@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as ref_utils_builder
+FROM nbars/ubuntu-unminimized-base-docker:20.04 as ref_utils_builder
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt update && \
@@ -11,7 +11,7 @@ RUN cd /home/ref-utils && \
 
 
 
-FROM ubuntu:20.04
+FROM nbars/ubuntu-unminimized-base-docker:20.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
