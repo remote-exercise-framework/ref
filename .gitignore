@@ -1,6 +1,8 @@
 docker-compose*
 .env
 
+exercises
+
 **/.vscode
 **/__pycache__
 **/*.py[cod]
