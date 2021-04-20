@@ -299,8 +299,9 @@ class ExerciseImageManager():
 
         if failed:
             try:
-                ExerciseImageManager.__purge_entry_service_image(exercise)
-                ExerciseImageManager.__purge_peripheral_services_images(exercise)
+                with app.app_context():
+                    ExerciseImageManager.__purge_entry_service_image(exercise)
+                    ExerciseImageManager.__purge_peripheral_services_images(exercise)
             except:
                 #No one we can report the error to, so just log it.
                 with app.app_context():
