@@ -32,7 +32,8 @@ RUN apt update && apt install -y \
     netcat \
     hexcurse \
     clang \
-    socat
+    socat \
+    man-db
 
 # Restore stripped stuff like man pages
 RUN yes | unminimize
