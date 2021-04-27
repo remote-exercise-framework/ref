@@ -319,10 +319,10 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
     else:
         user_instance = InstanceManager.create_instance(user, requested_exercise)
 
-    response, instance = start_and_return_instance(user_instance, user, requests_root_access)
+    response = start_and_return_instance(user_instance, user, requests_root_access)
 
     db.session.commit()
-    return response, instance
+    return response, user_instance
 
 # @refbp.route('/api/ssh-authenticated', methods=('GET', 'POST'))
 # @limiter.exempt
