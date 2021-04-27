@@ -31,8 +31,7 @@ from ref import db, limiter, refbp
 from ref.core import AnsiColorUtil as ansi
 from ref.core import (ExerciseImageManager, ExerciseManager,
                       InconsistentStateError, InstanceManager,
-                      datetime_to_local_tz, datetime_to_string, flash,
-                      retry_on_deadlock)
+                      datetime_to_local_tz, datetime_to_string, flash, DockerClient)
 from ref.core.util import lock_db
 from ref.model import (ConfigParsingError, Exercise, Instance, SystemSetting,
                        SystemSettingsManager, User)
@@ -752,17 +751,15 @@ def api_instance_reset():
 
     log.info(f'Received reset request for instance_id={instance_id}')
 
-    #Lock the instance and the user
-    with retry_on_deadlock():
-        instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
-        if not instance:
-            log.warning(f'Invalid instance id {instance_id}')
-            return error_response('Invalid request')
+    instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
+    if not instance:
+        log.warning(f'Invalid instance id {instance_id}')
+        return error_response('Invalid request')
 
-        user = User.query.filter(User.id == instance.user.id).one_or_none()
-        if not user:
-            log.warning(f'Invalid user ID {instance.user.id}')
-            return error_response('Invalid request')
+    user = User.query.filter(User.id == instance.user.id).one_or_none()
+    if not user:
+        log.warning(f'Invalid user ID {instance.user.id}')
+        return error_response('Invalid request')
 
     mgr = InstanceManager(instance)
     mgr.reset()

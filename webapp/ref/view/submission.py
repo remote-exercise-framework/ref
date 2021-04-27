@@ -21,8 +21,7 @@ from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
-                      ExerciseManager, InstanceManager, admin_required, flash,
-                      retry_on_deadlock)
+                      ExerciseManager, InstanceManager, admin_required, flash)
 from ref.core.util import redirect_to_next
 from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
                        Instance, Submission, SystemSettingsManager, User)
