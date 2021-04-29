@@ -122,6 +122,19 @@
         };
     };
 
+    function displayToast(head, body) {
+        $.toast({
+            heading: head,
+            text: body,
+            icon: 'info',
+            loader: true,        // Change it to false to disable loader
+            loaderBg: '#9EC600',  // To change the background
+            position: 'top-right',
+            stack: 8,
+            hideAfter: 5000,
+        })
+    }
+
     </script>
 
 

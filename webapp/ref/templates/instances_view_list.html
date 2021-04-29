@@ -46,7 +46,7 @@ Instances
                         <td scope="row">{{ moment(i.creation_ts).fromNow() }}</td>
                         <td>
                             <div class="btn-group" role="group">
-                                <a role="button" class="btn btn-outline-success" onclick="return copyStringToClipboard('ssh instance-{{ i.id  }}@{{ ssh_host }} -p {{ ssh_port  }}')">SSH</a>
+                                <a role="button" class="btn btn-outline-success" onclick="displayToast('Copied to clipboard'); return copyStringToClipboard('ssh instance-{{ i.id  }}@{{ ssh_host }} -p {{ ssh_port  }}')">SSH Command</a>
                                 <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.instances_view_details', instance_id=i.id, next=request.path) }}">View</a>
                                 <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_review', instance_id=i.id, next=request.path) }}">Files</a>
 
@@ -85,19 +85,6 @@ Instances
 
 
     <script>
-        function displayToast(head, body) {
-            $.toast({
-                heading: head,
-                text: body,
-                icon: 'info',
-                loader: true,        // Change it to false to disable loader
-                loaderBg: '#9EC600',  // To change the background
-                position: 'top-right',
-                stack: 8,
-                hideAfter: 5000,
-            })
-        }
-
         $(document).ready(function(){
             //On click on a element with class ok-modal load the URL href points at,
             //and create a modal using the retrived data.

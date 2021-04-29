@@ -94,7 +94,7 @@ class ReleaseConfig(object):
 
     DISABLE_RESPONSE_CACHING = env_var_to_bool_or_false('DISABLE_RESPONSE_CACHING')
 
-    # The port we are listinging for 
+    # The port we are listinging on for TCP forwarding requests.
     SSH_PROXY_LISTEN_PORT = 8001
 
     # Maximum allowed number of pending connection requests
