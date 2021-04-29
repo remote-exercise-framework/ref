@@ -52,6 +52,7 @@ struct JsonResponse {
     instance_id: u64,
     is_admin: u8,
     is_grading_assistent: u8,
+    tcp_forwarding_allowed: u8,
 }
 
 lazy_static! {

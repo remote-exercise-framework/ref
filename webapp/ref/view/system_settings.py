@@ -60,6 +60,12 @@ class SshSettings(Form):
     ssh_instance_introspection = BooleanField(
         'Allow admins and grading assistance to access arbitrary instances using instance-{ID} as username'
         )
+    ssh_allow_tcp_forwarding = BooleanField(
+        'Allow users to forward TCP ports from there machine to services running on their instance.'
+        )
+    ssh_allow_root_logins_for_admin = BooleanField(
+        'Allow admins to login as root by prefixing the SSH username with "root@".'
+        )
     message_of_the_day = TextField('Message of the day')
     submit = SubmitField('Save')
 
@@ -102,6 +108,8 @@ def view_system_settings():
         SystemSettingsManager.SSH_WELCOME_MSG.value = ssh_settings.welcome_header.data
         SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value = ssh_settings.ssh_instance_introspection.data
         SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value = ssh_settings.allow_none_default_provisioning.data
+        SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value = ssh_settings.ssh_allow_tcp_forwarding.data
+        SystemSettingsManager.ALLOW_ROOT_LOGINS_FOR_ADMINS.value = ssh_settings.ssh_allow_root_logins_for_admin.data
         SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY.value = ssh_settings.message_of_the_day.data
     else:
         ssh_settings.ssh_hostname.data = SystemSettingsManager.SSH_HOSTNAME.value
@@ -109,6 +117,8 @@ def view_system_settings():
         ssh_settings.welcome_header.data = SystemSettingsManager.SSH_WELCOME_MSG.value
         ssh_settings.ssh_instance_introspection.data = SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value
         ssh_settings.allow_none_default_provisioning.data = SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value
+        ssh_settings.ssh_allow_tcp_forwarding.data = SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value
+        ssh_settings.ssh_allow_root_logins_for_admin.data = SystemSettingsManager.ALLOW_ROOT_LOGINS_FOR_ADMINS.value
         ssh_settings.message_of_the_day.data = SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY.value
 
     current_app.db.session.commit()

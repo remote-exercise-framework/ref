@@ -17,6 +17,8 @@ from collections import namedtuple
 from ref.model import Instance
 from dataclasses import dataclass
 
+from core import SystemSettingsManager
+
 log = LocalProxy(lambda: current_app.logger)
 
 # Maximum message body size we accept.
@@ -117,7 +119,7 @@ class ProxyWorker:
         if request is None:
             return False
 
-        # TODO: Check signature and unwrap the message.
+        # FIXME: Check signature and unwrap the message.
 
         try:
             request = json.loads(request, object_hook=lambda d: SimpleNamespace(**d))
@@ -327,11 +329,16 @@ class ProxyWorker:
 
             instance_id, dst_ip, dst_port = success
 
+            # If we are here, we know that the SSH server signed the message
+            # and approved that TCP forwarding is allowed for this specific
+            # request. So, we do not need to do any checks here.
+
             # Check if we have an instance with the given ID.
             instance = Instance.get(instance_id)
             if not instance:
                 log.warning(f'Got request for non existing instance.')
                 return
+
             current_app.db.session.rollback()
 
             # log.debug(f'Request is for instance {instance}')

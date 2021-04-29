@@ -84,6 +84,16 @@ System Settings
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
+                        {{ wtf_utils.render_field(ssh_settings.ssh_allow_root_logins_for_admin, "checkbox") }}
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-group">
+                        {{ wtf_utils.render_field(ssh_settings.ssh_allow_tcp_forwarding, "checkbox") }}
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-group">
                         {{ wtf_utils.render_field(ssh_settings.ssh_hostname, "text") }}
                     </div>
                 </div>

@@ -401,6 +401,7 @@ def api_ssh_authenticated():
         'instance_id': instance.id,
         'is_admin': int(instance.user.is_admin),
         'is_grading_assistent': int(instance.user.is_grading_assistant),
+        'tcp_forwarding_allowed': int(instance.user.is_admin or SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value)
     }
 
     log.info(f'ret={ret}')
