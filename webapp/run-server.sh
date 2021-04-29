@@ -18,8 +18,8 @@ echo "[+] DB is up, starting webserver."
 
 if [[ "$DEBUG" == "1" || "$TESTING" == "1" ]]; then
     #--py-autoreload=1 --- Check every second if any python file changed
-    uwsgi --http :8000 --die-on-term --disable-logging --master --py-autoreload=1 --processes 1 --manage-script-name --mount "/=ref:create_app()" $args
+    uwsgi --http :8000 --http-keepalive --die-on-term --disable-logging --master --py-autoreload=1 --processes 1 --manage-script-name --mount "/=ref:create_app()" $args
 else
-    uwsgi --http :8000 --die-on-term --disable-logging --master --py-autoreload=1 --processes 1 --manage-script-name --mount "/=ref:create_app()" $args
+    uwsgi --http :8000 --http-keepalive --die-on-term --disable-logging --master --py-autoreload=1 --processes 1 --manage-script-name --mount "/=ref:create_app()" $args
     #uwsgi --http :8000 --die-on-term --disable-logging --master --processes 4 --manage-script-name --mount "/=ref:create_app()" $args
 fi

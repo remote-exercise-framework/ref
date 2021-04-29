@@ -1,6 +1,6 @@
 import os
 
-def env_var_to_bool(env_key):
+def env_var_to_bool_or_false(env_key):
     val = os.environ.get(env_key, False)
     if val is False:
         return val
@@ -61,7 +61,7 @@ class ReleaseConfig(object):
     INSTANCE_CONTAINER_MEM_LIMIT = '256m'
 
     # Number of PIDs an instance is allowed to allocate.
-    INSTANCE_CONTAINER_PIDS_LIMIT = 32
+    INSTANCE_CONTAINER_PIDS_LIMIT = 512
 
     # The capabilities granted by default to instance containers.
     INSTANCE_CAP_WHITELIST = [
@@ -82,18 +82,25 @@ class ReleaseConfig(object):
     INSTANCES_CGROUP_PARENT = os.environ.get('INSTANCES_CGROUP_PARENT', None)
 
     #If True, only admin are allowed to use the API.
-    MAINTENANCE_ENABLED = env_var_to_bool('MAINTENANCE_ENABLED')
+    MAINTENANCE_ENABLED = env_var_to_bool_or_false('MAINTENANCE_ENABLED')
 
     # TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
     # TELEGRAM_BOT_CHAT_ID = os.environ.get('TELEGRAM_BOT_CHAT_ID')
 
-    DISABLE_TELEGRAM = env_var_to_bool('DISABLE_TELEGRAM')
+    DISABLE_TELEGRAM = env_var_to_bool_or_false('DISABLE_TELEGRAM')
 
-    DEBUG_TOOLBAR = env_var_to_bool('DEBUG_TOOLBAR')
+    DEBUG_TOOLBAR = env_var_to_bool_or_false('DEBUG_TOOLBAR')
     DEBUG_TB_ENABLED = DEBUG_TOOLBAR
 
-    DISABLE_RESPONSE_CACHING = env_var_to_bool('DISABLE_RESPONSE_CACHING')
+    DISABLE_RESPONSE_CACHING = env_var_to_bool_or_false('DISABLE_RESPONSE_CACHING')
 
+    # The port we are listinging for 
+    SSH_PROXY_LISTEN_PORT = 8001
+
+    # Maximum allowed number of pending connection requests
+    SSH_PROXY_BACKLOG_SIZE = 100
+
+    SSH_PROXY_CONNECTION_TIMEOUT = 120
 
 class DebugConfig(ReleaseConfig):
     debug = True

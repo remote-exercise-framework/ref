@@ -735,3 +735,9 @@ class InstanceManager():
             raise
         finally:
             self.mount()
+
+    def init_pid(self) -> int:
+        if self.is_running():
+            c = self.dc.container(self.instance.entry_service.container_id)
+            return int(c.attrs['State']['Pid'])
+        return None

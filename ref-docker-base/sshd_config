@@ -92,7 +92,7 @@ X11Forwarding no
 #PermitTTY yes
 PrintMotd no
 PrintLastLog no
-#TCPKeepAlive yes
+TCPKeepAlive yes
 #UseLogin no
 #PermitUserEnvironment no
 #Compression delayed

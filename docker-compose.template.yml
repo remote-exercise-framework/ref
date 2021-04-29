@@ -17,6 +17,7 @@ services:
          - ./ssh-wrapper/ssh-wrapper.py:/usr/bin/ssh-wrapper.py:ro
       networks:
          - ssh-and-host
+         - ssh-proxy-and-ssh
          - web-and-ssh
          - ssh-and-redis
       cgroup_parent: "{{ cgroup_parent }}-core.slice"
@@ -73,6 +74,7 @@ services:
       networks:
          - web-and-db
          - db-and-pgadmin
+         - ssh-proxy-and-db
       cgroup_parent: "{{ cgroup_parent }}-core.slice"
       cap_drop:
          - ALL
@@ -120,9 +122,9 @@ services:
          #The mounts need to be propageted, thus we can mount mounts created
          #in this container from the host into other containers
          - type: bind
-           source: {{ data_path }}
-           target: /data
-           bind:
+           source: {{ data_path }} # NOTE: Indented with two spaces!!!
+           target: /data # NOTE: Indented with two spaces!!!
+           bind: # NOTE: Indented with two spaces!!!
              propagation: shared
          #The webinterface, only needed for live updating during development
          - ./webapp/:/app
@@ -145,6 +147,51 @@ services:
          - sshserver
       cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
+
+
+   ssh-proxy:
+      command: "bash -c \"cd /app && python -c 'import ref; ref.create_ssh_proxy()'\""
+      environment:
+         - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD not set}
+         - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
+         - DEBUG=${DEBUG:?DEBUG not set}
+         - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
+         - REDIS_URL=redis://redis
+         - POSTGRES_USER=ref
+         - POSTGRES_DB=ref
+         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
+         - SECRET_KEY=${SECRET_KEY:?SECRET_KEY not set}
+         - REDIS_KEY=${REDIS_KEY:?REDIS_KEY not set}
+         - HOSTNAME=${HOSTNAME:?HOSTNAME not set}
+         - SSH_HOST_PORT=${SSH_HOST_PORT:?SSH_HOST_PORT not set}
+         - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
+         - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
+         - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
+         - TESTING=${TESTING}
+         - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
+         - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
+      build:
+         context: "./webapp"
+         args:
+            #Pass the hosts docker group id, since we are using the docker socket from the host.
+            DOCKER_GROUP_ID: ${DOCKER_GROUP_ID:?DOCKER_GROUP_ID not set}
+      volumes:
+         #Persistance folder (db, templates, ...)
+         #The mounts need to be propageted, thus we can mount mounts created
+         #in this container from the host into other containers
+         - type: bind
+           source: {{ data_path }} # NOTE: Indented with two spaces!!!
+           target: /data # NOTE: Indented with two spaces!!!
+         #The webinterface, only needed for live updating during development
+         - ./webapp/:/app
+      networks:
+         - ssh-proxy-and-ssh
+         - ssh-proxy-and-db
+      depends_on:
+         - db
+         - sshserver
+      cgroup_parent: "{{ cgroup_parent }}-core.slice"
+
    redis:
       image: 'bitnami/redis:5.0'
       environment:
@@ -159,9 +206,6 @@ services:
          - ssh-and-redis
       cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
-# volumes:
-#    redis_data:
-#       driver: local
 
 networks:
    #Network used to connect the webinterface to the host
@@ -205,3 +249,15 @@ networks:
       internal: true
       driver_opts:
          com.docker.network.bridge.name: "brref-sshtor{{ 't' if testing }}"
+
+   ssh-proxy-and-ssh:
+      driver: bridge
+      internal: true
+      driver_opts:
+         com.docker.network.bridge.name: "brref-sshpro{{ 't' if testing }}"
+
+   ssh-proxy-and-db:
+      driver: bridge
+      internal: true
+      driver_opts:
+         com.docker.network.bridge.name: "brref-prodb{{ 't' if testing }}"

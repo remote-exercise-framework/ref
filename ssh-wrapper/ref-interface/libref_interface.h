@@ -1,23 +1,14 @@
 #pragma once
 
+#include <stdint.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 /*
 Interface between the sshd C codebase and our rust dynamic library (libref_interface, api.rs).
 NOTE: Keep these struct in sync with those in api.rs.
 */
 
-typedef struct {
-    const char *pubkey;
-    const char *requested_task;
-} ref_api_ssh_authenticated_request_t;
-
-typedef struct {
-    uint8_t success;
-    uint8_t access_granted;
-    uint64_t instance_id;
-    uint8_t is_admin;
-    uint8_t is_grading_assistent;
-
-} ref_api_ssh_authenticated_response_t;
-
-extern ref_api_ssh_authenticated_response_t ref_api_ssh_authenticated(ref_api_ssh_authenticated_request_t *auth_info);
+extern void ref_get_instance_details(const char *username, const char *pubkey);
+extern int ref_proxy_connect(const char *addr, const char *port);

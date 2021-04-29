@@ -9,6 +9,8 @@ import typing
 from collections import namedtuple
 from pathlib import Path
 
+import uwsgi
+
 import arrow
 import docker
 import redis
@@ -20,6 +22,7 @@ import socket
 import socks
 
 import typing
+import select
 
 from flask import (Blueprint, Flask, abort, current_app, jsonify,
                    make_response, redirect, render_template, request, url_for)
@@ -324,190 +327,85 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
     db.session.commit()
     return response, user_instance
 
-# @refbp.route('/api/ssh-authenticated', methods=('GET', 'POST'))
-# @limiter.exempt
-# def api_ssh_authenticated():
-#     """
-#     Called from the ssh entry server as soon a user was successfully authenticated.
-#     We use this hook to prepare the instance that will be handed out via, e.g.,
-#     api_provision(). After this function returns, and the request is granted,
-#     the instance must be up and running. Thus the ssh entry service can setup,
-#     e.g., port forwarding to the instance before actually calling
-#     api_provision() (if called at all).
-#     Expected JSON body:
-#     {
-#         'name': name,
-#         'pubkey': pubkey
-#     }
-#     """
-#     content = request.get_json(force=True, silent=True)
-#     if not content:
-#         log.warning('Received provision request without JSON body')
-#         return error_response('Request is missing JSON body')
+@refbp.route('/api/ssh-authenticated', methods=('GET', 'POST'))
+@limiter.exempt
+def api_ssh_authenticated():
+    """
+    Called from the ssh entry server as soon a user was successfully authenticated.
+    We use this hook to prepare the instance that will be handed out via, e.g.,
+    api_provision(). After this function returns, and the request is granted,
+    the instance must be up and running. Thus the ssh entry service can setup,
+    e.g., port forwarding to the instance before actually calling
+    api_provision() (if called at all).
+    Expected JSON body:
+    {
+        'name': name,
+        'pubkey': pubkey
+    }
+    """
+    content = request.get_json(force=True, silent=True)
+    if not content:
+        log.warning('Received provision request without JSON body')
+        return error_response('Request is missing JSON body')
 
-#     #Check for valid signature and valid request type
-#     s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
-#     try:
-#         content = s.loads(content)
-#     except Exception as e:
-#         log.warning(f'Invalid request {e}')
-#         return error_response('Invalid request')
+    # FIXME: Check authenticity !!!
+    #Check for valid signature and valid request type
+    # s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
+    # try:
+    #     content = s.loads(content)
+    # except Exception as e:
+    #     log.warning(f'Invalid request {e}')
+    #     return error_response('Invalid request')
 
-#     if not isinstance(content, dict):
-#         log.warning(f'Unexpected data type {type(content)}')
-#         return error_response('Invalid request')
+    if not isinstance(content, dict):
+        log.warning(f'Unexpected data type {type(content)}')
+        return error_response('Invalid request')
 
-#     #Parse request args
+    #Parse request args
 
-#     #The public key the user used to authenticate
-#     pubkey = content.get('pubkey', None)
-#     if not pubkey:
-#         log.warning('Missing pubkey')
-#         return error_response('Invalid request')
+    #The public key the user used to authenticate
+    pubkey = content.get('pubkey', None)
+    if not pubkey:
+        log.warning('Missing pubkey')
+        return error_response('Invalid request')
 
-#     #The user name used for authentication
-#     name = content.get('name', None)
-#     if not name:
-#         log.warning('Missing name')
-#         return error_response('Invalid request')
+    pubkey = pubkey.strip()
+    pubkey = ' '.join(pubkey.split(' ')[1:])
 
-#     #name is user provided, make sure it is valid UTF8.
-#     #If its not, sqlalchemy will raise an unicode error.
-#     try:
-#         name.encode()
-#     except Exception as e:
-#         log.error(f'Invalid exercise name {str(e)}')
-#         return error_response('Requested task not found')
+    #The user name used for authentication
+    name = content.get('name', None)
+    if not name:
+        log.warning('Missing name')
+        return error_response('Invalid request')
 
-#     # Now it is safe to use name.
-#     log.info(f'Got request from pubkey={pubkey:32}, name={name}')
+    #name is user provided, make sure it is valid UTF8.
+    #If its not, sqlalchemy will raise an unicode error.
+    try:
+        name.encode()
+    except Exception as e:
+        log.error(f'Invalid exercise name {str(e)}')
+        return error_response('Requested task not found')
 
-#     # Request a new instance using the provided arguments.
-#     try:
-#         _, instance = process_instance_request(name, pubkey)
-#     except ApiRequestError as e:
-#         return e.response
+    # Now it is safe to use name.
+    log.info(f'Got request from pubkey={pubkey:32}, name={name}')
 
-#     # NOTE: Since we committed in request_instance(), we do not hold the lock anymore.
-#     ret = {
-#         'instance_id': instance.id,
-#         'is_admin': instance.user.is_admin(),
-#         'is_grading_assistent': instance.user.is_grading_assistent()
-#     }
+    # Request a new instance using the provided arguments.
+    try:
+        _, instance = process_instance_request(name, pubkey)
+    except ApiRequestError as e:
+        log.debug(f'Request failed: {e}')
+        return e.response
 
-#     # TODO: Return a ticket that can be used to request port forwarding for the
-#     # returned instance ID.
+    # NOTE: Since we committed in request_instance(), we do not hold the lock anymore.
+    ret = {
+        'instance_id': instance.id,
+        'is_admin': int(instance.user.is_admin),
+        'is_grading_assistent': int(instance.user.is_grading_assistant),
+    }
 
-#     return ok_response(ret)
+    log.info(f'ret={ret}')
 
-# @refbp.route('/api/proxy/request', methods=('GET', 'POST'))
-# @limiter.exempt
-# def api_proxy_request():
-#     """
-#     Request a proxy for the passed instance ID and port. (must be signed)
-#     """
-#     content = request.get_json(force=True, silent=True)
-#     if not content:
-#         log.warning('Missing JSON body')
-#         return error_response('Missing JSON body in request')
-
-#     #Check for valid signature and unpack
-#     s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
-#     try:
-#         content = s.loads(content)
-#     except Exception as e:
-#         log.warning(f'Invalid request {e}')
-#         return error_response('Invalid request')
-
-#     if not isinstance(content, dict):
-#         log.warning(f'Unexpected data type {type(content)}')
-#         return error_response('Invalid request')
-
-#     instance_id = content.get('instance_id')
-#     if not instance_id:
-#         log.warning('Got request without instance_id attribute')
-#         return error_response('Invalid request')
-
-#     dst_ip = content.get('dst_ip')
-#     if not dst_ip:
-#         log.warning('Got request without dst_ip attribute')
-#         return error_response('Invalid request')
-
-#     dst_port = content.get('dst_port')
-#     if not dst_port:
-#         log.warning('Got request without dst_port attribute')
-#         return error_response('Invalid request')
-
-#     instance = Instance.get(instance_id)
-#     if not instance:
-#         log.warning(f'No instance with ID {instance_id}')
-#         return error_response('Invalid request')
-
-#     q = Queue()
-#     socket_path = instance.entry_service.shared_folder + '/socks_proxy'
-#     t = threading.Thread(target=_proxy_worker_loop, args=[q, socket_path, dst_ip, dst_port])
-#     t.start()
-
-#     # Release the DB lock here.
-
-#     msg = q.get()
-#     if msg is False:
-#         t.join()
-
-
-# def _proxy_worker_loop(ipc_queue, socket_path, dst_ip, dst_port):
-#     # Connect to the unix socket
-#     con = socks.socksocket()
-#     # con = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-#     # con.settimeout(1.0)
-
-#     con.settimeout(1.0)
-#     con.set_proxy(socks.SOCKS5, socket_path)
-
-#     try:
-#         con.connect(dst_ip, dst_port)
-#     except:
-#         log.info('Failed to connect {dst_ip}:{dst_port}@{socket_path}', exc_info=True)
-#         ipc_queue.put(False)
-#         return
-
-#     # Talk to the socks proxy
-
-# @refbp.route('/api/proxy/connect', methods=('GET', 'POST'))
-# @limiter.exempt
-# def api_proxy_connect():
-#     """
-#     Request a proxy for the passed instance and port.
-#     """
-#     """
-#     Request a proxy for the passed instance ID and port. (must be signed)
-#     """
-#     content = request.get_json(force=True, silent=True)
-#     if not content:
-#         log.warning('Missing JSON body')
-#         return error_response('Missing JSON body in request')
-
-#     #Check for valid signature and unpack
-#     s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
-#     try:
-#         content = s.loads(content)
-#     except Exception as e:
-#         log.warning(f'Invalid request {e}')
-#         return error_response('Invalid request')
-
-#     if not isinstance(content, dict):
-#         log.warning(f'Unexpected data type {type(content)}')
-#         return error_response('Invalid request')
-
-#     instance_id = content.get('instance_id')
-#     if not instance_id:
-#         log.warning('Got request without instance_id attribute')
-#         return error_response('Invalid request')
-
-#     port = content.get('port')
-#     if not instance_id:
-#         log.warning('Got request without port attribute')
-#         return error_response('Invalid request')
+    return ok_response(ret)
 
 @refbp.route('/api/provision', methods=('GET', 'POST'))
 @limiter.exempt

@@ -22,12 +22,13 @@ HostKey /etc/ssh/ssh_host_rsa_key
 
 # Logging
 #SyslogFacility AUTH
-LogLevel DEBUG3
+# LogLevel DEBUG3
+LogLevel INFO
 
 # Authentication:
 
 #LoginGraceTime 2m
-PermitRootLogin yes
+PermitRootLogin no
 #StrictModes yes
 #MaxAuthTries 6
 #MaxSessions 10
@@ -79,7 +80,7 @@ ChallengeResponseAuthentication no
 # If you just want the PAM account and session checks to run without
 # PAM authentication, then enable this but set PasswordAuthentication
 # and ChallengeResponseAuthentication to 'no'.
-#UsePAM no
+# UsePAM no
 
 AllowAgentForwarding no
 AllowTcpForwarding yes
@@ -90,11 +91,11 @@ X11Forwarding no
 #PermitTTY yes
 PrintMotd no
 PrintLastLog no
-#TCPKeepAlive yes
+TCPKeepAlive yes
 #UseLogin no
 #PermitUserEnvironment no
 #Compression delayed
-ClientAliveInterval 300
+ClientAliveInterval 60
 ClientAliveCountMax 1
 #UseDNS no
 #PidFile /var/run/sshd.pid
