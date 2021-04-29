@@ -26,7 +26,6 @@ RUN apt update && apt install -y \
     make \
     openssh-server \
     python3 python3-pip \
-    python python-dev \
     software-properties-common \
     sudo \
     netcat \
