@@ -18,7 +18,7 @@ from ref.core.util import (is_deadlock_error, lock_db, on_integrity_error,
                            redirect_to_next,
                            set_transaction_deferable_readonly)
 from ref.model import SystemSettingsManager, User, UserGroup
-from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
+from ref.model.enums import UserAuthorizationGroups
 
 PASSWORD_MIN_LEN = 8
 PASSWORD_SECURITY_LEVEL = 3
@@ -114,12 +114,9 @@ class EditUserForm(Form):
         # FIXME: Field is implemented as number field in the view.
         field_to_str
     ])
-    course = RadioField('Course of Study', choices=[
-                        (e.value, e.value) for e in CourseOfStudies])
     firstname = StringField('Firstname', validators=[
                             validators.DataRequired()])
     surname = StringField('Surname', validators=[validators.DataRequired()])
-    nickname = StringField('Nickname', validators=[validators.DataRequired()])
     group_name = StringField('Group',
                              validators=[
                                  validators.Optional(),
@@ -145,12 +142,9 @@ class GetKeyForm(Form):
         validate_matriculation_number,
         field_to_str
     ])
-    course = RadioField('Course of Study', choices=[
-                        (e.value, e.value) for e in CourseOfStudies])
     firstname = StringField('Firstname', validators=[
                             validators.DataRequired()])
     surname = StringField('Surname', validators=[validators.DataRequired()])
-    nickname = StringField('Nickname', validators=[validators.DataRequired()])
     group_name = StringField('Group',
                              validators=[validators.Optional(),
                                          validators.Regexp(GROUP_REGEX)
@@ -305,14 +299,6 @@ def student_getkey():
             student.mat_num = form.mat_num.data
             student.first_name = form.firstname.data
             student.surname = form.surname.data
-            student.nickname = form.nickname.data
-
-            if User.query.filter(User.nickname == student.nickname).one_or_none():
-                form.nickname.errors += ['Nickname already taken']
-                pubkey = None
-                privkey = None
-                student = None
-                return render()
 
             if groups_enabled:
                 group = UserGroup.query.filter(
@@ -339,7 +325,6 @@ def student_getkey():
             student.pub_key_ssh = pubkey
             student.priv_key = privkey
             student.registered_date = datetime.datetime.utcnow()
-            student.course_of_studies = CourseOfStudies(form.course.data)
             student.auth_groups = [UserAuthorizationGroups.STUDENT]
 
             signer = URLSafeTimedSerializer(
@@ -459,15 +444,8 @@ def student_edit(user_id):
         else:
             user.mat_num = form.mat_num.data
 
-        user.course_of_studies = CourseOfStudies(form.course.data)
         user.first_name = form.firstname.data
         user.surname = form.surname.data
-
-        if User.query.filter(User.nickname == form.nickname.data).one_or_none() not in [None, user]:
-            form.nickname.errors += ['Nickname already taken']
-            return render_template('user_edit.html', form=form)
-        else:
-            user.nickname = form.nickname.data
 
         group = UserGroup.query.filter(
             UserGroup.name == form.group_name.data).one_or_none()
@@ -502,10 +480,8 @@ def student_edit(user_id):
         # Form was not submitted: Set initial values
         form.id.data = user.id
         form.mat_num.data = user.mat_num
-        form.course.data = user.course_of_studies.value
         form.firstname.data = user.first_name
         form.surname.data = user.surname
-        form.nickname.data = user.nickname
         if user.group:
             form.group_name.data = user.group.name
         form.auth_group.data = [e.value for e in user.auth_groups]

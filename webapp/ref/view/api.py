@@ -9,8 +9,6 @@ import typing
 from collections import namedtuple
 from pathlib import Path
 
-import uwsgi
-
 import arrow
 import docker
 import redis

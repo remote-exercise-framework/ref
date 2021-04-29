@@ -30,7 +30,7 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
 
     first_name = db.Column(db.Text(), nullable=False)
     surname = db.Column(db.Text(), nullable=False)
-    nickname = db.Column(db.Text(), nullable=False, unique=True)
+    nickname = db.Column(db.Text(), nullable=True, unique=True)
 
     #backref is group
     group_id = db.Column(db.Integer, db.ForeignKey('user_group.id'), nullable=True)

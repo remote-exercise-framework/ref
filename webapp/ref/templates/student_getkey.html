@@ -51,22 +51,14 @@ function copy_text(id) {
                     </div>
                 </div>
 
-                <div class="col-md-6">
-                    <div class="form-group">
-                        {{ wtf_utils.render_field(form.nickname, "text") }}
-                    </div>
                 {% if groups_enabled %}
+                <div class="col-md-6">
                     <div class="form-group">
                         {{ wtf_utils.render_select_or_string_field(form.group_name) }}
                     </div>
-                {% endif %}
                 </div>
+                {% endif %}
 
-            </div>
-
-
-            <div class="form-group">
-                {{ wtf_utils.render_radio(form.course, vertical=True) }}
             </div>
 
             <div class="col-md-12">
