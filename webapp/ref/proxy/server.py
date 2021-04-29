@@ -17,8 +17,6 @@ from collections import namedtuple
 from ref.model import Instance
 from dataclasses import dataclass
 
-from core import SystemSettingsManager
-
 log = LocalProxy(lambda: current_app.logger)
 
 # Maximum message body size we accept.

@@ -252,6 +252,11 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
         name = name.removeprefix('root@')
         requests_root_access = True
 
+    # FIXME: Make this also work for instance-* requests.
+    if requests_root_access and not SystemSettingsManager.ALLOW_ROOT_LOGINS_FOR_ADMINS.value:
+        log.info(f'Rejecting root access, since its is disable!')
+        raise ApiRequestError(error_response('Requested task not found'))
+
     #Check whether a admin requested access to a specififc instance
     if name.startswith('instance-'):
         try:
