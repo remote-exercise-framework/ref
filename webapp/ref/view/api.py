@@ -398,7 +398,9 @@ def api_ssh_authenticated():
     try:
         _, instance = process_instance_request(name, pubkey)
     except ApiRequestError as e:
-        log.debug(f'Request failed: {e}')
+        # FIXME: This causes RecursionError: maximum recursion depth exceeded while getting the str of an object
+        # fix it!
+        # log.debug(f'Request failed: {e}')
         return e.response
 
     # NOTE: Since we committed in request_instance(), we do not hold the lock anymore.
