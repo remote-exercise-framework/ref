@@ -20,4 +20,5 @@ webapp/htmlcov/
 ref-docker-base/task-wrapper
 
 ref-interface/target
+ssh-wrapper/ref-interface/target/
 **/Cargo.lock
