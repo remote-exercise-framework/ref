@@ -32,7 +32,9 @@ RUN apt update && apt install -y \
     hexcurse \
     clang \
     socat \
-    man-db
+    man-db \
+    rsync \
+    sysbench
 
 # Restore stripped stuff like man pages
 RUN yes | unminimize
