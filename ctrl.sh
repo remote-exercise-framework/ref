@@ -386,6 +386,21 @@ function top {
     docker-compose -p ref top $@
 }
 
+function db_migrate {
+    info "FLASK_APP=ref python3 -m flask db migrate"
+    docker-compose -p ref run --rm web bash -c "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db migrate"
+}
+
+function db_init {
+    info "FLASK_APP=ref python3 -m flask db init"
+    docker-compose -p ref run --rm web bash -c "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db init"
+}
+
+function db_upgrade {
+    info "FLASK_APP=ref python3 -m flask db upgrade"
+    docker-compose -p ref run --rm web bash -c "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db upgrade"
+}
+
 function flask-cmd {
     info "FLASK_APP=ref python3 -m flask $*"
     docker-compose -p ref run --rm web bash -c "FLASK_APP=ref python3 -m flask $*"
@@ -451,6 +466,15 @@ case "$cmd" in
     ;;
     flask-cmd)
         flask-cmd $@
+    ;;
+    db-migrate)
+        db_migrate $@
+    ;;
+    db-init)
+        db_init $@
+    ;;
+    db-upgrade)
+        db_upgrade $@
     ;;
     run-tests)
         run_tests $@
