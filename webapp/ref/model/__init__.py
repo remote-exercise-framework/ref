@@ -1,5 +1,5 @@
 from .exercise import (ConfigParsingError, Exercise, ExerciseEntryService,
-                       ExerciseService)
+                       ExerciseService, RessourceLimits)
 from .instance import (Grading, Instance, InstanceEntryService,
                        InstanceService, Submission)
 from .settings import SystemSetting, SystemSettingsManager

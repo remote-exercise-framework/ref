@@ -153,7 +153,6 @@ def start_and_return_instance(instance: Instance, requesting_user: User, request
 
     #trim trailing newline
     welcome_message = welcome_message.rstrip()
-    log.info(f'IP of user instance is {ip}')
 
     resp = {
         'ip': ip,
@@ -161,10 +160,11 @@ def start_and_return_instance(instance: Instance, requesting_user: User, request
         'welcome_message': welcome_message,
         'as_root': requests_root_access and requesting_user.is_admin
     }
+    log.info(f'Instance was started! resp={resp}')
 
     return ok_response(resp)
 
-def handle_instance_introspection_request(query, pubkey) ->  tuple[Flask.response_class, Instance]:
+def handle_instance_introspection_request(query, pubkey, requests_root_access: bool) ->  tuple[Flask.response_class, Instance]:
     """
     Handeles deploy request that are targeting a specific instances.
     This feature allows, e.g., admin users to connect to an arbitrary
@@ -202,10 +202,11 @@ def handle_instance_introspection_request(query, pubkey) ->  tuple[Flask.respons
         log.warning(f'Invalid instance_id={instance_id}')
         raise ApiRequestError(error_response('Invalid instance ID'))
 
-    if not instance.is_submission() and not user.is_admin:
+    if user.is_grading_assistant and not instance.is_submission():
+        # Do not allow grading assistants to access non submissions.
         raise ApiRequestError(error_response('Insufficient permissions.'))
 
-    return start_and_return_instance(instance, user, False), instance
+    return start_and_return_instance(instance, user, requests_root_access), instance
 
 
 def parse_instance_request_query(query: str):
@@ -258,7 +259,7 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
     #Check whether a admin requested access to a specififc instance
     if name.startswith('instance-'):
         try:
-            response, instance = handle_instance_introspection_request(name, pubkey)
+            response, instance = handle_instance_introspection_request(name, pubkey, requests_root_access)
             db.session.commit()
             return response, instance
         except:

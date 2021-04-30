@@ -18,7 +18,7 @@ from werkzeug.local import LocalProxy
 
 from ref.core import InconsistentStateError, inconsistency_on_error
 from ref.model import (Instance, InstanceEntryService, InstanceService,
-                       Submission, User)
+                       Submission, User, RessourceLimits)
 
 from .docker import DockerClient
 from .exercise import Exercise, ExerciseService
@@ -223,17 +223,6 @@ class InstanceManager():
             seccomp_profile = f.read()
         config['security_opt'] = [f'seccomp={seccomp_profile}']
 
-        cpus = current_app.config['INSTANCE_CONTAINER_CPUS']
-        config['cpu_period'] = 100000
-        config['cpu_quota'] = int(100000 * cpus)
-
-        config['cpu_shares'] = current_app.config['INSTANCE_CONTAINER_CPU_SHARES']
-
-        config['mem_limit'] = current_app.config['INSTANCE_CONTAINER_MEM_LIMIT']
-
-        # Max number of allocatable PIDs per instance.
-        config['pids_limit'] = current_app.config['INSTANCE_CONTAINER_PIDS_LIMIT']
-
         # Drop all capabilities
         config['cap_drop'] = ['ALL']
         # Whitelist
@@ -242,6 +231,61 @@ class InstanceManager():
         config['cgroup_parent'] = current_app.config['INSTANCES_CGROUP_PARENT']
 
         return config
+
+    def __get_container_limits_config(self, limits: RessourceLimits):
+        config = {}
+        log.info(f'limits={limits}')
+
+        cpus = current_app.config['INSTANCE_CONTAINER_CPUS']
+
+        # docker lib does not support `cups`, so we need to calculate it on our own.
+        config['cpu_period'] = 100000
+        config['cpu_quota'] = int(100000 * cpus)
+        config['cpu_shares'] = current_app.config['INSTANCE_CONTAINER_CPU_SHARES']
+
+        config['mem_limit'] = current_app.config['INSTANCE_CONTAINER_MEM_LIMIT']
+        config['memswap_limit'] = current_app.config['INSTANCE_CONTAINER_MEM_PLUS_SWAP_LIMIT']
+        config['kernel_memory'] = current_app.config['INSTANCE_CONTAINER_MEM_KERNEL_LIMIT']
+
+        # Max number of allocatable PIDs per instance.
+        config['pids_limit'] = current_app.config['INSTANCE_CONTAINER_PIDS_LIMIT']
+
+        if not limits:
+            # No instance specific limits, return the default.
+            return config
+
+        if limits.cpu_cnt_max:
+            config['cpu_period'] = 100000
+            config['cpu_quota'] = int(100000 * limits.cpu_cnt_max)
+        elif limits.cpu_cnt_max == 0:
+            # No limit
+            del config['cpu_period']
+            del config['cpu_quota']
+
+        if limits.cpu_shares:
+            config['cpu_shares'] = limits.cpu_shares
+
+        total_mem = 0
+        if limits.memory_in_mb:
+            config['mem_limit'] = str(limits.memory_in_mb) + 'm'
+            total_mem += limits.memory_in_mb
+
+        if limits.memory_swap_in_mb:
+            total_mem += limits.memory_swap_in_mb
+
+        if total_mem:
+            config['memswap_limit'] = str(total_mem) + 'm'
+
+        if limits.memory_kernel_in_mb:
+            config['kernel_memory'] = str(limits.memory_kernel_in_mb) + 'm'
+
+        # All limits are optional!
+        if limits.pids_max:
+            config['pids_limit'] = limits.pids_max
+
+        log.info(f'Limits config: {config}')
+        return config
+
 
     def mount(self):
         """
@@ -331,6 +375,11 @@ class InstanceManager():
         to_entry_network.connect(entry_container)
 
         default_config = self.__get_container_config_defaults()
+        # Use default settings for peripheral services.
+        ressource_limit_config = self.__get_container_limits_config(None)
+
+        config = default_config | ressource_limit_config
+        assert (len(default_config) + len(ressource_limit_config)) == len(config)
 
         #Create container for all services
         for service in services:
@@ -344,7 +393,7 @@ class InstanceManager():
                 network_mode='none',
                 read_only=service.exercise_service.readonly,
                 hostname=service.exercise_service.name,
-                **default_config
+                **config
             )
             log.info(f'Success, id is {container.id}')
 
@@ -439,6 +488,10 @@ class InstanceManager():
 
         # Default setting shared by the entry service and the peripheral services.
         default_config = self.__get_container_config_defaults()
+        ressource_limit_config = self.__get_container_limits_config(exercise.entry_service.ressource_limit)
+
+        config = default_config | ressource_limit_config
+        assert (len(default_config) + len(ressource_limit_config)) == len(config)
 
         entry_container_name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}'
         entry_container_name += f'{self.instance.exercise.short_name}-v{self.instance.exercise.version}-entry-{self.instance.id}'
@@ -452,7 +505,7 @@ class InstanceManager():
                 volumes=mounts,
                 read_only=exercise.entry_service.readonly,
                 hostname=self.instance.exercise.short_name,
-                **default_config
+                **config
             )
         except:
             #This will reraise automatically

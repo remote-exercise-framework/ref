@@ -35,6 +35,21 @@ class ConfigParsingError(Exception):
             msg = f'{msg} ({path})'
         super().__init__(msg)
 
+class RessourceLimits(CommonDbOpsMixin, ModelToStringMixin, db.Model):
+
+    __to_str_fields__ = ['id', 'cpu_cnt_max', 'cpu_shares', 'pids_max', 'memory_in_mb', 'memory_swap_in_mb', 'memory_kernel_in_mb']
+    __tablename__ = 'exercise_ressource_limits'
+    id = db.Column(db.Integer, primary_key=True)
+
+    cpu_cnt_max: float = db.Column(db.Float(), nullable=True, default=None)
+    cpu_shares: int = db.Column(db.Integer(), nullable=True, default=None)
+
+    pids_max: int = db.Column(db.Integer(), nullable=True, default=None)
+
+    memory_in_mb: int = db.Column(db.Integer(), nullable=True, default=None)
+    memory_swap_in_mb: int = db.Column(db.Integer(), nullable=True, default=None)
+    memory_kernel_in_mb: int = db.Column(db.Integer(), nullable=True, default=None)
+
 class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     Each Exercise must have exactly one ExerciseEntryService that represtens the service
@@ -70,6 +85,9 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     flag_user: str = db.Column(db.Text(), nullable=True)
     flag_group: str = db.Column(db.Text(), nullable=True)
     flag_permission: str = db.Column(db.Text(), nullable=True)
+
+    ressource_limit_id: int = db.Column(db.Integer, db.ForeignKey('exercise_ressource_limits.id', ondelete='RESTRICT'), nullable=True)
+    ressource_limit: RessourceLimits = db.relationship("RessourceLimits", foreign_keys=[ressource_limit_id])
 
     @property
     def persistance_lower(self) -> str:

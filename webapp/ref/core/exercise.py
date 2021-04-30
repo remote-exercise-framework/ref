@@ -21,7 +21,7 @@ from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
 
 from ref.model import (Exercise, ExerciseEntryService, ExerciseService,
-                       Instance, InstanceEntryService, InstanceService, User)
+                       Instance, InstanceEntryService, InstanceService, User, RessourceLimits)
 from ref.model.enums import ExerciseBuildStatus
 
 from ref.core.util import datetime_to_naive_utc, datetime_is_local
@@ -49,7 +49,7 @@ class ExerciseManager():
         return InstanceManager(self.exercise)
 
     @staticmethod
-    def _parse_attr(yaml_dict, attr_name, expected_type, required=True, default=None):
+    def _parse_attr(yaml_dict, attr_name, expected_type, required=True, default=None, validators=None):
         """
         Parse an attribute from an exercise config.
         """
@@ -73,6 +73,12 @@ class ExerciseManager():
             raise ExerciseConfigError(f'Type of attribute "{attr_name}" is {t}, but {expected_type} was expected.')
 
         ret = yaml_dict[attr_name]
+        if validators:
+            for (fn, err_msg) in validators:
+                if not fn(ret):
+                    raise ExerciseConfigError(f'Validation for attribute {attr_name} failed: {err_msg}')
+
+
         del yaml_dict[attr_name]
         return ret
 
@@ -188,6 +194,60 @@ class ExerciseManager():
         entry.persistance_container_path = ExerciseManager._parse_attr(entry_cfg, 'persistance-path', str, required=False, default=None)
         entry.readonly = ExerciseManager._parse_attr(entry_cfg, 'read-only', bool, required=False, default=False)
         entry.allow_internet = ExerciseManager._parse_attr(entry_cfg, 'allow-internet', bool, required=False, default=False)
+
+
+        def __check_mem_limit(val, min_mb):
+            if not val or val.strip() == '0' or val.lower() == 'none':
+                return None
+
+            match = re.search(r"^\ *([1-9][0-9]*).*?(GiB|MiB)", val)
+            if not match:
+                raise ExerciseConfigError('Invalid memory size value! Please use "GiB" or "MiB" as suffix!')
+            val, unit = match.group(1,2)
+            val = int(val)
+            is_mib = unit == 'MiB'
+
+
+            if not is_mib:
+                # Convert GiB to Mib.
+                val = val * 1024
+
+            if val < min_mb:
+                raise ExerciseConfigError(f'Memory limits must be greater or equal to {min_mb} MiB.')
+
+            return int(val)
+
+        limits_config = ExerciseManager._parse_attr(entry_cfg, 'limits', dict, required=False, default=None)
+        if limits_config:
+            entry.ressource_limit = RessourceLimits()
+
+            validators = []
+            validators += [(lambda v: v >= 0, "Value must be greater or equal to zero. Zero disables this limit.")]
+            validators += [(lambda v: len(str(v).split('.')[1]) < 2, "No more than 2 decimal places are supported.")]
+            entry.ressource_limit.cpu_cnt_max = ExerciseManager._parse_attr(limits_config, 'cpu-cnt-max', float, required=False, default=None, validators=validators)
+
+            validators = []
+            validators += [(lambda v: v > 0, "Value must be greater than zero")]
+            entry.ressource_limit.cpu_shares = ExerciseManager._parse_attr(limits_config, 'cpu-shares', int, required=False, default=None, validators=validators)
+
+            validators = []
+            validators += [(lambda v: v >= 64, "Value must be greater or equal than 64")]
+            entry.ressource_limit.pids_max = ExerciseManager._parse_attr(limits_config, 'pid-cnt-max', int, required=False, default=None, validators=validators)
+
+            entry.ressource_limit.memory_in_mb = ExerciseManager._parse_attr(limits_config, 'phys-mem', str, required=False, default=None)
+            entry.ressource_limit.memory_swap_in_mb = ExerciseManager._parse_attr(limits_config, 'swap-mem', str, required=False, default=None)
+            entry.ressource_limit.memory_kernel_in_mb = ExerciseManager._parse_attr(limits_config, 'kernel-mem', str, required=False, default=None)
+
+            entry.ressource_limit.memory_in_mb = __check_mem_limit(entry.ressource_limit.memory_in_mb, 64)
+            entry.ressource_limit.memory_swap_in_mb = __check_mem_limit(entry.ressource_limit.memory_swap_in_mb, 0)
+            entry.ressource_limit.memory_kernel_in_mb = __check_mem_limit(entry.ressource_limit.memory_kernel_in_mb, 64)
+
+            unparsed_keys = list(limits_config.keys())
+            if unparsed_keys:
+                raise ExerciseConfigError(f'Unknown attribute(s) in limits configuration {", ".join(unparsed_keys)}')
+
+
+
 
         flag_config = entry_cfg.get('flag')
         if flag_config:

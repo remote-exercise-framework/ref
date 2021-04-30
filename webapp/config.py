@@ -60,6 +60,14 @@ class ReleaseConfig(object):
     """
     INSTANCE_CONTAINER_MEM_LIMIT = '256m'
 
+    # Must be >= INSTANCE_CONTAINER_MEM_LIMIT.
+    # The size of the swap is INSTANCE_CONTAINER_MEM_PLUS_SWAP_LIMIT - INSTANCE_CONTAINER_MEM_LIMIT.
+    # So, setting it to the same value as INSTANCE_CONTAINER_MEM_LIMIT disables
+    # swapping.
+    INSTANCE_CONTAINER_MEM_PLUS_SWAP_LIMIT = '256m'
+
+    INSTANCE_CONTAINER_MEM_KERNEL_LIMIT = '256m'
+
     # Number of PIDs an instance is allowed to allocate.
     INSTANCE_CONTAINER_PIDS_LIMIT = 512
 
