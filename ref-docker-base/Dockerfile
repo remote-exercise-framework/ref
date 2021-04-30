@@ -34,7 +34,8 @@ RUN apt update && apt install -y \
     socat \
     man-db \
     rsync \
-    sysbench
+    sysbench \
+    htop
 
 # Restore stripped stuff like man pages
 RUN yes | unminimize
