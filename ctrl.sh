@@ -89,6 +89,18 @@ Commands:
             -f
             Follow to the log output and print incoming messages.
 
+    db-init
+        Initialize the DB based on the latest schema version.
+        This must be called once before "up" can be called.
+
+    db-upgrade
+        Upgrade an already existing database to the latest DB schema.
+
+    db-migrate
+        Create a new migration script that can be subsequently used with
+        db-upgrade to apply the DB schema changes to the current database.
+
+
     flask-cmd
         Run a flask CLI command like:
             db init
