@@ -120,6 +120,14 @@ def exercise_diff():
     else:
         path_b = exercise_b.template_import_path
 
+    # Check how many files are there to compare.
+    # Safety: Both pathes do not contain any user provided data.
+    a_file_cnt = int(subprocess.check_output(f'find "{path_a}" -type f | wc -l', shell=True))
+    b_file_cnt = int(subprocess.check_output(f'find "{path_b}" -type f | wc -l', shell=True))
+    if a_file_cnt > 16 or b_file_cnt > 16:
+        log.error(f'To many files to diff: a_file_cnt={a_file_cnt}, b_file_cnt={b_file_cnt}')
+        return render_template('500.html'), 500
+
     #Dockerfile-entry is generated during build, thus we ignore it
     cmd = f'diff -N -r -u --exclude=Dockerfile-entry -U 5 {path_b} {path_a}'
     log.info(f'Running cmd: {cmd}')
