@@ -40,20 +40,10 @@ User Edit
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        {{ wtf_utils.render_field(form.nickname, "text") }}
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
                         {{ wtf_utils.render_select_or_string_field(form.group_name) }}
                     </div>
                 </div>
 
-                <div class="col-7">
-                    <div class="form-group">
-                        {{ wtf_utils.render_radio(form.course, vertical=True) }}
-                    </div>
-                </div>
                 <div class="col-5">
                     <label for="{{ form.auth_group.id }}">{{ form.auth_group.label }}</label>
                     <div class="form-group">
