@@ -301,9 +301,15 @@ class ProxyWorker:
             try:
                 self.__run2()
                 log.debug(f'[{self.addr}] Terminating worker')
-                self._clean_up()
+            except ConnectionResetError:
+                log.info(f'Connection reset by peer: {self}')
             except:
                 log.error(f'Unexpected error', exc_info=True)
+            finally:
+                try:
+                    self._clean_up()
+                except:
+                    log.error(f'Unexpected error during cleanup: {self}', exc_info=True)
 
     def __run2(self):
         # Receive the initial message
