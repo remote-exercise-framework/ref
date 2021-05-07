@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name='remote-exerciese-framework',
+    name='remote-exercise-framework',
     version='',
     packages=[],
     url='',

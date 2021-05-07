@@ -264,7 +264,8 @@ def student_getkey():
     groups_enabled = SystemSettingsManager.GROUPS_ENABLED.value
 
     def render(): return render_template('student_getkey.html',
-                                         route_name='get_key', form=form,
+                                         route_name='get_key',
+                                         form=form,
                                          student=student,
                                          pubkey=pubkey,
                                          privkey=privkey,
@@ -273,71 +274,87 @@ def student_getkey():
                                          )
 
     if regestration_enabled and form.submit.data and form.validate():
-        student = User.query.filter(
+        # Check if the matriculation number is already registered.
+        existing_student = User.query.filter(
             User.mat_num == form.mat_num.data).one_or_none()
-        if not student:
-            # Check password fields
-            if form.password.data != form.password_rep.data:
-                err = ['Passwords do not match!']
-                form.password.errors += err
-                form.password_rep.errors += err
-                form.password.data = ""
-                form.password_rep.data = ""
+        if existing_student:
+            form.mat_num.errors += [
+                'Already registered, please use your password to restore the key.']
+            return render()
+
+        # Check if the pubkey is already regsitered.
+        if form.pubkey.data:
+            # NOTE: The .data was validated by the form.
+            key = RSA.importKey(form.pubkey.data)
+            existing_pubkey = key.export_key(format='OpenSSH').decode()
+
+            existing_student = User.query.filter(
+                User.pub_key == existing_pubkey).one_or_none()
+            if existing_student:
+                form.pubkey.errors += [
+                    'Already registered, please use your password to restore the key.']
                 return render()
 
-            # If a public key was provided use it, if not, generate a key pair.
-            if form.pubkey.data:
-                key = RSA.importKey(form.pubkey.data)
-                pubkey = key.export_key(format='OpenSSH').decode()
-                privkey = None
-            else:
-                key = RSA.generate(2048)
-                pubkey = key.export_key(format='OpenSSH').decode()
-                privkey = key.export_key().decode()
-
-            student = User()
-            student.mat_num = form.mat_num.data
-            student.first_name = form.firstname.data
-            student.surname = form.surname.data
-
-            if groups_enabled:
-                group = UserGroup.query.filter(
-                    UserGroup.name == form.group_name.data).one_or_none()
-
-                if not group and form.group_name.data:
-                    group = UserGroup()
-                    group.name = form.group_name.data
-                else:
-                    group_mcnt = SystemSettingsManager.GROUP_SIZE.value
-                    if len(group.users) >= group_mcnt:
-                        form.group_name.errors += [
-                            f'Groups already reached the maximum of {group_mcnt} members']
-                        pubkey = None
-                        privkey = None
-                        student = None
-                        return render()
-            else:
-                group = None
-            student.group = group
-
-            student.set_password(form.password.data)
-            student.pub_key = pubkey
-            student.pub_key_ssh = pubkey
-            student.priv_key = privkey
-            student.registered_date = datetime.datetime.utcnow()
-            student.auth_groups = [UserAuthorizationGroups.STUDENT]
-
-            signer = URLSafeTimedSerializer(
-                current_app.config['SECRET_KEY'], salt=DOWNLOAD_LINK_SIGN_SALT)
-            signed_mat = signer.dumps(str(student.mat_num))
-
-            db.session.add(student)
-            db.session.commit()
-
+        # Check password fields
+        if form.password.data != form.password_rep.data:
+            err = ['Passwords do not match!']
+            form.password.errors += err
+            form.password_rep.errors += err
+            form.password.data = ""
+            form.password_rep.data = ""
             return render()
+
+        # If a public key was provided use it, if not, generate a key pair.
+        if form.pubkey.data:
+            key = RSA.importKey(form.pubkey.data)
+            pubkey = key.export_key(format='OpenSSH').decode()
+            privkey = None
         else:
-            form.mat_num.errors += [
-                'Already registered, please use your password to restore key.']
+            key = RSA.generate(2048)
+            pubkey = key.export_key(format='OpenSSH').decode()
+            privkey = key.export_key().decode()
+
+        student = User()
+        student.mat_num = form.mat_num.data
+        student.first_name = form.firstname.data
+        student.surname = form.surname.data
+
+        if groups_enabled:
+            group = UserGroup.query.filter(
+                UserGroup.name == form.group_name.data).one_or_none()
+
+            if not group and form.group_name.data:
+                group = UserGroup()
+                group.name = form.group_name.data
+            else:
+                group_mcnt = SystemSettingsManager.GROUP_SIZE.value
+                if len(group.users) >= group_mcnt:
+                    form.group_name.errors += [
+                        f'Groups already reached the maximum of {group_mcnt} members']
+                    pubkey = None
+                    privkey = None
+                    student = None
+                    return render()
+        else:
+            group = None
+        student.group = group
+
+        student.set_password(form.password.data)
+        student.pub_key = pubkey
+        student.pub_key_ssh = pubkey
+        student.priv_key = privkey
+        student.registered_date = datetime.datetime.utcnow()
+        student.auth_groups = [UserAuthorizationGroups.STUDENT]
+
+        signer = URLSafeTimedSerializer(
+            current_app.config['SECRET_KEY'], salt=DOWNLOAD_LINK_SIGN_SALT)
+        signed_mat = signer.dumps(str(student.mat_num))
+
+        db.session.add(student)
+        db.session.commit()
+
+        return render()
+
 
     return render()
 
