@@ -371,6 +371,8 @@ function up {
         export DEBUG_TOOLBAR=1
     fi
 
+    export REAL_HOSTNAME="$(hostname)"
+
     docker-compose -p ref up $@
 }
 

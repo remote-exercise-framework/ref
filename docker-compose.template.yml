@@ -71,6 +71,7 @@ services:
          - POSTGRES_USER=ref
          - POSTGRES_DB=ref
          - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
+         - REAL_HOSTNAME=${REAL_HOSTNAME:?REAL_HOSTNAME not set}
       networks:
          - web-and-db
          - db-and-pgadmin
@@ -110,6 +111,7 @@ services:
          - TESTING=${TESTING}
          - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
          - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
+         - REAL_HOSTNAME=${REAL_HOSTNAME:?REAL_HOSTNAME not set}
       cap_add:
          - SYS_ADMIN
       build:
@@ -170,6 +172,7 @@ services:
          - TESTING=${TESTING}
          - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
          - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
+         - REAL_HOSTNAME=${REAL_HOSTNAME:?REAL_HOSTNAME not set}
       build:
          context: "./webapp"
          args:
