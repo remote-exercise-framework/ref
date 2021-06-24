@@ -6,6 +6,7 @@ import subprocess
 import sys
 import typing
 import shutil
+from pathlib import Path
 
 import requests
 from itsdangerous import TimedSerializer
@@ -137,7 +138,7 @@ def cmd_check(_):
     _run_tests()
 
 def cmd_id(_):
-    print_ok(f'[+] If you need support, please provide this ID alongside your request.')
+    print_ok('[+] If you need support, please provide this ID alongside your request.')
     print_ok(f'[+] Instance ID: {INSTANCE_ID}')
 
 def cmd_info(_):
@@ -155,6 +156,14 @@ def main():
     subparsers.required = True
 
     if not IS_SUBMISSION:
+        # Copy the 'snapshotted' user environment stored at /tmp/.user_environ.
+        # The `/tmp/.user_environ` file is created by `task-wrapper.c`
+        # just before this script is executed.
+        p = Path('/home/user/.user_environ')
+        if p.exists():
+            # Grant permission in case the user messed with `.user_environ`.
+            p.chmod(0o777)
+            p.unlink()
         shutil.copy('/tmp/.user_environ', '/home/user/.user_environ')
 
     reset_parser = subparsers.add_parser('reset',
