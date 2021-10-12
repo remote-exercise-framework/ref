@@ -9,7 +9,7 @@ edition = "2018"
 
 [lib]
 name = "ref_interface"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 libc = "~0"

@@ -152,3 +152,6 @@ COPY --from=ref_utils_builder /home/ref-utils/dist/ref_utils-*-py3-none-any.whl 
 RUN python3 -m pip install -U pip setuptools wheel && \
     python3 -m pip install -U /tmp/ref_utils-*-py3-none-any.whl && \
     rm -f /tmp/ref_utils-*-py3-none-any.whl
+
+RUN rm -rf /tmp/*
+
