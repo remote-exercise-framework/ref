@@ -1,3 +1,4 @@
-requests
-itsdangerous
-colorama
+colorama==0.4.4
+itsdangerous==2.0.1
+pip-chill==1.0.1
+requests==2.26.0
