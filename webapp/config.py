@@ -22,8 +22,6 @@ class ReleaseConfig(object):
     PERSISTANCE_PATH =  os.path.join(DATADIR, 'persistance')
     SQLALCHEMY_MIGRATE_REPO = 'migrations'
 
-    REDIS_KEY = os.environ['REDIS_KEY']
-    REDIS_URL = f"redis://:{REDIS_KEY}@redis"
     IMAGE_BUILD_TIMEOUT = 120
     LOGIN_DISABLED = False
 
