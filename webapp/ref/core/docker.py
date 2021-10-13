@@ -155,7 +155,7 @@ class DockerClient():
         # ! Do not use auto_remove here, because it is broken in docker==5.0.3.
         # ! See https://github.com/docker/docker-py/pull/2282.
         log_msgs += self.client.containers.run(
-            image_name, cmd, stderr=True, volumes=mounts, remove=False).decode()
+            image_name, cmd, stderr=True, volumes=mounts, remove=True).decode()
 
         return log_msgs
 
