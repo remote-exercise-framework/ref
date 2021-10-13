@@ -152,8 +152,10 @@ class DockerClient():
         cmd = ['/bin/bash', '-c', f'cp -avrT {container_src_path}/ /ref-copy/']
         log_msgs = ""
         log_msgs += ' --- Copying data from image ---\n'
+        # ! Do not use auto_remove here, because it is broken in docker==5.0.3.
+        # ! See https://github.com/docker/docker-py/pull/2282.
         log_msgs += self.client.containers.run(
-            image_name, cmd, stderr=True, volumes=mounts, auto_remove=True).decode()
+            image_name, cmd, stderr=True, volumes=mounts, remove=False).decode()
 
         return log_msgs
 

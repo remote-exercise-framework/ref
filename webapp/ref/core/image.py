@@ -190,12 +190,12 @@ class ExerciseImageManager():
                     exercise.entry_service.persistance_container_path,
                     dc.local_path_to_host(exercise.entry_service.persistance_lower)
                     )
-            except:
+            except Exception as e:
                 #Cleanup
                 image = dc.image(image_name)
                 if image:
                     dc.rmi(image_name)
-                raise
+                raise Exception('Failed to copy data') from e
 
         with app.app_context():
             app.logger.info(f'Entry service build finished.')
