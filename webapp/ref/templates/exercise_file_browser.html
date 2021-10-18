@@ -2,11 +2,9 @@
 {% import "file_browser/file_browser.html" as file_browser with context%}
 
 {% block title %}
-{{ title }}
+{{ exercise.short_name }} v{{ exercise.version }} 
 {% endblock %}
 
 {% block admin_content_fluid %}
-
-{{ file_browser.view(file_browser_path) }}
-
+{{ file_browser.view(exercise.template_path) }}
 {% endblock %}

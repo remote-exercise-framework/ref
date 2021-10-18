@@ -336,11 +336,7 @@ def exercise_browse(exercise_id):
     if exercise is None:
         abort(400)
 
-    exercise_path = exercise.template_path
-    title = f'Exercise ({exercise_id})'
-
-
-    return render_template('exercise_file_browser.html', title=title, file_browser_path=exercise_path)
+    return render_template('exercise_file_browser.html', exercise=exercise)
 
 
 @refbp.route('/admin', methods=('GET', 'POST'))

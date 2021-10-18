@@ -7,6 +7,16 @@
 
 {% block admin_content %}
 
+{% set ssh_host = settings.SSH_HOSTNAME.value  %}
+{% set ssh_port  = settings.SSH_PORT.value  %}
+
+<div class="d-flex justify-content-center">
+<div class="btn-group" role="group">
+<a role="button" class="btn btn-outline-success" onclick="displayToast('Copied to clipboard'); return copyStringToClipboard('ssh instance-{{ instance.id  }}@{{ ssh_host }} -p {{ ssh_port  }}')">SSH</a>
+<a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_browse', exercise_id=instance.exercise.id) }}">Browse Exercise</a>
+</div>
+</div>
+
 {{ file_browser.view(file_browser_path) }}
 
 {% endblock %}
