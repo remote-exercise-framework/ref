@@ -40,7 +40,7 @@ WORKDIR /home/sshserver
 COPY openssh-portable openssh-portable
 RUN ldconfig && cd openssh-portable \
     && autoreconf && ./configure --help  && ./configure --with-libs="/usr/lib/libref_interface.so" || cat config.log \
-    && make -j 1 && make install
+    && make -j && make install
 
 COPY sshd_config /etc/ssh/sshd_config
 COPY ssh_config /etc/ssh/ssh_config
