@@ -153,8 +153,8 @@ class ProxyWorker:
             # https://github.com/nbars/PySocks/tree/hack_unix_domain_socket_file_support
             self.dst_socket = socks.create_connection((dst_ip, dst_port), timeout=30, proxy_type=socks.SOCKS5, proxy_addr=socket_path)
             self.dst_socket.setblocking(False)
-        except Exception as e:
-            log.debug(f'Failed to connect {dst_ip}:{dst_port}@{socket_path}. e={e}')
+        except:
+            log.debug(f'Failed to connect {dst_ip}:{dst_port}@{socket_path}', exc_info=True)
             return None
 
         return True
