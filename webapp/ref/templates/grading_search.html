@@ -31,6 +31,8 @@ Grading Search
     }
 
     $(document).ready(function(){
+        $('#{{ form.query.id }}').focus();
+
         process_query_debounce = debounce(process_query, 250)
 
         $('#{{ form.query.id }}').on("input", function(){
