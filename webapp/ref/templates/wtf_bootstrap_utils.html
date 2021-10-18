@@ -19,7 +19,7 @@
     {% endif %}
 {%- endmacro %}
 
-{% macro render_field(field, type, label_visible=true, placeholder='', readonly=False, label=None) -%}
+{% macro render_field(field, type, label_visible=true, placeholder='', readonly=False, label=None, focus=False) -%}
     {% if readonly %}
         {% set readonly = 'readonly' %}
     {% else %}
@@ -31,7 +31,7 @@
     {% if field.type == 'BooleanField' %}
         {{ field }}
     {% else %}
-        <input name="{{ field.id }}" type="{{ type }}" class="form-control" id="{{ field.id }}" value="{{ field.data }}" placeholder="{{ placeholder }}" {{ readonly }}>
+        <input name="{{ field.id }}" type="{{ type }}" class="form-control" id="{{ field.id }}" value="{{ field.data }}" placeholder="{{ placeholder }}" {{ readonly }} {{ 'autofocus' if focus }}>
     {% endif %}
     {% if field.errors %}
         {% for e in field.errors %}
