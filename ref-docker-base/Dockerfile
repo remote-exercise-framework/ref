@@ -143,9 +143,17 @@ RUN apt update && apt install -y \
     nasm \
     screen tmux \
     vim \
-    clang
+    clang \
+    strace
 
-RUN python3 -m pip install --upgrade pwntools
+RUN python3 -m pip install --upgrade \
+    pwntools \
+    matplotlib \
+    opencv-python \
+    torchvision \
+    tqdm \
+    sklearn \
+    numpy
 
 # Import and install ref-utils
 COPY --from=ref_utils_builder /home/ref-utils/dist/ref_utils-*-py3-none-any.whl /tmp
@@ -154,4 +162,3 @@ RUN python3 -m pip install -U pip setuptools wheel && \
     rm -f /tmp/ref_utils-*-py3-none-any.whl
 
 RUN rm -rf /tmp/*
-
