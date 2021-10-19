@@ -223,3 +223,28 @@ def instance_review(instance_id):
 
 
     return render_template('instances_review.html', title=title, file_browser_path=instance_directory, instance=instance)
+
+@refbp.route('/admin/instances/<int:instance_id>/manual_submit', methods = ['GET'])
+@admin_required
+def instance_manual_submit(instance_id):
+    instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
+    if instance is None:
+        flash.error('Instance does not existing')
+        return redirect_to_next()
+
+    if not instance.exercise.has_deadline():
+        flash.error('Tried to submit submission without deadline')
+        return redirect_to_next()
+
+    if instance.submission:
+        flash.error('Submitting submissions is not allowed')
+        return redirect_to_next()
+
+    mgr = InstanceManager(instance)
+    msg =  'This submission was created by an admin user.'
+    msg += 'Please connect via SSH and run task check manually'
+    new_instance = mgr.create_submission(1, msg)
+    current_app.db.session.commit()
+
+    flash.info('Submission successfully created.')
+    return redirect_to_next()

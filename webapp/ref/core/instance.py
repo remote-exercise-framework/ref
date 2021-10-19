@@ -101,6 +101,7 @@ class InstanceManager():
             test_ret: The return value of the submission test (user controlled!)
             test_out: The output of the submission test (user controlled!)
         Creates a new instance that represents a snapshot of the current instance state.
+          - This will not check whether associated deadline is passed.
         Raises:
             *: If the instance submission failed.
             InconsistentStateError: If the instance submission failed and left the system

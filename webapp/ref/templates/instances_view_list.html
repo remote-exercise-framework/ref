@@ -33,12 +33,13 @@ Instances
             </thead>
             <tbody>
                 {% for i in instances|sort(attribute='id', reverse=True) %}
+                    {% set exercise = i.exercise  %}
                     <tr id="{{ i.id }}" {{ "updateable" if i.new_exercise }} {{ "stopable" if i.running }}>
                         <td>{{ i.id }}</td>
-                        <td>{{ i.exercise.short_name }}</td>
-                        <td>{{ i.exercise.version }}
+                        <td>{{ exercise.short_name }}</td>
+                        <td>{{ exercise.version }}
                             {% if i.new_exercise %}
-                                ({{ i.exercise.version }} => {{ i.new_exercise.version }})
+                                ({{ exercise.version }} => {{ i.new_exercise.version }})
                             {% endif %}
                         </td>
                         <td>{{ i.user.first_name }} {{ i.user.surname }} ({{ i.user.id }})</td>
@@ -60,6 +61,10 @@ Instances
                                         {% endif  %}
                                         {% if i.new_exercise %}
                                             <a class="dropdown-item" href="{{ url_for('ref.instance_update', instance_id=i.id, next=request.path) }}">Update</a>
+                                        {% endif %}
+
+                                        {% if exercise.has_deadline() %}
+                                            <a class="dropdown-item" href="{{ url_for('ref.instance_manual_submit', instance_id=i.id, next=request.path) }}">Submit</a>
                                         {% endif %}
 
                                         <a class="dropdown-item" href="{{ url_for('ref.instance_stop', instance_id=i.id, next=request.path) }}">Stop</a>
