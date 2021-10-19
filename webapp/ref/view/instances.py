@@ -241,9 +241,9 @@ def instance_manual_submit(instance_id):
         return redirect_to_next()
 
     mgr = InstanceManager(instance)
-    msg =  'This submission was created by an admin user.'
-    msg += 'Please connect via SSH and run task check manually'
-    new_instance = mgr.create_submission(1, msg)
+    msg =  'This submission was created by an admin user.\n'
+    msg += 'Please connect via SSH and run `task check` manually'
+    _new_instance = mgr.create_submission(1, msg)
     current_app.db.session.commit()
 
     flash.info('Submission successfully created.')
