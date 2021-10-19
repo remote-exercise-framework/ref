@@ -16,6 +16,7 @@ import rq
 import yaml
 from flask import (Blueprint, Flask, abort, current_app, jsonify, redirect,
                    render_template, request, url_for)
+
 from sqlalchemy import and_, or_
 from werkzeug.local import LocalProxy
 from wtforms import Form, IntegerField, StringField, SubmitField, validators
@@ -29,6 +30,8 @@ from ref.core.security import (admin_required, grading_assistant_required,
 from ref.core.util import redirect_to_next
 from ref.model import ConfigParsingError, Exercise, Grading, Submission, User
 from ref.model.enums import ExerciseBuildStatus, UserAuthorizationGroups
+
+from ref.model import SystemSettingsManager
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -46,6 +49,18 @@ class SearchForm(Form):
     query = StringField('Query')
     submit = SubmitField('Search')
 
+def is_current_user_allowed_to_view(exercise: Exercise) -> bool:
+    user = current_user
+    assert user, 'This should only be called with a logged in user'
+
+    if not exercise.has_deadline() or exercise.deadine_passed():
+        return user.is_admin or user.is_grading_assistant
+
+    if SystemSettingsManager.SUBMISSION_HIDE_ONGOING.value:
+        return user.is_admin
+    else:
+        return user.is_admin or user.is_grading_assistant
+
 @refbp.route('/admin/grading/')
 @grading_assistant_required
 def grading_view_all():
@@ -53,6 +68,8 @@ def grading_view_all():
     exercises_by_category = defaultdict(lambda: defaultdict(list))
 
     for exercise in sorted(exercises, key=lambda e: (e.category, e.short_name, e.version)):
+        if not is_current_user_allowed_to_view(exercise):
+            continue
         if not exercise.has_deadline() or not exercise.submission_heads_global():
             continue
         exercises_by_category[exercise.category][exercise.short_name] += [exercise]
@@ -63,6 +80,9 @@ def grading_view_all():
 @grading_assistant_required
 def grading_view_exercise(exercise_id):
     exercise = Exercise.get(exercise_id)
+    if not is_current_user_allowed_to_view(exercise):
+        flash.error(f'User is not allowed to view exercise {exercise_id}')
+        return redirect_to_next()
     if not exercise:
         flash.error(f'Unknown exercise ID {exercise_id}')
         return redirect_to_next()
@@ -84,10 +104,13 @@ def _get_next_ungraded_submission(exercise: Exercise, current: Submission):
 
     return None
 
-def _get_next_by_user(submission: Submission):
+def _get_next_by_user(submission: Submission) -> Submission:
     user = submission.submitted_instance.user
     instances = user.submissions
-    submissions = [i.submission for i in instances if not i.submission.successors() and i.exercise.has_deadline()]
+    submissions = [
+        i.submission for i in instances 
+        if not i.submission.successors() and i.exercise.has_deadline()]
+
     submissions = sorted(submissions, key=lambda e: e.id)
     current_idx = submissions.index(submission)
     return submissions[(current_idx+1)%len(submissions)]
@@ -102,6 +125,10 @@ def grading_view_submission(submission_id):
 
     if submission.successors():
         flash.error('There is a more recent submission of the origin instance.')
+        return redirect_to_next()
+
+    if not is_current_user_allowed_to_view(submission.submitted_instance.exercise):
+        flash.error(f'Current user is not allowed to view submission {submission_id}')
         return redirect_to_next()
 
     grading: Grading = submission.grading
@@ -119,11 +146,11 @@ def grading_view_submission(submission_id):
         submission=submission,
         form=form,
         file_browser_path=submission.submitted_instance.entry_service.overlay_merged
-        )
+    )
 
     if form.next_user_task.data:
-        n = _get_next_by_user(submission)
-        return redirect(url_for('ref.grading_view_submission', submission_id=n.id))
+        next_submission = _get_next_by_user(submission)
+        return redirect(url_for('ref.grading_view_submission', submission_id=next_submission.id))
 
     if form.next.data:
         next_submission = _get_next_ungraded_submission(exercise, submission)
@@ -142,7 +169,9 @@ def grading_view_submission(submission_id):
             return render()
 
         if form.points.data > exercise.max_grading_points:
-            form.points.errors = [f'Points are greater than the maximum of {exercise.max_grading_points}']
+            form.points.errors = [
+                f'Points are greater than the maximum of {exercise.max_grading_points}'
+            ]
             return render()
         grading.points_reached = form.points.data
         grading.private_note = form.notes.data
@@ -162,13 +191,17 @@ def grading_view_submission(submission_id):
             if next_submission:
                 current_app.db.session.add(grading)
                 current_app.db.session.commit()
-                return redirect(url_for('ref.grading_view_submission', submission_id=next_submission.id))
+                return redirect(
+                    url_for('ref.grading_view_submission', submission_id=next_submission.id)
+                )
             flash.warning('There is no submission left for gradeing')
         elif form.save_next_user_task.data:
             next_submission = _get_next_by_user(submission)
             current_app.db.session.add(grading)
             current_app.db.session.commit()
-            return redirect(url_for('ref.grading_view_submission', submission_id=next_submission.id))
+            return redirect(
+                url_for('ref.grading_view_submission', submission_id=next_submission.id)
+            )
 
 
         current_app.db.session.add(grading)
@@ -185,7 +218,10 @@ def grading_search_execute_query():
     user_assignment_submissions = defaultdict(lambda: defaultdict(list))
     query = request.values.get('query', None)
     if not query:
-        return render_template('grading_search_result.html', user_assignment_submissions=user_assignment_submissions)
+        return render_template(
+            'grading_search_result.html',
+            user_assignment_submissions=user_assignment_submissions
+        )
 
     users = User.all()
 
@@ -194,7 +230,10 @@ def grading_search_execute_query():
         score_to_user = [(fuzz.partial_ratio(user.mat_num, query), user) for user in users]
     else:
         #Assume first and/or last name
-        score_to_user = [(fuzz.ratio(user.full_name.lower(), query.lower()), user) for user in users]
+        score_to_user: typing.Mapping[float, User] = [
+            (fuzz.ratio(user.full_name.lower(), query.lower()), user)
+            for user in users
+        ]
 
     score_to_user = sorted(score_to_user, key=lambda e: e[0], reverse=True)
     score_to_user = score_to_user[:5]
@@ -203,11 +242,16 @@ def grading_search_execute_query():
         for instance in user.submissions:
             if instance.submission.successors():
                 continue
+            if not is_current_user_allowed_to_view(instance.exercise):
+                continue
             user_assignment_submissions[user][instance.exercise.category] += [instance.submission]
         if not user_assignment_submissions[user]:
             user_assignment_submissions[user] = None
 
-    return render_template('grading_search_result.html', user_assignment_submissions=user_assignment_submissions)
+    return render_template(
+        'grading_search_result.html',
+        user_assignment_submissions=user_assignment_submissions
+    )
 
 
 @refbp.route('/admin/grading/search', methods=('GET', 'POST'))

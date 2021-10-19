@@ -38,6 +38,9 @@ class GeneralSettings(Form):
         'Enable maintenance mode: Disallow any new access by non admin users. Beware: Already established connections are not closed.'
         )
     disable_submission = BooleanField('Disable submission for instances.')
+    hide_ongoing_exercises_for_grading_assistant = BooleanField(
+        'Hide submission that belong to ongoing exercises for the Grading Assistant.'
+    )
     timezone = SelectField(
         'Timezone that is used for datetime representation in case no timezone information is provided by the client.',
         choices=[(e, e) for e in pytz.all_timezones]
@@ -73,59 +76,56 @@ class SshSettings(Form):
 @admin_required
 def view_system_settings():
 
-    # General settings
-    general_settings = GeneralSettings(request.form, prefix='general_settings')
-    if general_settings.submit.data and general_settings.validate():
-        SystemSettingsManager.REGESTRATION_ENABLED.value = general_settings.regestration_enabled.data
-        SystemSettingsManager.COURSE_NAME.value = general_settings.course_name.data
-        SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value = general_settings.allow_submission_deletion.data
-        SystemSettingsManager.SUBMISSION_DISABLED.value = general_settings.disable_submission.data
-        SystemSettingsManager.TIMEZONE.value = general_settings.timezone.data
-        SystemSettingsManager.MAINTENANCE_ENABLED.value = general_settings.maintenance_enabled.data
+    def process_setting_form(form, mapping):
+        if form.submit.data and form.validate():
+            for setting, form_field in mapping:
+                setting.value = form_field.data
+        else:
+            for setting, form_field in mapping:
+                form_field.data = setting.value
 
-    else:
-        general_settings.regestration_enabled.data = SystemSettingsManager.REGESTRATION_ENABLED.value
-        general_settings.course_name.data = SystemSettingsManager.COURSE_NAME.value
-        general_settings.allow_submission_deletion.data = SystemSettingsManager.SUBMISSION_ALLOW_DELETE.value
-        general_settings.maintenance_enabled.data = SystemSettingsManager.MAINTENANCE_ENABLED.value
-        general_settings.disable_submission.data = SystemSettingsManager.SUBMISSION_DISABLED.value
-        general_settings.timezone.data = SystemSettingsManager.TIMEZONE.value
+    # General settings
+    general_settings_form = GeneralSettings(request.form, prefix='general_settings_form')
+    general_settings_mapping = [
+        (SystemSettingsManager.REGESTRATION_ENABLED, general_settings_form.regestration_enabled),
+        (SystemSettingsManager.COURSE_NAME, general_settings_form.course_name),
+        (SystemSettingsManager.SUBMISSION_ALLOW_DELETE, general_settings_form.allow_submission_deletion),
+        (SystemSettingsManager.SUBMISSION_DISABLED, general_settings_form.disable_submission),
+        (SystemSettingsManager.SUBMISSION_HIDE_ONGOING, general_settings_form.hide_ongoing_exercises_for_grading_assistant),
+        (SystemSettingsManager.TIMEZONE, general_settings_form.timezone),
+        (SystemSettingsManager.MAINTENANCE_ENABLED, general_settings_form.maintenance_enabled),
+    ]
+    process_setting_form(general_settings_form, general_settings_mapping)
+
+
 
     # Group settings belong here
-    group_settings = GroupSettings(request.form, prefix='group_settings')
-    if group_settings.submit.data and group_settings.validate():
-        SystemSettingsManager.GROUP_SIZE.value = group_settings.group_size.data
-        SystemSettingsManager.GROUPS_ENABLED.value = group_settings.groups_enable.data
-    else:
-        group_settings.group_size.data = SystemSettingsManager.GROUP_SIZE.value
-        group_settings.groups_enable.data = SystemSettingsManager.GROUPS_ENABLED.value
+    group_settings_form = GroupSettings(request.form, prefix='group_settings_form')
+    group_settings_mapping = [
+        (SystemSettingsManager.GROUP_SIZE, group_settings_form.group_size),
+        (SystemSettingsManager.GROUPS_ENABLED, group_settings_form.groups_enable),
+    ]
+    process_setting_form(group_settings_form, group_settings_mapping)
 
     # SSH settings
-    ssh_settings = SshSettings(request.form, prefix='ssh_settings')
-    if ssh_settings.submit.data and ssh_settings.validate():
-        SystemSettingsManager.SSH_HOSTNAME.value = ssh_settings.ssh_hostname.data
-        SystemSettingsManager.SSH_PORT.value = ssh_settings.ssh_port.data
-        SystemSettingsManager.SSH_WELCOME_MSG.value = ssh_settings.welcome_header.data
-        SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value = ssh_settings.ssh_instance_introspection.data
-        SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value = ssh_settings.allow_none_default_provisioning.data
-        SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value = ssh_settings.ssh_allow_tcp_forwarding.data
-        SystemSettingsManager.ALLOW_ROOT_LOGINS_FOR_ADMINS.value = ssh_settings.ssh_allow_root_logins_for_admin.data
-        SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY.value = ssh_settings.message_of_the_day.data
-    else:
-        ssh_settings.ssh_hostname.data = SystemSettingsManager.SSH_HOSTNAME.value
-        ssh_settings.ssh_port.data = SystemSettingsManager.SSH_PORT.value
-        ssh_settings.welcome_header.data = SystemSettingsManager.SSH_WELCOME_MSG.value
-        ssh_settings.ssh_instance_introspection.data = SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value
-        ssh_settings.allow_none_default_provisioning.data = SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value
-        ssh_settings.ssh_allow_tcp_forwarding.data = SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value
-        ssh_settings.ssh_allow_root_logins_for_admin.data = SystemSettingsManager.ALLOW_ROOT_LOGINS_FOR_ADMINS.value
-        ssh_settings.message_of_the_day.data = SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY.value
+    ssh_settings_form = SshSettings(request.form, prefix='ssh_settings_form')
+    ssh_settings_mapping = [
+        (SystemSettingsManager.SSH_HOSTNAME, ssh_settings_form.ssh_hostname),
+        (SystemSettingsManager.SSH_PORT, ssh_settings_form.ssh_port),
+        (SystemSettingsManager.SSH_WELCOME_MSG, ssh_settings_form.welcome_header),
+        (SystemSettingsManager.INSTANCE_SSH_INTROSPECTION, ssh_settings_form.ssh_instance_introspection),
+        (SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING, ssh_settings_form.allow_none_default_provisioning),
+        (SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING, ssh_settings_form.ssh_allow_tcp_forwarding),
+        (SystemSettingsManager.ALLOW_ROOT_LOGINS_FOR_ADMINS, ssh_settings_form.ssh_allow_root_logins_for_admin),
+        (SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY, ssh_settings_form.message_of_the_day),
+    ]
+    process_setting_form(ssh_settings_form, ssh_settings_mapping)
 
     current_app.db.session.commit()
 
     return render_template(
         'system_settings.html',
-        group_settings=group_settings,
-        ssh_settings=ssh_settings,
-        general_settings=general_settings
+        group_settings_form=group_settings_form,
+        ssh_settings_form=ssh_settings_form,
+        general_settings_form=general_settings_form
         )

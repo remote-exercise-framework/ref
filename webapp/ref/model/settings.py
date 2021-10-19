@@ -63,6 +63,10 @@ class SystemSettingsManager():
     REGESTRATION_ENABLED = Setting('REGESTRATION_ENABLED', bool, True)
     MAINTENANCE_ENABLED = Setting('MAINTENANCE_ENABLED', bool, False)
     SUBMISSION_DISABLED = Setting('SUBMISSION_DISABLED', bool, False)
+    SUBMISSION_ALLOW_DELETE = Setting('SUBMISSION_ALLOW_DELETE', bool, False)
+    # Whether to hide submissins that belong to an ongoing exercise
+    # for the grading assistant.
+    SUBMISSION_HIDE_ONGOING = Setting('SUBMISSION_HIDE_ONGOING', bool, False)
 
     COURSE_NAME = Setting('COURSE_NAME', str, 'OS-Security')
     COURSE_OF_STUDY = Setting('COURSE_OF_STUDY', list, ['A'])
@@ -70,7 +74,6 @@ class SystemSettingsManager():
     SSH_HOSTNAME = Setting('SSH_HOSTNAME', str, "127.0.0.1")
     SSH_PORT = Setting('SSH_PORT', str, "22")
 
-    SUBMISSION_ALLOW_DELETE = Setting('SUBMISSION_ALLOW_DELETE', bool, False)
 
     ALLOW_TCP_PORT_FORWARDING = Setting('ALLOW_TCP_PORT_FORWARDING', bool, False)
     ALLOW_ROOT_LOGINS_FOR_ADMINS = Setting('ALLOW_ROOT_LOGINS_FOR_ADMINS', bool, False)

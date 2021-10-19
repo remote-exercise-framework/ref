@@ -17,38 +17,43 @@ System Settings
         <form autocomplete="off" method="POST">
             <div class="col-md-12">
                 <div class="form-group">
-                    {{ wtf_utils.render_field(general_settings.course_name, "text") }}
+                    {{ wtf_utils.render_field(general_settings_form.course_name, "text") }}
                 </div>
             </div>
             <div class="col-md-12">
                 <div class="form-group">
-                    {{ wtf_utils.render_field(general_settings.regestration_enabled, "checkbox") }}
+                    {{ wtf_utils.render_field(general_settings_form.regestration_enabled, "checkbox") }}
                 </div>
             </div>
             <div class="col-md-12">
                 <div class="form-group">
-                    {{ wtf_utils.render_field(general_settings.allow_submission_deletion, "checkbox") }}
+                    {{ wtf_utils.render_field(general_settings_form.allow_submission_deletion, "checkbox") }}
                 </div>
             </div>
             <div class="col-md-12">
                 <div class="form-group">
-                    {{ wtf_utils.render_field(general_settings.maintenance_enabled, "checkbox") }}
+                    {{ wtf_utils.render_field(general_settings_form.disable_submission, "checkbox") }}
                 </div>
             </div>
             <div class="col-md-12">
                 <div class="form-group">
-                    {{ wtf_utils.render_field(general_settings.disable_submission, "checkbox") }}
+                    {{ wtf_utils.render_field(general_settings_form.hide_ongoing_exercises_for_grading_assistant, "checkbox") }}
                 </div>
             </div>
             <div class="col-md-12">
-                <label for="{{ general_settings.timezone.id }}">{{ general_settings.timezone.label }}</label>
                 <div class="form-group">
-                    {{ general_settings.timezone() }}
+                    {{ wtf_utils.render_field(general_settings_form.maintenance_enabled, "checkbox") }}
+                </div>
+            </div>
+            <div class="col-md-12">
+                <label for="{{ general_settings_form.timezone.id }}">{{ general_settings_form.timezone.label }}</label>
+                <div class="form-group">
+                    {{ general_settings_form.timezone() }}
                 </div>
             </div>
 
-                {{ general_settings.csrf_token }}
-                {{ wtf_utils.render_submit(general_settings.submit) }}
+                {{ general_settings_form.csrf_token }}
+                {{ wtf_utils.render_submit(general_settings_form.submit) }}
         </form>
     </div>
 </div>
@@ -60,49 +65,49 @@ System Settings
     </h4>
     <div class="card-body">
         <form autocomplete="off" method="POST">
-            {{ ssh_settings.csrf_token }}
+            {{ ssh_settings_form.csrf_token }}
             <div class="row">
                 <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_textarea(ssh_settings.welcome_header, style="font-family: monospace") }}
+                        {{ wtf_utils.render_textarea(ssh_settings_form.welcome_header, style="font-family: monospace") }}
                     </div>
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_textarea(ssh_settings.message_of_the_day, style="font-family: monospace") }}
+                        {{ wtf_utils.render_textarea(ssh_settings_form.message_of_the_day, style="font-family: monospace") }}
                     </div>
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_field(ssh_settings.allow_none_default_provisioning, "checkbox") }}
+                        {{ wtf_utils.render_field(ssh_settings_form.allow_none_default_provisioning, "checkbox") }}
                     </div>
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_field(ssh_settings.ssh_instance_introspection, "checkbox") }}
+                        {{ wtf_utils.render_field(ssh_settings_form.ssh_instance_introspection, "checkbox") }}
                     </div>
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_field(ssh_settings.ssh_allow_root_logins_for_admin, "checkbox") }}
+                        {{ wtf_utils.render_field(ssh_settings_form.ssh_allow_root_logins_for_admin, "checkbox") }}
                     </div>
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_field(ssh_settings.ssh_allow_tcp_forwarding, "checkbox") }}
+                        {{ wtf_utils.render_field(ssh_settings_form.ssh_allow_tcp_forwarding, "checkbox") }}
                     </div>
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_field(ssh_settings.ssh_hostname, "text") }}
+                        {{ wtf_utils.render_field(ssh_settings_form.ssh_hostname, "text") }}
                     </div>
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_field(ssh_settings.ssh_port, "number") }}
+                        {{ wtf_utils.render_field(ssh_settings_form.ssh_port, "number") }}
                     </div>
                 </div>
-                {{ wtf_utils.render_submit(ssh_settings.submit) }}
+                {{ wtf_utils.render_submit(ssh_settings_form.submit) }}
             </div>
         </form>
     </div>
@@ -114,19 +119,19 @@ System Settings
     </h4>
     <div class="card-body">
         <form autocomplete="off" method="POST">
-            {{ group_settings.csrf_token }}
+            {{ group_settings_form.csrf_token }}
             <div class="row">
                 <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_field(group_settings.groups_enable, "checkbox") }}
+                        {{ wtf_utils.render_field(group_settings_form.groups_enable, "checkbox") }}
                     </div>
                 </div>
                 <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_field(group_settings.group_size, "number") }}
+                        {{ wtf_utils.render_field(group_settings_form.group_size, "number") }}
                     </div>
                 </div>
-                {{ wtf_utils.render_submit(group_settings.submit) }}
+                {{ wtf_utils.render_submit(group_settings_form.submit) }}
             </div>
         </form>
     </div>
