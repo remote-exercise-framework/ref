@@ -126,11 +126,11 @@ def grading_view_submission(submission_id):
         return redirect(url_for('ref.grading_view_submission', submission_id=n.id))
 
     if form.next.data:
-            next_submission = _get_next_ungraded_submission(exercise, submission)
-            if not next_submission:
-                flash.warning('There is no submission left for grading.')
-                return render()
-            return redirect(url_for('ref.grading_view_submission', submission_id=next_submission.id))
+        next_submission = _get_next_ungraded_submission(exercise, submission)
+        if not next_submission:
+            flash.warning('There is no submission left for grading.')
+            return render()
+        return redirect(url_for('ref.grading_view_submission', submission_id=next_submission.id))
 
     if (form.save.data or form.save_and_next.data or form.save_next_user_task.data):
         if not form.validate():
@@ -138,7 +138,7 @@ def grading_view_submission(submission_id):
             return render()
 
         if not exercise.deadine_passed():
-            flash.error(f'Unable to grade submission before deadline is passed!')
+            flash.error('Unable to grade submission before deadline is passed!')
             return render()
 
         if form.points.data > exercise.max_grading_points:

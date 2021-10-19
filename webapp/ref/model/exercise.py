@@ -290,7 +290,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return exercises.all()
 
     def deadine_passed(self) -> bool:
-        assert self.submission_deadline_end is not None
+        assert self.has_deadline(), 'Exercise does not have a deadline'
         return datetime.datetime.now() > self.submission_deadline_end
 
     def has_deadline(self) -> bool:
