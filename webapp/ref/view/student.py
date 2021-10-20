@@ -58,35 +58,7 @@ def validate_password(form, field):
 
     if sum([digit, upper, lower, special]) < PASSWORD_SECURITY_LEVEL:
         raise ValidationError(
-            f'Password not strong enough. Try to use a mix of digits, upper- and lowercase letters.')
-
-
-def validate_matriculation_number(form, field):
-    """
-    Checksums matriculation number. Raises ValidationError if not a valid matriculation number.
-    """
-    del form
-    if not field.data.startswith("1080"):
-        log.info(
-            f"Passed matriculation number ({field.data}) does not belong to the RUB, skipping checksum calculation"
-        )
-        return
-    if len(field.data) != 12:
-        log.info(f"Matriculation number has less than 12 characters.")
-        raise ValidationError('Matriculation number must have 12 characters')
-    checksum = 0
-    for i in range(10 + 1):
-        tmp = int(field.data[i]) + 1
-        tmp *= ((i + 1) % 3) + 1
-        tmp -= 1 if tmp > 10 else 0
-        tmp -= 1 if tmp > 20 else 0
-        checksum += tmp
-    checksum_str = str(checksum % 10)
-    if field.data[-1] != checksum_str:
-        log.info(
-            f"Invalid matriculation number {field.data} - checksum is {checksum_str}")
-        raise ValidationError('Invalid matriculation number: checksum failure')
-
+            'Password not strong enough. Try to use a mix of digits, upper- and lowercase letters.')
 
 def validate_pubkey(form, field):
     """
@@ -110,7 +82,6 @@ class EditUserForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
         validators.Regexp(MAT_REGEX),
-        validate_matriculation_number,
         # FIXME: Field is implemented as number field in the view.
         field_to_str
     ])
@@ -139,7 +110,6 @@ class GetKeyForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
         validators.Regexp(MAT_REGEX),
-        validate_matriculation_number,
         field_to_str
     ])
     firstname = StringField('Firstname', validators=[
@@ -172,7 +142,6 @@ class RestoreKeyForm(Form):
     mat_num = StringField('Matriculation Number', validators=[
         validators.DataRequired(),
         validators.Regexp(MAT_REGEX),
-        validate_matriculation_number,
         field_to_str  # FIXME: Field is implemented as number in view.
     ])
     password = PasswordField('Password (The password used during first retrieval)', validators=[

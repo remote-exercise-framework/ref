@@ -57,7 +57,7 @@ def login():
             form.password.errors += ['Invalid username or password']
             form.password.errors += ['Please note that this login is not supposed to be used by students.']
             return render_template('login.html', form=form)
-        
+
         if user.login_token is None:
             user.login_token = str(uuid.uuid4())
             current_app.db.session.add(user)
