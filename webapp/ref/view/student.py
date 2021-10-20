@@ -102,6 +102,11 @@ class EditUserForm(Form):
     password = PasswordField('Password')
     password_rep = PasswordField('Password (Repeat)')
     is_admin = BooleanField('Is Admin?')
+    pubkey = StringField('Pubkey', validators=[
+        validators.DataRequired(),
+        validate_pubkey
+        ]
+    )
 
     submit = SubmitField('Update')
 
@@ -432,6 +437,7 @@ def student_edit(user_id):
 
         user.first_name = form.firstname.data
         user.surname = form.surname.data
+        user.pub_key = form.pubkey.data
 
         group = UserGroup.query.filter(
             UserGroup.name == form.group_name.data).one_or_none()
@@ -468,6 +474,7 @@ def student_edit(user_id):
         form.mat_num.data = user.mat_num
         form.firstname.data = user.first_name
         form.surname.data = user.surname
+        form.pubkey.data = user.pub_key
         if user.group:
             form.group_name.data = user.group.name
         form.auth_group.data = [e.value for e in user.auth_groups]

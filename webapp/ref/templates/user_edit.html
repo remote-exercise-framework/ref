@@ -38,16 +38,16 @@ User Edit
                         {{ wtf_utils.render_field(form.surname, "text") }}
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        {{ wtf_utils.render_select_or_string_field(form.group_name) }}
-                    </div>
-                </div>
-
                 <div class="col-5">
                     <label for="{{ form.auth_group.id }}">{{ form.auth_group.label }}</label>
                     <div class="form-group">
                         {{ form.auth_group(rows=3, multiple=True) }}
+                    </div>
+                </div>
+                <div class="col-md-7"></div>
+                <div class="col-md-12">
+                    <div class="form-group">
+                        {{ wtf_utils.render_textarea(form.pubkey) }}
                     </div>
                 </div>
             </div>
