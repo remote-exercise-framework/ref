@@ -58,10 +58,10 @@ class SshSettings(Form):
     ssh_port = TextField('SSH port', validators=[])
     welcome_header = TextField('SSH Welcome Header')
     allow_none_default_provisioning = BooleanField(
-        'Allow admins to provision non default container'
+        'Allow admins to provision non default container.'
         )
     ssh_instance_introspection = BooleanField(
-        'Allow admins and grading assistance to access arbitrary instances using instance-{ID} as username'
+        'Allow admins to access arbitrary instances using instance-{ID} as username and grading assistance arbitrary submissions.'
         )
     ssh_allow_tcp_forwarding = BooleanField(
         'Allow users to forward TCP ports from there machine to services running on their instance.'
