@@ -15,8 +15,6 @@ User Details
     <dd class="col-sm-9">{{ user.surname }}</dd>
     <dt class="col-sm-3">Matriculation Number</dt>
     <dd class="col-sm-9">{{ user.mat_num }}</dd>
-    <dt class="col-sm-3">Group</dt>
-    <dd class="col-sm-9">{{ user.group.name|default('None') }}</dd>
     <dt class="col-sm-3">Date of regestration</dt>
     <dd class="col-sm-9">{{ moment(user.registered_date).format() }}</dd>
 

@@ -88,12 +88,6 @@ class EditUserForm(Form):
     firstname = StringField('Firstname', validators=[
                             validators.DataRequired()])
     surname = StringField('Surname', validators=[validators.DataRequired()])
-    group_name = StringField('Group',
-                             validators=[
-                                 validators.Optional(),
-                                 validators.Regexp(GROUP_REGEX)
-                             ]
-                             )
     auth_group = SelectMultipleField('Authorization Groups',
                                      choices=[
                                          (e.value, e.value) for e in UserAuthorizationGroups
@@ -120,11 +114,6 @@ class GetKeyForm(Form):
     firstname = StringField('Firstname', validators=[
                             validators.DataRequired()])
     surname = StringField('Surname', validators=[validators.DataRequired()])
-    group_name = StringField('Group',
-                             validators=[validators.Optional(),
-                                         validators.Regexp(GROUP_REGEX)
-                                         ]
-                             )
     password = PasswordField('Password',
                              validators=[
                                  validators.DataRequired(), validate_password
@@ -228,14 +217,11 @@ def student_getkey():
 
     # Get valid group names
     groups = UserGroup.all()
-    form.group_name.choices = [e.name for e in groups]
 
     pubkey = None
     privkey = None
     signed_mat = None
     student = None
-
-    groups_enabled = SystemSettingsManager.GROUPS_ENABLED.value
 
     def render(): return render_template('student_getkey.html',
                                          route_name='get_key',
@@ -244,7 +230,6 @@ def student_getkey():
                                          pubkey=pubkey,
                                          privkey=privkey,
                                          signed_mat=signed_mat,
-                                         groups_enabled=groups_enabled
                                          )
 
     if regestration_enabled and form.submit.data and form.validate():
@@ -292,26 +277,6 @@ def student_getkey():
         student.mat_num = form.mat_num.data
         student.first_name = form.firstname.data
         student.surname = form.surname.data
-
-        if groups_enabled:
-            group = UserGroup.query.filter(
-                UserGroup.name == form.group_name.data).one_or_none()
-
-            if not group and form.group_name.data:
-                group = UserGroup()
-                group.name = form.group_name.data
-            else:
-                group_mcnt = SystemSettingsManager.GROUP_SIZE.value
-                if len(group.users) >= group_mcnt:
-                    form.group_name.errors += [
-                        f'Groups already reached the maximum of {group_mcnt} members']
-                    pubkey = None
-                    privkey = None
-                    student = None
-                    return render()
-        else:
-            group = None
-        student.group = group
 
         student.set_password(form.password.data)
         student.pub_key = pubkey
@@ -408,10 +373,6 @@ def student_edit(user_id):
     """
     form = EditUserForm(request.form)
 
-    # Get valid group names
-    groups = UserGroup.all()
-    form.group_name.choices = [e.name for e in groups]
-
     user: User = User.query.filter(
         User.id == user_id).one_or_none()
     if not user:
@@ -439,22 +400,6 @@ def student_edit(user_id):
         user.surname = form.surname.data
         user.pub_key = form.pubkey.data
 
-        group = UserGroup.query.filter(
-            UserGroup.name == form.group_name.data).one_or_none()
-
-        # Only create a group if the name was set
-        if not group and form.group_name.data:
-            group = UserGroup()
-            group.name = form.group_name.data
-        user.group = group
-
-        # Make sure there are not to many members in the group
-        max_grp_size = SystemSettingsManager.GROUP_SIZE.value
-        if group and len(group.users) > max_grp_size:
-            form.group_name.errors += [
-                f'Groups already reached the maximum of {max_grp_size} members']
-            return render_template('user_edit.html', form=form)
-
         # Invalidate login if the authentication group changed
         new_auth_groups = set()
         for auth_group in form.auth_group.data:
@@ -475,8 +420,6 @@ def student_edit(user_id):
         form.firstname.data = user.first_name
         form.surname.data = user.surname
         form.pubkey.data = user.pub_key
-        if user.group:
-            form.group_name.data = user.group.name
         form.auth_group.data = [e.value for e in user.auth_groups]
         # Leave password empty
         form.password.data = ''

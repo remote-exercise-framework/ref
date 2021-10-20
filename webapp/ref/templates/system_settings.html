@@ -112,28 +112,4 @@ System Settings
         </form>
     </div>
 </div>
-
-<!-- <div class="card">
-    <h4 class="card-header">
-        Groups
-    </h4>
-    <div class="card-body">
-        <form autocomplete="off" method="POST">
-            {{ group_settings_form.csrf_token }}
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="form-group">
-                        {{ wtf_utils.render_field(group_settings_form.groups_enable, "checkbox") }}
-                    </div>
-                </div>
-                <div class="col-md-12">
-                    <div class="form-group">
-                        {{ wtf_utils.render_field(group_settings_form.group_size, "number") }}
-                    </div>
-                </div>
-                {{ wtf_utils.render_submit(group_settings_form.submit) }}
-            </div>
-        </form>
-    </div>
-</div> -->
 {% endblock %}

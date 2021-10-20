@@ -80,8 +80,6 @@ class SystemSettingsManager():
     INSTANCE_SSH_INTROSPECTION = Setting('INSTANCE_SSH_INTROSPECTION', bool, True)
     INSTANCE_NON_DEFAULT_PROVISIONING = Setting('INSTANCE_NON_DEFAULT_PROVISIONING', bool, False)
 
-    GROUPS_ENABLED = Setting('GROUPS_ENABLED', bool, False)
-    GROUP_SIZE = Setting('GROUP_SIZE', int, 2)
     SSH_WELCOME_MSG = Setting('SSH_WELCOME_MSG', str, default_ssh_welcome_msg)
     SSH_MESSAGE_OF_THE_DAY = Setting('SSH_MESSAGE_OF_THE_DAY', str, None)
 

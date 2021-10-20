@@ -97,16 +97,6 @@ def view_system_settings():
     ]
     process_setting_form(general_settings_form, general_settings_mapping)
 
-
-
-    # Group settings belong here
-    group_settings_form = GroupSettings(request.form, prefix='group_settings_form')
-    group_settings_mapping = [
-        (SystemSettingsManager.GROUP_SIZE, group_settings_form.group_size),
-        (SystemSettingsManager.GROUPS_ENABLED, group_settings_form.groups_enable),
-    ]
-    process_setting_form(group_settings_form, group_settings_mapping)
-
     # SSH settings
     ssh_settings_form = SshSettings(request.form, prefix='ssh_settings_form')
     ssh_settings_mapping = [
@@ -125,7 +115,6 @@ def view_system_settings():
 
     return render_template(
         'system_settings.html',
-        group_settings_form=group_settings_form,
         ssh_settings_form=ssh_settings_form,
         general_settings_form=general_settings_form
         )
