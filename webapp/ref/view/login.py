@@ -48,12 +48,14 @@ def login():
         user: User = User.query.filter_by(mat_num=form.username.data).one_or_none()
         if not user:
             form.password.errors += ['Invalid username or password']
+            form.password.errors += ['Please note that this login is not supposed to be used by students.']
             return render_template('login.html', form=form)
 
         log.info(f'User found {user} {form.password.data}')
 
         if user is None or not user.check_password(form.password.data) or (not user.is_admin and not user.is_grading_assistant):
             form.password.errors += ['Invalid username or password']
+            form.password.errors += ['Please note that this login is not supposed to be used by students.']
             return render_template('login.html', form=form)
         
         if user.login_token is None:
