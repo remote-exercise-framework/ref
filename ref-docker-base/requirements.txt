@@ -4,3 +4,4 @@ itsdangerous==1.1.0
 mypy==0.770
 pwntools==4.0.1
 pylint==2.4.4
+r2env
