@@ -2,7 +2,7 @@ import datetime
 import re
 from functools import partial
 
-from Crypto.PublicKey import RSA
+from Crypto.PublicKey import RSA, DSA, ECC
 from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
 from itsdangerous import URLSafeTimedSerializer
@@ -63,18 +63,26 @@ def validate_password(form, field):
 def validate_pubkey(form, field):
     """
     Validates an SSH key in the OpenSSH format. If the passed field was left empty,
-    validation is also successfull.
+    validation is also successfull since in this case we generte a public/private
+    key pair.
     Raises:
          ValidationError: If the key could not be parsed.
     """
     del form
     if field.data is None or field.data == '':
         return
-    try:
-        RSA.importKey(field.data)
-    except:
-        log.info(f'Invalid public-key {field.data}.')
-        raise ValidationError('Invalid Public-Key.')
+
+    for fn in [RSA.import_key]:
+        try:
+            fn(field.data)
+        except:
+            log.info('import failed', exc_info=True)
+            pass
+        else:
+            return
+
+    log.info(f'Invalid public-key {field.data}.')
+    raise ValidationError('Invalid Public-Key.')
 
 
 class EditUserForm(Form):
@@ -212,11 +220,9 @@ def student_getkey():
     regestration_enabled = SystemSettingsManager.REGESTRATION_ENABLED.value
     if not regestration_enabled:
         flash.warning("Regestration is currently disabled. Please contact the staff if you need to register.")
+        # Fallthrough
 
     form = GetKeyForm(request.form)
-
-    # Get valid group names
-    groups = UserGroup.all()
 
     pubkey = None
     privkey = None
@@ -280,7 +286,6 @@ def student_getkey():
 
         student.set_password(form.password.data)
         student.pub_key = pubkey
-        student.pub_key_ssh = pubkey
         student.priv_key = privkey
         student.registered_date = datetime.datetime.utcnow()
         student.auth_groups = [UserAuthorizationGroups.STUDENT]

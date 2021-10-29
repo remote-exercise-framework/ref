@@ -524,8 +524,8 @@ class InstanceManager():
         container_setup_script = (
             '#!/bin/bash\n'
             'set -e\n'
-            f'if ! grep -q "{self.instance.user.pub_key_ssh}" /home/user/.ssh/authorized_keys; then\n'
-                f'bash -c "echo {self.instance.user.pub_key_ssh} >> /home/user/.ssh/authorized_keys"\n'
+            f'if ! grep -q "{self.instance.user.pub_key}" /home/user/.ssh/authorized_keys; then\n'
+                f'bash -c "echo {self.instance.user.pub_key} >> /home/user/.ssh/authorized_keys"\n'
             'fi\n'
             f'echo -n {self.instance.id} > /etc/instance_id && chmod 400 /etc/instance_id\n'
         )

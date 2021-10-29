@@ -183,7 +183,7 @@ def handle_instance_introspection_request(query, pubkey, requests_root_access: b
 
     # TODO: We should pass the user instead of the pubkey arg.
     instance: Instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
-    user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
+    user: User = User.query.filter(User.pub_key==pubkey).one_or_none()
 
     if not user:
         log.warning('User not found.')
@@ -236,7 +236,7 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
     name = query
 
     #Get the user account
-    user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
+    user: User = User.query.filter(User.pub_key==pubkey).one_or_none()
     if not user:
         log.warning('Unable to find user with provided publickey')
         raise ApiRequestError(error_response('Unknown public key'))
@@ -275,7 +275,7 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
         exercise_version = name[1]
         name = name[0]
 
-    user: User = User.query.filter(User.pub_key_ssh==pubkey).one_or_none()
+    user: User = User.query.filter(User.pub_key==pubkey).one_or_none()
     if not user:
         log.warning('Unable to find user with provided publickey')
         raise ApiRequestError(error_response('Unknown public key'))
@@ -509,7 +509,7 @@ def api_getkeys():
     students = User.all()
     keys = []
     for s in students:
-        keys.append(s.pub_key_ssh)
+        keys.append(s.pub_key)
 
     resp = {
         'keys': keys

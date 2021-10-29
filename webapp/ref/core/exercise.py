@@ -412,7 +412,9 @@ class ExerciseManager():
             persistence_path.mkdir(parents=True)
             #Copy data from import folder into an internal folder
             subprocess.run(['mkdir', '-p', template_path.as_posix()], check=True)
-            subprocess.run(['/usr/bin/rsync', '-a', f'{exercise.template_import_path}/', template_path.as_posix()], check=True)
+            subprocess.run(
+                ['/usr/bin/rsync', '-a', f'{exercise.template_import_path}/', template_path.as_posix()],
+                check=True)
         except:
             #Restore state as before create() was called.
             if template_path.exists():
