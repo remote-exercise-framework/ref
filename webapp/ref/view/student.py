@@ -76,7 +76,6 @@ def validate_pubkey(form, field):
         try:
             fn(field.data)
         except:
-            log.info('import failed', exc_info=True)
             pass
         else:
             return
