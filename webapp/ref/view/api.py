@@ -547,7 +547,7 @@ def api_getuserinfo():
         return error_response('Invalid request')
 
     log.info(f'Got request for pubkey={pubkey[:32]}')
-    user = db.get(User, pub_key_ssh=pubkey)
+    user = db.get(User, pub_key=pubkey)
 
     if user:
         log.info(f'Found matching user: {user}')
