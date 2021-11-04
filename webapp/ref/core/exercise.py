@@ -24,7 +24,7 @@ from ref.model import (Exercise, ExerciseEntryService, ExerciseService,
                        Instance, InstanceEntryService, InstanceService, User, RessourceLimits)
 from ref.model.enums import ExerciseBuildStatus
 
-from ref.core.util import datetime_to_naive_utc, datetime_is_local
+from ref.core.util import datetime_to_naive_utc, datetime_transmute_into_local
 from .docker import DockerClient
 from .image import ExerciseImageManager
 from .instance import InstanceManager
@@ -112,8 +112,8 @@ class ExerciseManager():
             start_time = ExerciseManager._parse_attr(start, 'time', datetime.time, required=True, default=None)
             end_date = ExerciseManager._parse_attr(end, 'date', datetime.date, required=True, default=None)
             end_time = ExerciseManager._parse_attr(end, 'time', datetime.time, required=True, default=None)
-            exercise.submission_deadline_start = datetime_is_local(datetime.datetime.combine(start_date, start_time))
-            exercise.submission_deadline_end = datetime_is_local(datetime.datetime.combine(end_date, end_time))
+            exercise.submission_deadline_start = datetime_transmute_into_local(datetime.datetime.combine(start_date, start_time))
+            exercise.submission_deadline_end = datetime_transmute_into_local(datetime.datetime.combine(end_date, end_time))
         else:
             # TODO: Legacy -> Remove
             exercise.submission_deadline_start = ExerciseManager._parse_attr(cfg, 'deadline-start', datetime.datetime, required=False, default=None)

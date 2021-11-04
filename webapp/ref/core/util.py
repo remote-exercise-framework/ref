@@ -103,23 +103,44 @@ def unlock_db_and_rollback():
 #     current_app.logger.info(f"Releasing all DB locks")
 #     current_app.db.session.execute('select pg_advisory_unlock_all();')
 
-def datetime_to_local_tz(ts: datetime):
+def utc_datetime_to_local_tz(ts: datetime):
+    """
+    Convert the given (UTC) datetime to a datetime with the local
+    timezone.
+    Args:
+        ts - A datetime that must be in UTC
+    """
     from_zone = tz.gettz('UTC')
     to_zone = tz.gettz(SystemSettingsManager.TIMEZONE.value)
 
     utc = ts.replace(tzinfo=from_zone)
     return utc.astimezone(to_zone)
 
-def datetime_is_local(dt: datetime):
+def datetime_transmute_into_local(dt: datetime):
+    """
+    Change the datetime's timezone to the local timezone without
+    considering its current timezone (if any).
+    NOTE: The datetime is just interpreted as the local timezone while being
+    treaded as having no timezone at all.
+    Args:
+        ts - A datetime with an arbitrary timezone.
+    Returns:
+        The given `ts` with the timezone set to the local timezone.
+    """
     to_zone = tz.gettz(SystemSettingsManager.TIMEZONE.value)
     return dt.replace(tzinfo=to_zone)
 
-def datetime_to_naive_utc(dt):
+def datetime_to_naive_utc(dt: datetime):
+    """
+    Convert the given datetime from its current timezone into UTC.
+    Next, the timezone is erased, yielding a naive datetime with no
+    timezone attached.
+    """
     return dt.astimezone(tz.tzutc()).replace(tzinfo=None)
 
 def datetime_to_string(ts: datetime):
     if ts.tzinfo is None:
-        ts = datetime_to_local_tz(ts)
+        ts = utc_datetime_to_local_tz(ts)
     return ts.strftime("%d/%m/%Y %H:%M:%S")
 
 class AnsiColorUtil():

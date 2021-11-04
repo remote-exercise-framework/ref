@@ -32,7 +32,7 @@ from ref import db, limiter, refbp
 from ref.core import AnsiColorUtil as ansi
 from ref.core import (ExerciseImageManager, ExerciseManager,
                       InconsistentStateError, InstanceManager,
-                      datetime_to_local_tz, datetime_to_string, flash, DockerClient)
+                      utc_datetime_to_local_tz, datetime_to_string, flash, DockerClient)
 from ref.core.util import lock_db
 from ref.model import (ConfigParsingError, Exercise, Instance, SystemSetting,
                        SystemSettingsManager, User)
@@ -123,14 +123,14 @@ def start_and_return_instance(instance: Instance, requesting_user: User, request
                 '    Last submitted: (No submission found)\n'
             )
         else:
-            ts = datetime_to_local_tz(latest_submission.submission_ts)
+            ts = utc_datetime_to_local_tz(latest_submission.submission_ts)
             since_in_str = arrow.get(ts).humanize()
             ts = ts.strftime('%A, %B %dth @ %H:%M')
             welcome_message += (
                 f'    Last submitted: {ts} ({since_in_str})\n'
             )
     else:
-        ts = datetime_to_local_tz(instance.submission.submission_ts)
+        ts = utc_datetime_to_local_tz(instance.submission.submission_ts)
         since_in_str = arrow.get(ts).humanize()
         ts = ts.strftime('%A, %B %dth @ %H:%M')
         user_name = instance.user.full_name
@@ -142,7 +142,7 @@ def start_and_return_instance(instance: Instance, requesting_user: User, request
             welcome_message += ansi.red('    This submission was modified!\n    Use `task reset` to restore the initially submitted state.\n')
 
     if exercise.has_deadline():
-        ts = datetime_to_local_tz(exercise.submission_deadline_end)
+        ts = utc_datetime_to_local_tz(exercise.submission_deadline_end)
         since_in_str = arrow.get(ts).humanize()
         deadline = ts.strftime('%A, %B %dth @ %H:%M')
         if exercise.deadine_passed():
