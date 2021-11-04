@@ -227,16 +227,23 @@ def grading_search_execute_query():
 
     if query.isdigit():
         #Assume mat. num.
-        score_to_user = [(fuzz.partial_ratio(user.mat_num, query), user) for user in users]
-    else:
-        #Assume first and/or last name
-        score_to_user: typing.Mapping[float, User] = [
-            (fuzz.ratio(user.full_name.lower(), query.lower()), user)
+        score_to_user: typing.List[typing.Tuple[float, User]] = [
+            (fuzz.partial_ratio(user.mat_num, query), user)
             for user in users
         ]
+    else:
+        #Assume first and/or last name
+        score_to_user: typing.List[typing.Tuple[float, User]] =[]
+        for user in users:
+            score = fuzz.ratio(user.full_name.lower(), query.lower())
+            if len(query.lower()) > 2 and fuzz.partial_ratio(user.full_name.lower(), query.lower()) == 100:
+                score = 100
+            score_to_user.append((score, user))
 
     score_to_user = sorted(score_to_user, key=lambda e: e[0], reverse=True)
     score_to_user = score_to_user[:5]
+
+    log.info(f'score_to_user={score_to_user}')
 
     for _, user in score_to_user:
         for instance in user.submissions:
