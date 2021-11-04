@@ -243,8 +243,6 @@ def grading_search_execute_query():
     score_to_user = sorted(score_to_user, key=lambda e: e[0], reverse=True)
     score_to_user = score_to_user[:5]
 
-    log.info(f'score_to_user={score_to_user}')
-
     for _, user in score_to_user:
         for instance in user.submissions:
             if instance.submission.successors():
