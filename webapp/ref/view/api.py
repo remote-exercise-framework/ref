@@ -190,21 +190,26 @@ def handle_instance_introspection_request(query, pubkey, requests_root_access: b
         raise ApiRequestError(error_response('Unknown user.'))
 
     if not SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value:
-        m = f'Instance SSH introspection is disabled!'
+        m = 'Instance SSH introspection is disabled!'
         log.warning(m)
         raise ApiRequestError(error_response('Introspection is disabled.'))
 
     if not user.is_admin and not user.is_grading_assistant:
-        log.warning(f'Only administrators and grading assistants are allowed to request access to specific instances.')
+        log.warning('Only administrators and grading assistants are allowed to request access to specific instances.')
         raise ApiRequestError(error_response('Insufficient permissions'))
 
     if not instance:
         log.warning(f'Invalid instance_id={instance_id}')
         raise ApiRequestError(error_response('Invalid instance ID'))
 
-    if user.is_grading_assistant and not instance.is_submission():
-        # Do not allow grading assistants to access non submissions.
-        raise ApiRequestError(error_response('Insufficient permissions.'))
+    if user.is_grading_assistant:
+        if not instance.is_submission():
+            # Do not allow grading assistants to access non submissions.
+            raise ApiRequestError(error_response('Insufficient permissions.'))
+        exercise = instance.exercise
+        hide_ongoing = SystemSettingsManager.SUBMISSION_HIDE_ONGOING.value
+        if exercise.has_deadline() and not exercise.deadine_passed() and hide_ongoing:
+            raise ApiRequestError(error_response('Deadline has not passed yet, permission denied.'))
 
     return start_and_return_instance(instance, user, requests_root_access), instance
 
