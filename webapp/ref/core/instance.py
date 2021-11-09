@@ -120,7 +120,7 @@ class InstanceManager():
         src = self.instance.entry_service.overlay_merged
         dst = new_instance.entry_service.overlay_submitted
         # -a is mandatory, since the upper dir might contain files with extended file attrbiutes (used by overlayfs).
-        cmd = f'sudo cp -arT {src} {dst}'
+        cmd = f'sudo rsync -arXv {src}/ {dst}/'
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError:
@@ -183,10 +183,15 @@ class InstanceManager():
             self.stop()
             #Copy old persisted data. If the new exercise version is readonly, the persisted data is discarded.
             if not new_exercise.entry_service.readonly and self.instance.exercise.entry_service.persistance_container_path:
-                #We are working directly on the merged directory, since changeing the upper dir itself causes issues:
-                #[328100.750176] overlayfs: failed to verify origin (entry-server/lower, ino=31214863, err=-116)
-                #[328100.750178] overlayfs: failed to verify upper root origin
-                cmd = f'sudo cp -arT {self.instance.entry_service.overlay_upper} {new_instance.entry_service.overlay_merged}'
+                # We are working directly on the merged directory, since changeing the upper dir itself causes issues:
+                # [328100.750176] overlayfs: failed to verify origin (entry-server/lower, ino=31214863, err=-116)
+                # [328100.750178] overlayfs: failed to verify upper root origin
+                # rsync ignores whiteouts created by overlayfs without the --devices argument. Thus, this command will
+                # cause whiteouts to be discarded and will only copy user created data into the new distance.
+                # So, if the user deleted a file from the lower dir, it will become visible again after an upgrade.
+                # FIXME: Transfer whiteouts to new instances during upgrade. Just using --devices causes mount to fail
+                # FIXME: with an `stale file error`.
+                cmd = f'sudo rsync -arXv {self.instance.entry_service.overlay_upper}/ {new_instance.entry_service.overlay_merged}/'
                 subprocess.check_call(cmd, shell=True)
         except:
             log.info('whops', exc_info=True)
