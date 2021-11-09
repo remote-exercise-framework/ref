@@ -43,7 +43,7 @@ class ReleaseConfig(object):
     #Prefix for container and network names created by REF
     DOCKER_RESSOURCE_PREFIX = 'ref-ressource-'
 
-    # This is a hardlimit and determines howmany CPUs an instance
+    # This is a hard limit and determines howmany CPUs an instance
     # can use.
     INSTANCE_CONTAINER_CPUS = 0.5
 

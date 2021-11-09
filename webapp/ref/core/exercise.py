@@ -107,7 +107,7 @@ class ExerciseManager():
             start = ExerciseManager._parse_attr(deadline, 'start', dict, required=False, default=None)
             end = ExerciseManager._parse_attr(deadline, 'end', dict, required=False, default=None)
             if not start or not end:
-                raise ExerciseConfigError('Missing "start" or "end" in deadline entry!')
+                raise ExerciseConfigError('Missing "start:" or "end:" in deadline entry!')
             start_date = ExerciseManager._parse_attr(start, 'date', datetime.date, required=True, default=None)
             start_time = ExerciseManager._parse_attr(start, 'time', datetime.time, required=True, default=None)
             end_date = ExerciseManager._parse_attr(end, 'date', datetime.date, required=True, default=None)

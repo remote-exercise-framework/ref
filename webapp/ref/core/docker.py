@@ -92,6 +92,7 @@ class DockerClient():
         Raises:
             docker.errors.APIError
             docker.errors.NotFound
+            Exception
         """
         assert Path(path).is_absolute()
 
@@ -266,7 +267,7 @@ class DockerClient():
     def container_get_ip(self, container: Union[str, docker.models.containers.Container], network: Union[str, docker.models.networks.Network]):
         """
         Returns the IP address of the given container on the given network.
-        If the container is net connected to the network, None is returned.
+        If the container is not connected to the network, None is returned.
         Raises:
             docker.errors.APIError
         """

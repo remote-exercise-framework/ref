@@ -125,7 +125,8 @@ def exercise_diff():
     a_file_cnt = int(subprocess.check_output(f'find "{path_a}" -type f | wc -l', shell=True))
     b_file_cnt = int(subprocess.check_output(f'find "{path_b}" -type f | wc -l', shell=True))
     if a_file_cnt > 16 or b_file_cnt > 16:
-        log.error(f'To many files to diff: a_file_cnt={a_file_cnt}, b_file_cnt={b_file_cnt}')
+        log.warning(f'To many files to diff: a_file_cnt={a_file_cnt}, b_file_cnt={b_file_cnt}')
+        flash.error("To many files to diff")
         return render_template('500.html'), 500
 
     #Dockerfile-entry is generated during build, thus we ignore it

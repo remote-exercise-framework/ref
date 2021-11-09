@@ -4,19 +4,20 @@ import sys
 
 class InconsistentStateError(Exception):
 
-    def __init__(self, msg=None, *args, **kwargs):
+    def __init__(self, *args, msg=None, **kwargs):
         msg = msg or 'The system is in an inconsistent state that it can not recover from automatically.'
         super().__init__(*args, **kwargs)
 
 
-"""
-Raises a InconsistentStateError error if an exception is raised inside this context.
-If this context is used during handling and exception (i.e., inside an `except` arm),
-this original exception is reraised and propably chanied to an InconsistentStateError,
-if cleanup also fails.
-"""
 @contextlib.contextmanager
 def inconsistency_on_error(msg=None):
+    """
+    Raises a InconsistentStateError error if an exception is raised inside this context.
+    If this context is used during handling and exception (i.e., inside an `except` arm),
+    this original exception is reraised and propably chanied to an InconsistentStateError,
+    if cleanup also fails.
+    """
+
     #If we are used inside an exception handler, then exc_obj is the current exception.
     exc_type, exc_obj, exc_tb = sys.exc_info()
     del exc_type
@@ -34,7 +35,7 @@ def inconsistency_on_error(msg=None):
             except Exception as e:
                 raise InconsistentStateError(msg) from e
         else:
-            # If we where not already in and exception handler,
+            # If we where not already in an exception handler,
             # just chain the exception that occurred during restore
             # and InconsistentStateError.
             raise InconsistentStateError(msg) from e
