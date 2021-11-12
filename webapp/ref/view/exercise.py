@@ -164,6 +164,10 @@ def exercise_do_import(cfg_path):
         flash.error(f'Template at {cfg_path} contains errors: {err}')
         return render()
 
+    if exercise.exists():
+        flash.warning('The given exercise version was already imported')
+        return render()
+
     #Check if this is really a new version or a new task
     successor = exercise.successor()
     if successor:

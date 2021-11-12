@@ -234,6 +234,14 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         else:
             return None
 
+    def exists(self) -> bool:
+        """
+        Check whether an exercise with same short_name and version can be
+        found in the DB.
+        """
+        exercise = self.get_exercise(self.short_name, self.version)
+        return exercise is not None
+
     def successors(self) -> List[Exercise]:
         exercises = Exercise.query.filter(
             and_(
