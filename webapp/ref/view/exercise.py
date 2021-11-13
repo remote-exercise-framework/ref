@@ -182,6 +182,12 @@ def exercise_do_import(cfg_path):
         db.session.add(e)
 
     ExerciseManager.create(exercise)
+
+    # Make sure if the REF DB was reset but the docker images where not purged,
+    # that leftovers are deleted on import.
+    image_manager = ExerciseImageManager(exercise)
+    image_manager.delete_images(force=True)
+
     db.session.add_all([exercise.entry_service, exercise])
     db.session.commit()
 

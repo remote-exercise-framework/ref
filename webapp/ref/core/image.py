@@ -249,19 +249,27 @@ class ExerciseImageManager():
         return log
 
     @staticmethod
-    def __purge_entry_service_image(exercise: Exercise):
+    def __purge_entry_service_image(exercise: Exercise, force=False):
+        """
+        Delete the entry service docker image.
+        Can also be called if the images was not build.
+        """
         dc = DockerClient()
         name = exercise.entry_service.image_name
         if dc.image(name):
-            dc.rmi(name)
+            dc.rmi(name, force=force)
 
     @staticmethod
-    def __purge_peripheral_services_images(exercise: Exercise):
+    def __purge_peripheral_services_images(exercise: Exercise, force=False):
+        """
+        Delete the docker images of all peripheral services if any.
+        Can also be called if the images was not build.
+        """
         dc = DockerClient()
         for service in exercise.services:
             name = service.image_name
             if dc.image(name):
-                dc.rmi(name)
+                dc.rmi(name, force=force)
 
     @staticmethod
     def __run_build(app, exercise: Exercise):
@@ -320,11 +328,25 @@ class ExerciseImageManager():
         finished. After the build process terminated, the exercises build_job_status
         is ether ExerciseBuildStatus.FAILED or ExerciseBuildStatus.FINISHED.
         """
-        assert not self.is_build()
+        self.delete_images()
 
         log.info(f'Starting build of exercise {self.exercise}')
         t = Thread(target=ExerciseImageManager.__run_build, args=(current_app._get_current_object(), self.exercise))
         t.start()
+
+    def delete_images(self, force=False):
+        """
+        Delete all images of the exercise. This function can also be called if
+        no images have been build so far. This will change the build status of
+        the exercise, this `exercise` must be committed to the DB.
+        Raises:
+            inconsistency_on_error: If deletion fails.
+        """
+        with inconsistency_on_error(f'Failed to delete images of {self.exercise}'):
+            #Delete docker images
+            ExerciseImageManager.__purge_entry_service_image(self.exercise, force=force)
+            ExerciseImageManager.__purge_peripheral_services_images(self.exercise, force=force)
+            self.exercise.build_job_status = ExerciseBuildStatus.NOT_BUILD
 
     def remove(self):
         """
@@ -340,8 +362,7 @@ class ExerciseImageManager():
 
         with inconsistency_on_error(f'Failed to delete all components of exercise {self.exercise}'):
             #Delete docker images
-            ExerciseImageManager.__purge_entry_service_image(self.exercise)
-            ExerciseImageManager.__purge_peripheral_services_images(self.exercise)
+            self.delete_images()
 
             #Remove template
             if os.path.isdir(self.exercise.template_path):
