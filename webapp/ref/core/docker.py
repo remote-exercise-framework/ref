@@ -251,7 +251,7 @@ class DockerClient():
         """
         if not name_or_id:
             if raise_on_not_found:
-                raise
+                raise Exception('Not found')
             return None
 
         if isinstance(name_or_id, docker.models.containers.Container):
