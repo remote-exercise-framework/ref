@@ -117,7 +117,7 @@ class InstanceManager():
 
         #Copy user data from the original instance as second lower dir to new instance.
         # XXX: We are working here with mounted overlayfs directories.
-        src = self.instance.entry_service.overlay_merged
+        src = self.instance.entry_service.overlay_upper
         dst = new_instance.entry_service.overlay_submitted
         # -a is mandatory, since the upper dir might contain files with extended file attrbiutes (used by overlayfs).
         cmd = f'sudo rsync -arXv {src}/ {dst}/'
@@ -191,7 +191,7 @@ class InstanceManager():
                 # So, if the user deleted a file from the lower dir, it will become visible again after an upgrade.
                 # FIXME: Transfer whiteouts to new instances during upgrade. Just using --devices causes mount to fail
                 # FIXME: with an `stale file error`.
-                cmd = f'sudo rsync -arXv {self.instance.entry_service.overlay_upper}/ {new_instance.entry_service.overlay_merged}/'
+                cmd = f'sudo rsync -arXv {self.instance.entry_service.overlay_upper}/ {new_instance.entry_service.overlay_upper}/'
                 subprocess.check_call(cmd, shell=True)
         except:
             log.info('whops', exc_info=True)
