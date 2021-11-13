@@ -16,7 +16,8 @@
         <table class="table table-hover">
             <thead>
                 <tr>
-                    <th scope="col">#ID</th>
+                    <th scope="col">#</th>
+                    <th scope="col">#Instance</th>
                     <th scope="col">User</th>
                     <th scope="col">Exercise</th>
                     <th scope="col">Created</th>
@@ -25,19 +26,21 @@
             </thead>
             <tbody>
                 {% for submission in submissions %}
-                <tr>
-                    <td scope="row">{{ submission.id }}</td>
-                    <td scope="row">{{ submission.submitted_instance.user.full_name }}</td>
-                    <td scope="row">{{ submission.submitted_instance.exercise.short_name }} (v{{ submission.submitted_instance.exercise.version}})</td>
-                    <td scope="row">{{ moment(submission.submission_ts).fromNow() }}</td>
-                    <td>
-                        <a role="button" class="btn btn-outline-success" onclick="displayToast('Copied to clipboard'); return copyStringToClipboard('ssh instance-{{ submission.submitted_instance.id  }}@{{ ssh_host }} -p {{ ssh_port }}')">SSH Command</a>
-                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_review', instance_id=submission.submitted_instance.id, next=request.path) }}">Files</a>
-                        {% if delete_allowed %}
-                            <a role="button" class="btn btn-outline-success confirm" href="{{ url_for('ref.submission_delete', submission_id=submission.id, next=request.path) }}">Delete</a>
-                        {% endif %}
-                    </td>
-                </tr>
+                    {% set instance = submission.submitted_instance %}
+                    <tr>
+                        <td scope="row">{{ submission.id }}</td>
+                        <td scope="row">{{ instance.id }}</td>
+                        <td scope="row">{{ instance.user.full_name }}</td>
+                        <td scope="row">{{ instance.exercise.short_name }} (v{{ instance.exercise.version}})</td>
+                        <td scope="row">{{ moment(submission.submission_ts).fromNow() }}</td>
+                        <td>
+                            <a role="button" class="btn btn-outline-success" onclick="displayToast('Copied to clipboard'); return copyStringToClipboard('ssh instance-{{ instance.id  }}@{{ ssh_host }} -p {{ ssh_port }}')">SSH Command</a>
+                            <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.instance_review', instance_id=instance.id, next=request.path) }}">Files</a>
+                            {% if delete_allowed %}
+                                <a role="button" class="btn btn-outline-success confirm" href="{{ url_for('ref.submission_delete', submission_id=submission.id, next=request.path) }}">Delete</a>
+                            {% endif %}
+                        </td>
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>
