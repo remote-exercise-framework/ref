@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+from sys import exc_info
 import tarfile
 import traceback
 from io import BytesIO, StringIO
@@ -121,12 +122,27 @@ class InstanceManager():
         dst = new_instance.entry_service.overlay_submitted
         # -a is mandatory, since the upper dir might contain files with extended file attrbiutes (used by overlayfs).
         cmd = f'sudo rsync -arXv {src}/ {dst}/'
+
         try:
-            subprocess.check_call(cmd, shell=True)
-        except subprocess.CalledProcessError:
-            log.error(f'Error while coping submitted data into new instance.', exc_info=True)
+            container = self.dc.container(self.instance.entry_service.container_id)
+        except:
+            log.error('Error while getting instance container', exc_info=True)
             with inconsistency_on_error():
                 new_mgr.remove()
+            raise
+
+        try:
+            # Make sure no running process is interfering with our copy operation,
+            # since, e.g., files disappiring during `cp`` execution cause non zero
+            # exit statuses.
+            container.pause()
+            subprocess.check_call(cmd, shell=True)
+            container.unpause()
+        except subprocess.CalledProcessError:
+            log.error('Error while coping submitted data into new instance.', exc_info=True)
+            with inconsistency_on_error():
+                new_mgr.remove()
+                container.unpause()
             raise
 
         submission = Submission()
