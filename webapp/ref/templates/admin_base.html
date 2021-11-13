@@ -76,26 +76,26 @@
 {% endif %}
 
 {% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-    {% for category, message in messages %}
-        {% if category == "error" %}
-            <div class="alert alert-danger" role="alert">
-               {{ message }}
+    {% if messages %}
+        {% for category, message in messages %}
+            {% if category == "error" %}
+                <div class="alert alert-danger" style="margin: 1px;" role="alert">
+                {{ message }}
+                </div>
+            {% elif category == 'warning' %}
+                <div class="alert alert-warning" role="alert">
+                    {{ message }}
+                </div>
+            {% elif category == 'success' %}
+                <div class="alert alert-success" role="alert">
+                    {{ message }}
+                </div>
+            {% elif category == 'info' %}
+            <div class="alert alert-primary" role="alert">
+                {{ message }}
             </div>
-        {% elif category == 'warning' %}
-            <div class="alert alert-warning" role="alert">
-                {{ message }}
-             </div>
-        {% elif category == 'success' %}
-            <div class="alert alert-success" role="alert">
-                {{ message }}
-             </div>
-        {% elif category == 'info' %}
-        <div class="alert alert-primary" role="alert">
-            {{ message }}
-         </div>
-        {% endif %}
-    {% endfor %}
+            {% endif %}
+        {% endfor %}
   {% endif %}
 {% endwith %}
 

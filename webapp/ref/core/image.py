@@ -277,24 +277,24 @@ class ExerciseImageManager():
         Builds all docker images that are needed by the passed exercise.
         """
         failed = False
-        log = ""
+        log_buffer = ""
         try:
             #Build entry service
             with app.app_context():
-                log += ExerciseImageManager.__run_build_entry_service(app, exercise)
-                log += ExerciseImageManager.__run_build_peripheral_services(app, exercise)
+                log_buffer += ExerciseImageManager.__run_build_entry_service(app, exercise)
+                log_buffer += ExerciseImageManager.__run_build_peripheral_services(app, exercise)
         except Exception as e:
             with app.app_context():
                 if isinstance(e, docker.errors.BuildError):
                     for l in list(e.build_log):
                         if 'stream' in l:
-                            log += l['stream']
+                            log_buffer += l['stream']
                 elif isinstance(e, docker.errors.ContainerError):
                     if e.stderr:
-                        log = e.stderr.decode()
+                        log_buffer = e.stderr.decode()
                 else:
-                    app.logger.error(f'Error during build', exc_info=True)
-                log += traceback.format_exc()
+                    app.logger.error('Error during build', exc_info=True)
+                log_buffer += traceback.format_exc()
                 exercise: Exercise = app.db.get(Exercise, id=exercise.id)
                 exercise.build_job_status = ExerciseBuildStatus.FAILED
                 failed = True
@@ -303,7 +303,7 @@ class ExerciseImageManager():
                 exercise: Exercise = app.db.get(Exercise, id=exercise.id)
                 exercise.build_job_status = ExerciseBuildStatus.FINISHED
 
-        exercise.build_job_result = log
+        exercise.build_job_result = log_buffer
 
         if failed:
             try:
@@ -313,10 +313,10 @@ class ExerciseImageManager():
             except:
                 #No one we can report the error to, so just log it.
                 with app.app_context():
-                    app.logger.error(f'Cleanup failed', exc_info=True)
+                    app.logger.error('Cleanup failed', exc_info=True)
 
         with app.app_context():
-            app.logger.info(f'Commiting build result to DB')
+            app.logger.info('Commiting build result to DB')
             app.db.session.add(exercise)
             app.db.session.commit()
 

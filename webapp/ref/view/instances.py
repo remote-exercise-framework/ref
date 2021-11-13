@@ -57,12 +57,12 @@ def instance_update(instance_id):
     if new_exercise:
         new_exercise = new_exercise.refresh(lock=True)
     if not new_exercise:
-        flash.error(f'There is no new version for this exercise')
+        flash.error('There is no new version for this exercise')
         abort(400)
 
     for i in user.exercise_instances:
         if new_exercise == i.exercise:
-            flash.error('There can be only one instance with same version')
+            flash.error('There can be only one instance with a given version')
             return redirect_to_next()
 
     mgr = InstanceManager(instance)

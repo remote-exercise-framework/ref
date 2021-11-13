@@ -211,6 +211,7 @@ def exercise_view_all():
         try:
             exercise = ExerciseManager.from_template(path)
         except ExerciseConfigError as err:
+            path = path.joinpath('settings.yml')
             flash.error(f'Template at {path} contains an error: {err}')
         else:
             import_candidates.append(exercise)
