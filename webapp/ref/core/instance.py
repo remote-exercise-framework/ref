@@ -550,6 +550,8 @@ class InstanceManager():
             'fi\n'
             f'echo -n {self.instance.id} > /etc/instance_id && chmod 400 /etc/instance_id\n'
         )
+        if exercise.entry_service.disable_aslr:
+            container_setup_script += 'touch /etc/aslr_disabled && chmod 400 /etc/aslr_disabled\n'
 
         if self.instance.submission:
             container_setup_script += 'touch /etc/is_submission\n'
