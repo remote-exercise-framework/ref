@@ -321,27 +321,33 @@ function build {
 }
 
 function up {
+    export REAL_HOSTNAME="$(hostname)"
+    export DEBUG=false
+    export DISABLE_RESPONSE_CACHING=false
+    export MAINTENANCE_ENABLED=false
+    export DISABLE_TELEGRAM=false
+    export DEBUG_TOOLBAR=false
+
     while [[ $# -gt 0 ]]; do
         case $1 in
             '--debug')
-                debug=true
+                export DEBUG=true
                 shift
             ;;
             '--disable-response-caching')
-                disable_response_caching=true
+                export DISABLE_RESPONSE_CACHING=true
                 shift
             ;;
-
             '--maintenance')
-                maintenance=true
+                export MAINTENANCE_ENABLED=true
                 shift
             ;;
             '--disable-telegram')
-                disable_telegram=true
+                export DISABLE_TELEGRAM=true
                 shift
             ;;
             '--debug-toolbar')
-                debug_toolbar=true
+                export DEBUG_TOOLBAR=true
                 shift
             ;;
             *)
@@ -350,28 +356,6 @@ function up {
             ;;
         esac
     done
-
-    if [[ "$debug" == 'true' ]]; then
-        export DEBUG=1
-    fi
-
-    if [[ "$disable_response_caching" == 'true' ]]; then
-        export DISABLE_RESPONSE_CACHING=1
-    fi
-
-    if [[ "$maintenance" == 'true' ]]; then
-        export MAINTENANCE_ENABLED=1
-    fi
-
-    if [[ "$disable_telegram" == 'true' ]]; then
-        export DISABLE_TELEGRAM=1
-    fi
-
-    if [[ "$debug_toolbar" == 'true' ]]; then
-        export DEBUG_TOOLBAR=1
-    fi
-
-    export REAL_HOSTNAME="$(hostname)"
 
     docker-compose -p ref up $@
 }
