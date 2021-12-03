@@ -34,9 +34,10 @@ Grading
                     </thead>
                     <tbody>
                         {% for exercise in exercises %}
-                            {% set submission_cnt = exercise.submission_heads_global()|length  %}
-                            {% set passed_cnt  = exercise.submission_heads_global()|map(attribute='test_passed')|select|list|length  %}
-                            {% set graded_cnt  = exercise.submission_heads_global()|map(attribute='grading')|select|list|length  %}
+                            {% set exercise_submissions = exercise.submission_heads_global() %}
+                            {% set submission_cnt = exercise_submissions|length  %}
+                            {% set passed_cnt  = exercise_submissions|map(attribute='test_passed')|select|list|length  %}
+                            {% set graded_cnt  = exercise_submissions|map(attribute='grading')|select|list|length  %}
                             {% set max_points = exercise.max_grading_points %}
                             <tr class="table-{{ 'success' if submission_cnt == graded_cnt else 'danger'  }}">
                                 <td>{{ exercise.short_name  }} (v{{ exercise.version  }})</td>

@@ -314,18 +314,18 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         version of this exercise. Hence, the returned submissions might
         not be the most recent ones for an specific instance.
         """
-        ret = []
-        submissions_per_user = defaultdict(list)
+        most_recent_instances = []
+        instances_per_user = defaultdict(list)
         instances = Instance.query.options(
             joinedload(Instance.user),
-            joinedload(Instance.submission)
-            ).filter(Instance.exercise == self, Instance.submission != None).all()
+            joinedload(Instance.submission),
+        ).filter(Instance.exercise == self, Instance.submission != None).all()
 
         for instance in instances:
-            submissions_per_user[instance.user] += [instance]
-        for _, v in submissions_per_user.items():
-            ret += [max(v, key=lambda e: e.creation_ts)]
-        return [e.submission for e in ret if e.submission]
+            instances_per_user[instance.user] += [instance]
+        for _, instances in instances_per_user.items():
+            most_recent_instances += [max(instances, key=lambda e: e.creation_ts)]
+        return [e.submission for e in most_recent_instances if e.submission]
 
     def submission_heads_global(self) -> List[Submission]:
         """
