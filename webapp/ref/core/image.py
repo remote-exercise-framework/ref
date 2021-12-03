@@ -295,12 +295,10 @@ class ExerciseImageManager():
                 else:
                     app.logger.error('Error during build', exc_info=True)
                 log_buffer += traceback.format_exc()
-                exercise: Exercise = app.db.get(Exercise, id=exercise.id)
                 exercise.build_job_status = ExerciseBuildStatus.FAILED
                 failed = True
         else:
             with app.app_context():
-                exercise: Exercise = app.db.get(Exercise, id=exercise.id)
                 exercise.build_job_status = ExerciseBuildStatus.FINISHED
 
         exercise.build_job_result = log_buffer
@@ -330,8 +328,12 @@ class ExerciseImageManager():
         """
         self.delete_images()
 
-        log.info(f'Starting build of exercise {self.exercise}')
-        t = Thread(target=ExerciseImageManager.__run_build, args=(current_app._get_current_object(), self.exercise))
+        # Make sure the exercise does not try to lazy load attributes when detached
+        # from the current database session.
+        exercise = self.exercise.refresh(eager=True)
+
+        log.info(f'Starting build of exercise {exercise}')
+        t = Thread(target=ExerciseImageManager.__run_build, args=(current_app._get_current_object(), exercise))
         t.start()
 
     def delete_images(self, force=False):

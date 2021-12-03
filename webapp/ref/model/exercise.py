@@ -161,7 +161,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     id: int = db.Column(db.Integer, primary_key=True)
 
-    #The services that defnies the entrypoint of this exercise
+    #The services that defines the entrypoint of this exercise
     entry_service: ExerciseEntryService = db.relationship("ExerciseEntryService", uselist=False, back_populates="exercise",  passive_deletes='all')
 
     #Additional services that are mapped into the network for this exercise.

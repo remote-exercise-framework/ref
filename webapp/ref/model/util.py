@@ -1,16 +1,18 @@
 from typing import Collection, Type, TypeVar
 
 from flask import current_app
+from sqlalchemy.orm import joinedload
 
 T = TypeVar('T')
 
 class CommonDbOpsMixin():
 
     @classmethod
-    def get(cls: Type[T], id_, lock=False) -> T:
-        if lock:
+    def get(cls: Type[T], id_, eager=False) -> T:
+        if eager:
+            return cls.query.options(joinedload('*')).filter(cls.id == id_).one()
+        else:
             return cls.query.get(id_)
-        return cls.query.get(id_)
 
     @classmethod
     def all(cls: Type[T], lock=False) -> Collection[T]:
@@ -18,8 +20,8 @@ class CommonDbOpsMixin():
             return cls.query.all()
         return cls.query.all()
 
-    def refresh(self, lock=False):
-        return self.__class__.get(self.id, lock=lock)
+    def refresh(self, eager=False):
+        return self.__class__.get(self.id, eager=eager)
 
 
 
