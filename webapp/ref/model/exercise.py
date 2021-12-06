@@ -316,10 +316,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         most_recent_instances = []
         instances_per_user = defaultdict(list)
-        instances = Instance.query.options(
-            joinedload(Instance.user),
-            joinedload(Instance.submission),
-        ).filter(Instance.exercise == self, Instance.submission != None).all()
+        instances = Instance.query.filter(Instance.exercise == self, Instance.submission != None).all()
 
         for instance in instances:
             instances_per_user[instance.user] += [instance]
@@ -401,7 +398,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         Note: This function does not consider Submissions of other
         version of this exercise.
         """
-        submissions = [e.grading for e in self.submission_heads() if e.grading]
+        submissions = [e.grading for e in self.submission_heads() if e.is_graded()]
         if not submissions:
             return None
         return sum([g.points_reached for g in submissions]) / len(submissions)

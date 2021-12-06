@@ -1,4 +1,5 @@
 import datetime
+import typing
 import uuid
 
 from flask import current_app
@@ -90,13 +91,13 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
         return  f'{self.id}:{self.login_token}'
 
     @property
-    def full_name(self):
+    def full_name(self) -> str:
         return f'{self.first_name} {self.surname}'
 
     @property
-    def instances(self):
+    def instances(self) -> typing.List['Instance']:
         return [i for i in self.exercise_instances if not i.submission]
 
     @property
-    def submissions(self):
+    def submissions(self) -> typing.List['Instance']:
         return [i for i in self.exercise_instances if i.submission]
