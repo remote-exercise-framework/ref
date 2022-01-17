@@ -3,7 +3,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
-#include <sys/personality.h>
 
 extern char **environ;
 const char *env_dump_path = "/tmp/.user_environ";
@@ -20,6 +19,7 @@ int main(int argc, char const *argv[])
     if (!f) {
         printf("[!] Error while dumping environment\n");
         FATAL_ERROR();
+        exit(1);
     }
 
     /* Write all environments variables into the dump */
@@ -34,33 +34,13 @@ int main(int argc, char const *argv[])
         if (elms_written != 1) {
             printf("[!] Error while writing environment variable\n");
             FATAL_ERROR();
+            exit(1);
         }
 
         env++;
     }
     fclose(f);
 
-    f = fopen("/etc/aslr_disabled", "r");
-    if (!f) {
-        // The current implementation of "ASLR disabling" allows users to call
-        // personality(ADDR_NO_RANDOMIZE) on their own before calling task check.
-        // While this is fine for non ASLR tasks, this allows users to pass task check
-        // without dealing with ASLR by disabling it before calling task check.
-        // To make sure that this at least does not happen by accident if, e.g.,
-        // task check is called from a shell spawned in gdb (since gdb will set
-        // ADDR_NO_RANDOMIZE), we reenable ASLR here.
-        int ret = personality(0xffffffff);
-        if (ret < 0) {
-            FATAL_ERROR();
-        }
-        ret &= ~ADDR_NO_RANDOMIZE;
-        ret = personality(ret);
-        if (ret < 0) {
-            FATAL_ERROR();
-        }
-    } else {
-        fclose(f);
-    }
 
     /* Execute the actual task script  */
 
@@ -93,4 +73,5 @@ int main(int argc, char const *argv[])
 
     printf("[!] Error calling execv\n");
     FATAL_ERROR();
+    exit(1);
 }
