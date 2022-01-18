@@ -74,7 +74,9 @@ def validate_pubkey(form, field):
 
     for fn in [RSA.import_key]:
         try:
-            fn(field.data)
+            key = fn(field.data).export_key(format='OpenSSH').decode()
+            field.data = key
+            return key
         except:
             pass
         else:
