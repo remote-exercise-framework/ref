@@ -315,11 +315,11 @@ function build {
         docker-compose -p ref build $@
         docker-compose -p ref pull
     )
-    (
-        info "=> Building test container"
-        docker-compose -f docker-compose-testing.yml -p ref-testing build $@
-        docker-compose -f docker-compose-testing.yml -p ref-testing pull
-    )
+    # (
+    #     info "=> Building test container"
+    #     docker-compose -f docker-compose-testing.yml -p ref-testing build $@
+    #     docker-compose -f docker-compose-testing.yml -p ref-testing pull
+    # )
 }
 
 function up {
