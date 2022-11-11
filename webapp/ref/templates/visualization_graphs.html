@@ -1,0 +1,86 @@
+{% extends "admin_base.html" %}
+
+{% block head %}
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+{% endblock %}
+
+{% block title %}
+Graph
+{% endblock %}
+
+{% block admin_content_fluid %}
+
+<div class="row">
+    <div class="col-12"><div id="chart_div" style="width: 100%; height: 500px;"></div></div>
+    <div class="col-12"><div id="dasd" style="width: 100%; height: 500px;"></div></div>
+    <div class="col-12"><div id="asas" style="width: 100%; height: 500px;"></div></div>
+
+</div>
+
+
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+  google.charts.load('current', {'packages':['corechart', 'line']});
+  google.charts.setOnLoadCallback(drawCandleChart);
+  google.charts.setOnLoadCallback(drawChart);
+  google.charts.setOnLoadCallback(drawChartx);
+
+    var j = {{ min_max_mean_per_assignment|safe }};
+
+    function drawCandleChart() {
+        //min, open, close, max
+        var data = new google.visualization.DataTable(j, 0.6);
+
+        var options = {
+            legend:'none',
+            orientation: 'vertical',
+            hAxis: {title: 'Points'},
+            vAxis: {title: 'Assignment'},
+        };
+
+        var chart = new google.visualization.CandlestickChart(document.getElementById('chart_div'));
+
+        chart.draw(data, options);
+    }
+
+    var x = {{ day_hour_to_submission_cnt|safe }};
+
+    function drawChart() {
+
+        var data = new google.visualization.DataTable(x, 0.6);
+
+
+        var options = {
+          chart: {
+            title: '#Submission per hour of day'
+          },
+          vAxis: { title: '#Submissions'}
+        };
+
+        var chart = new google.charts.Line(document.getElementById('dasd'));
+
+        chart.draw(data, google.charts.Line.convertOptions(options));
+      }
+
+
+    var q = {{ week_data|safe }};
+      function drawChartx() {
+
+        var data = new google.visualization.DataTable(q, 0.6);
+
+
+        var options = {
+          chart: {
+            title: '#Submission per day of the week'
+          },
+          vAxis: { title: '#Submissions'}
+        };
+
+        var chart = new google.charts.Line(document.getElementById('asas'));
+
+        chart.draw(data, google.charts.Line.convertOptions(options));
+      }
+
+</script>
+{% endblock %}

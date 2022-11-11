@@ -121,7 +121,7 @@ RUN groupadd -g 7799 admin  && useradd -g 7799 -u 7799 -s /bin/false admin  && \
 RUN echo "user:user" | chpasswd
 
 # Install gef
-RUN wget -O /home/user/.gdbinit-gef.py -q https://github.com/hugsy/gef/raw/master/gef.py \
+RUN wget -O /home/user/.gdbinit-gef.py -q https://gef.blah.cat/py \
     && echo source /home/user/.gdbinit-gef.py >> /home/user/.gdbinit \
     && chown user:user /home/user/.gdbinit
 
@@ -145,15 +145,6 @@ RUN apt update && apt install -y \
     vim \
     clang \
     strace
-
-RUN python3 -m pip install --upgrade \
-    pwntools \
-    matplotlib \
-    opencv-python \
-    torchvision \
-    tqdm \
-    sklearn \
-    numpy
 
 # Import and install ref-utils
 COPY --from=ref_utils_builder /home/ref-utils/dist/ref_utils-*-py3-none-any.whl /tmp

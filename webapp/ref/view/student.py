@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from werkzeug.local import LocalProxy
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, SelectMultipleField, StringField, SubmitField,
-                     TextField, ValidationError, validators)
+                     ValidationError, validators)
 
 from ref import db, limiter, refbp
 from ref.core import admin_required, flash
@@ -74,6 +74,8 @@ def validate_pubkey(form, field):
 
     for fn in [RSA.import_key]:
         try:
+            # Replace the key with the parsed one, thus we use everywhere exactly
+            # the same string to represent a specific key.
             key = fn(field.data).export_key(format='OpenSSH').decode()
             field.data = key
             return key
@@ -251,11 +253,11 @@ def student_getkey():
         # Check if the pubkey is already regsitered.
         if form.pubkey.data:
             # NOTE: The .data was validated by the form.
-            key = RSA.importKey(form.pubkey.data)
-            existing_pubkey = key.export_key(format='OpenSSH').decode()
+            pubkey = form.pubkey.data
 
+            # Check for duplicated key
             existing_student = User.query.filter(
-                User.pub_key == existing_pubkey).one_or_none()
+                User.pub_key == pubkey).one_or_none()
             if existing_student:
                 form.pubkey.errors += [
                     'Already registered, please use your password to restore the key.']
@@ -272,8 +274,7 @@ def student_getkey():
 
         # If a public key was provided use it, if not, generate a key pair.
         if form.pubkey.data:
-            key = RSA.importKey(form.pubkey.data)
-            pubkey = key.export_key(format='OpenSSH').decode()
+            pubkey = form.pubkey.data
             privkey = None
         else:
             key = RSA.generate(2048)
@@ -396,12 +397,17 @@ def student_edit(user_id):
                 user.set_password(form.password.data)
                 user.invalidate_session()
 
-        if User.query.filter(User.mat_num == form.mat_num.data).one_or_none() not in [None, user]:
+        mat_num = form.mat_num.data
+        if User.query.filter(User.mat_num == mat_num).one_or_none() not in [None, user]:
             form.mat_num.errors += ['Already taken']
             return render_template('user_edit.html', form=form)
-        else:
-            user.mat_num = form.mat_num.data
 
+        pubkey = form.pubkey.data
+        if User.query.filter(User.pub_key == pubkey).one_or_none():
+            form.pubkey.errors += ['Already taken']
+            return render_template('user_edit.html', form=form)
+
+        user.mat_num = mat_num
         user.first_name = form.firstname.data
         user.surname = form.surname.data
         user.pub_key = form.pubkey.data

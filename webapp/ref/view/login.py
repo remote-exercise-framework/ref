@@ -7,7 +7,7 @@ from flask import (Blueprint, Flask, Response, current_app, redirect,
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.local import LocalProxy
 from wtforms import (Form, IntegerField, PasswordField, RadioField,
-                     StringField, SubmitField, TextField, validators)
+                     StringField, SubmitField, validators)
 
 from flask_login import current_user, login_user, logout_user
 from ref import db, refbp

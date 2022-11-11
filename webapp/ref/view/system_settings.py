@@ -8,7 +8,7 @@ from itsdangerous import URLSafeTimedSerializer
 from werkzeug.local import LocalProxy
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, SelectField, StringField, SubmitField,
-                     TextField, validators)
+                      validators)
 from flask import copy_current_request_context
 
 import pytz
@@ -31,7 +31,7 @@ class GeneralSettings(Form):
     regestration_enabled = BooleanField(
         'Allow users to register.')
     submit = SubmitField('Save')
-    course_name = TextField('Course Name')
+    course_name = StringField('Course Name')
     allow_submission_deletion = BooleanField(
         'Allow admins to delete submissions')
     maintenance_enabled = BooleanField(
@@ -54,9 +54,9 @@ class GroupSettings(Form):
 
 
 class SshSettings(Form):
-    ssh_hostname = TextField('SSH Host')
-    ssh_port = TextField('SSH port', validators=[])
-    welcome_header = TextField('SSH Welcome Header')
+    ssh_hostname = StringField('SSH Host')
+    ssh_port = StringField('SSH port', validators=[])
+    welcome_header = StringField('SSH Welcome Header')
     allow_none_default_provisioning = BooleanField(
         'Allow admins to provision non default container.'
         )
@@ -69,7 +69,7 @@ class SshSettings(Form):
     ssh_allow_root_logins_for_admin = BooleanField(
         'Allow admins to login as root by prefixing the SSH username with "root@".'
         )
-    message_of_the_day = TextField('Message of the day')
+    message_of_the_day = StringField('Message of the day')
     submit = SubmitField('Save')
 
 @refbp.route('/admin/system/settings/', methods=('GET', 'POST'))

@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 819d8b54dd86
+Revision ID: 18bf6b54afce
 Revises: 
-Create Date: 2020-04-24 17:01:13.333289
+Create Date: 2022-11-11 09:50:02.100937
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '819d8b54dd86'
+revision = '18bf6b54afce'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -26,7 +26,6 @@ def upgrade():
     sa.Column('short_name', sa.Text(), nullable=False),
     sa.Column('version', sa.Integer(), nullable=False),
     sa.Column('category', sa.Text(), nullable=True),
-    sa.Column('description', sa.Text(), nullable=True),
     sa.Column('submission_deadline_end', sa.DateTime(), nullable=True),
     sa.Column('submission_deadline_start', sa.DateTime(), nullable=True),
     sa.Column('submission_test_enabled', sa.Boolean(), nullable=False),
@@ -37,6 +36,16 @@ def upgrade():
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('persistence_path'),
     sa.UniqueConstraint('template_path')
+    )
+    op.create_table('exercise_ressource_limits',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('cpu_cnt_max', sa.Float(), nullable=True),
+    sa.Column('cpu_shares', sa.Integer(), nullable=True),
+    sa.Column('pids_max', sa.Integer(), nullable=True),
+    sa.Column('memory_in_mb', sa.Integer(), nullable=True),
+    sa.Column('memory_swap_in_mb', sa.Integer(), nullable=True),
+    sa.Column('memory_kernel_in_mb', sa.Integer(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('system_setting',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -66,7 +75,9 @@ def upgrade():
     sa.Column('flag_user', sa.Text(), nullable=True),
     sa.Column('flag_group', sa.Text(), nullable=True),
     sa.Column('flag_permission', sa.Text(), nullable=True),
+    sa.Column('ressource_limit_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['exercise_id'], ['exercise.id'], ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['ressource_limit_id'], ['exercise_ressource_limits.id'], ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('exercise_service',
@@ -92,20 +103,21 @@ def upgrade():
     sa.Column('login_token', sa.Text(), nullable=True),
     sa.Column('first_name', sa.Text(), nullable=False),
     sa.Column('surname', sa.Text(), nullable=False),
-    sa.Column('nickname', sa.Text(), nullable=False),
+    sa.Column('nickname', sa.Text(), nullable=True),
     sa.Column('group_id', sa.Integer(), nullable=True),
     sa.Column('password', sa.LargeBinary(), nullable=False),
     sa.Column('mat_num', sa.Text(), nullable=False),
     sa.Column('registered_date', sa.DateTime(), nullable=False),
     sa.Column('pub_key', sa.Text(), nullable=False),
-    sa.Column('pub_key_ssh', sa.Text(), nullable=False),
     sa.Column('priv_key', sa.Text(), nullable=True),
     sa.Column('course_of_studies', sa.Enum('BACHELOR_ITS', 'MASTER_ITS_NS', 'MASTER_ITS_IS', 'MASTER_AI', 'OTHER', name='courseofstudies'), nullable=True),
     sa.Column('auth_groups', sa.PickleType(), nullable=False),
     sa.ForeignKeyConstraint(['group_id'], ['user_group.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('mat_num'),
-    sa.UniqueConstraint('nickname')
+    sa.UniqueConstraint('nickname'),
+    sa.UniqueConstraint('priv_key'),
+    sa.UniqueConstraint('pub_key')
     )
     op.create_table('exercise_instance',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -182,5 +194,6 @@ def downgrade():
     op.drop_table('exercise_entry_service')
     op.drop_table('user_group')
     op.drop_table('system_setting')
+    op.drop_table('exercise_ressource_limits')
     op.drop_table('exercise')
     # ### end Alembic commands ###

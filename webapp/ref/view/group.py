@@ -1,6 +1,3 @@
-import datetime
-import re
-
 from Crypto.PublicKey import RSA
 from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
@@ -14,7 +11,7 @@ from ref.model import SystemSettingsManager, User, UserGroup
 from ref.model.enums import CourseOfStudies
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, SelectField, StringField, SubmitField,
-                     TextField, validators)
+                     validators)
 
 
 @refbp.route('/admin/group/view/', methods=('GET', 'POST'))

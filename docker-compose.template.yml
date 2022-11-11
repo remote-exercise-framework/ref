@@ -29,7 +29,7 @@ services:
 
 {% if not testing %}
    pgadmin:
-      image: dpage/pgadmin4
+      image: truecharts/pgadmin4:6.15.0
       volumes:
          - ./pgadmin/server-config.json:/pgadmin4/servers.json
          - ./data/pgadmin:/var/lib/pgadmin
@@ -59,7 +59,7 @@ services:
 {% endif %}
 
    db:
-      image: postgres:13
+      image: postgres:15
       restart: always
 {% if not testing %}
       volumes:

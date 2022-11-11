@@ -1,0 +1,71 @@
+{% extends "admin_base.html" %}
+
+{% block head %}
+<style> body { margin: 0; } </style>
+<script src="//unpkg.com/force-graph"></script>
+{% endblock %}
+
+{% block title %}
+Graph
+{% endblock %}
+
+{% block admin_content %}
+
+
+<div class="container">
+    <div class="card">
+        <h4 class="card-header">
+            Container Graph
+        </h4>
+        <div id="graph"></div>
+    </div>
+</div>
+
+
+<script>
+data = {
+    "nodes": [
+        {% for e in nodes %}
+        {
+            "id": "{{ e.id }}",
+            "name": "{{ e.name }}",
+            "type": "{{ e.type }}",
+            "val": "{{ e.size }}",
+            {% if e.color %}
+            "color": "{{ e.color }}",
+            {% endif %}
+        },
+        {% endfor %}
+    ],
+    "links": [
+        {% for e in links %}
+        {
+            "source": "{{ e.source }}",
+            "target": "{{ e.target }}",
+            {% if e.name %}
+            "name": "{{ e.name }}",
+            {% endif %}
+        },
+        {% endfor %}
+    ]
+}
+
+const elem = document.getElementById('graph');
+
+const Graph = ForceGraph()(elem)
+    .graphData(data)
+    .width(document.getElementById('graph').offsetWidth)
+    .nodeLabel('name')
+    .nodeAutoColorBy('type')
+    .linkDirectionalParticles(2)
+    .linkDirectionalParticleWidth(1.4)
+    .onNodeHover(node => elem.style.cursor = node ? 'pointer' : null)
+    .onNodeClick(node => {
+        // Center/zoom on node
+        Graph.centerAt(node.x, node.y, 1000);
+        Graph.zoom(8, 2000);
+    });
+</script>
+
+
+{% endblock %}

@@ -89,17 +89,19 @@ Commands:
             -f
             Follow to the log output and print incoming messages.
 
-    db-init
-        Initialize the DB based on the latest schema version.
-        This must be called once before "up" can be called.
+    db-init (for development only)
+        Initialize the DB migration directory. This is only necessary if the
+        webapp/migrations directory was erased. After executing db-init,
+        db-migrate must be called to add a initial migration.
+
+    db-migrate (for development only)
+        Create a new migration that can be subsequently used with
+        db-upgrade to apply the DB schema changes to the current database.
+        This must be executed once after calling db-init.
 
     db-upgrade
-        Upgrade an already existing database to the latest DB schema.
-
-    db-migrate
-        Create a new migration script that can be subsequently used with
-        db-upgrade to apply the DB schema changes to the current database.
-
+        Upgrade the database to the latest DB schema.
+        This must be called once before "up" can be called.
 
     flask-cmd
         Run a flask CLI command like:
