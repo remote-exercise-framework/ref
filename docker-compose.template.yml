@@ -86,6 +86,11 @@ services:
          - CAP_SETUID
          - CAP_SETGID
 
+   foreign-arch-runner:
+      image: multiarch/qemu-user-static
+      privileged: true
+      command: ["--reset", "--persistent", "yes", "--credential", "yes"]
+
    web:
       security_opt:
          #Needed for mounting overlay inside containers
