@@ -164,6 +164,12 @@ if [[ ! -f "ref-docker-base/ref-utils/README.md"  ]]; then
     exit 1
 fi
 
+if [[ ! -f "ref-linux/README"  ]]; then
+    error "Please checkout the ref-linux submodule with the following command:"
+    error "git submodule update --init --recursive"
+    error "For further notice, consult the README.md."
+    exit 1
+fi
 
 if ! has_binary "docker"; then
     error "Please install docker!"
