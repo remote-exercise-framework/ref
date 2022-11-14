@@ -411,7 +411,7 @@ def student_edit(user_id):
             return render_template('user_edit.html', form=form)
 
         pubkey = form.pubkey.data
-        if User.query.filter(User.pub_key == pubkey).one_or_none():
+        if User.query.filter(User.pub_key == pubkey).one_or_none() != user:
             form.pubkey.errors += ['Already taken']
             return render_template('user_edit.html', form=form)
 
