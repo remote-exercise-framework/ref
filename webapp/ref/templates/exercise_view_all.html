@@ -124,8 +124,6 @@ Exercises
 
                                         {% if e.build_job_status.value == 'FINISHED' %}
                                             <a class="dropdown-item" href='.' onclick="displayToast('Copied to clipboard'); return copyStringToClipboard('ssh {{ e.short_name }}@{{ ssh_host }} -p {{ ssh_port  }}')"> SSH Command</a>
-                                        {% endif %}
-                                        {% if e.build_job_status.value == 'FINISHED' %}
                                             <a class="dropdown-item" href='.' onclick="displayToast('Copied to clipboard'); return copyStringToClipboard('Host {{ e.short_name }}-{{ ssh_host }}\n\tHostName {{ ssh_host }}\n\tUser {{ e.short_name }}\n\tPort {{ ssh_port  }}\n\tPubkeyAuthentication yes')">SSH Config</a>
                                         {% endif %}
 
