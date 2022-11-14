@@ -4,3 +4,6 @@
 [submodule "ref-docker-base/ref-utils"]
 	path = ref-docker-base/ref-utils
 	url = git@git.noc.ruhr-uni-bochum.de:SysSec-Teaching/ref-utils.git
+[submodule "ref-linux"]
+	path = ref-linux
+	url = git@github.com:nbars/linux-ref.git
