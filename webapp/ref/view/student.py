@@ -32,6 +32,14 @@ GROUP_REGEX = r"^[a-zA-Z0-9-_]+$"
 log = LocalProxy(lambda: current_app.logger)
 
 
+class StringFieldDefaultEmpty(StringField):
+
+    def __init__(self, *args, **kwargs):
+        if 'default' not in kwargs:
+            kwargs['default'] = ''
+        super().__init__(*args, **kwargs)
+
+
 def field_to_str(form, field):
     del form
     return str(field.data)
@@ -90,24 +98,24 @@ def validate_pubkey(form, field):
 
 class EditUserForm(Form):
     id = IntegerField('ID')
-    mat_num = StringField('Matriculation Number', validators=[
+    mat_num = StringFieldDefaultEmpty('Matriculation Number', validators=[
         validators.DataRequired(),
         validators.Regexp(MAT_REGEX),
         # FIXME: Field is implemented as number field in the view.
         field_to_str
     ])
-    firstname = StringField('Firstname', validators=[
+    firstname = StringFieldDefaultEmpty('Firstname', validators=[
                             validators.DataRequired()])
-    surname = StringField('Surname', validators=[validators.DataRequired()])
+    surname = StringFieldDefaultEmpty('Surname', validators=[validators.DataRequired()])
     auth_group = SelectMultipleField('Authorization Groups',
                                      choices=[
                                          (e.value, e.value) for e in UserAuthorizationGroups
                                      ]
                                      )
-    password = PasswordField('Password')
-    password_rep = PasswordField('Password (Repeat)')
+    password = PasswordField('Password', default='')
+    password_rep = PasswordField('Password (Repeat)', default='')
     is_admin = BooleanField('Is Admin?')
-    pubkey = StringField('Pubkey', validators=[
+    pubkey = StringFieldDefaultEmpty('Pubkey', validators=[
         validators.DataRequired(),
         validate_pubkey
         ]
@@ -117,25 +125,25 @@ class EditUserForm(Form):
 
 
 class GetKeyForm(Form):
-    mat_num = StringField('Matriculation Number', validators=[
+    mat_num = StringFieldDefaultEmpty('Matriculation Number', validators=[
         validators.DataRequired(),
         validators.Regexp(MAT_REGEX),
         field_to_str
     ])
-    firstname = StringField('Firstname', validators=[
-                            validators.DataRequired()])
-    surname = StringField('Surname', validators=[validators.DataRequired()])
+    firstname = StringFieldDefaultEmpty('Firstname', validators=[
+                            validators.DataRequired()], default='')
+    surname = StringFieldDefaultEmpty('Surname', validators=[validators.DataRequired()])
     password = PasswordField('Password',
                              validators=[
                                  validators.DataRequired(), validate_password
-                             ]
+                             ], default=''
                              )
     password_rep = PasswordField('Password (Repeat)',
                                  validators=[
                                      validators.DataRequired(), validate_password
-                                 ]
+                                 ], default=''
                                  )
-    pubkey = StringField('Public RSA Key (if empty, a key-pair is generated for you)',
+    pubkey = StringFieldDefaultEmpty('Public RSA Key (if empty, a key-pair is generated for you)',
                          validators=[
                              validate_pubkey
                          ]
@@ -144,13 +152,13 @@ class GetKeyForm(Form):
 
 
 class RestoreKeyForm(Form):
-    mat_num = StringField('Matriculation Number', validators=[
+    mat_num = StringFieldDefaultEmpty('Matriculation Number', validators=[
         validators.DataRequired(),
         validators.Regexp(MAT_REGEX),
         field_to_str  # FIXME: Field is implemented as number in view.
     ])
     password = PasswordField('Password (The password used during first retrieval)', validators=[
-                             validators.DataRequired()])
+                             validators.DataRequired()], default='')
     submit = SubmitField('Restore')
 
 
