@@ -314,16 +314,16 @@ function build {
     (
         info "=> Building docker base image"
         cd 'ref-docker-base'
-        ./build.sh $@
+        ./build.sh "$@"
     )
     (
         info "=> Building release container"
-        docker-compose -p ref build $@
+        docker-compose -p ref build "$@"
         docker-compose -p ref pull
     )
     # (
     #     info "=> Building test container"
-    #     docker-compose -f docker-compose-testing.yml -p ref-testing build $@
+    #     docker-compose -f docker-compose-testing.yml -p ref-testing build "$@"
     #     docker-compose -f docker-compose-testing.yml -p ref-testing pull
     # )
 }
@@ -365,7 +365,7 @@ function up {
         esac
     done
 
-    docker-compose -p ref up $@
+    docker-compose -p ref up "$@"
 }
 
 function down {
@@ -373,7 +373,7 @@ function down {
 }
 
 function log {
-    docker-compose -p ref logs $@
+    docker-compose -p ref logs "$@"
 }
 
 function stop {
@@ -381,15 +381,15 @@ function stop {
 }
 
 function restart {
-    docker-compose -p ref restart $@
+    docker-compose -p ref restart "$@"
 }
 
 function ps {
-    docker-compose -p ref ps $@
+    docker-compose -p ref ps "$@"
 }
 
 function top {
-    docker-compose -p ref top $@
+    docker-compose -p ref top "$@"
 }
 
 function db_migrate {
@@ -424,11 +424,11 @@ function are_you_sure {
 
 function up_testing {
     export TESTING=1
-    docker-compose -f docker-compose-testing.yml -p ref-testing up $@
+    docker-compose -f docker-compose-testing.yml -p ref-testing up "$@"
 }
 
 function down_testing {
-    docker-compose -f docker-compose-testing.yml -p ref-testing down $@
+    docker-compose -f docker-compose-testing.yml -p ref-testing down "$@"
 }
 
 function run_tests {
@@ -440,56 +440,56 @@ shift
 
 case "$cmd" in
     build)
-        build $@
+        build "$@"
     ;;
     up)
-        up $@
+        up "$@"
     ;;
     down)
         are_you_sure || exit 0
-        down $@
+        down "$@"
     ;;
     logs)
-        log $@
+        log "$@"
     ;;
     stop)
         are_you_sure || exit 0
-        stop $@
+        stop "$@"
     ;;
     restart)
         are_you_sure || exit 0
-        restart $@
+        restart "$@"
     ;;
     restart-web)
         are_you_sure || exit 0
-        restart web $@
+        restart web "$@"
     ;;
     ps)
-        ps $@
+        ps "$@"
     ;;
     top)
-        top $@
+        top "$@"
     ;;
     flask-cmd)
-        flask-cmd $@
+        flask-cmd "$@"
     ;;
     db-migrate)
-        db_migrate $@
+        db_migrate "$@"
     ;;
     db-init)
-        db_init $@
+        db_init "$@"
     ;;
     db-upgrade)
-        db_upgrade $@
+        db_upgrade "$@"
     ;;
     run-tests)
-        run_tests $@
+        run_tests "$@"
     ;;
     up-testing)
-        up_testing $@
+        up_testing "$@"
     ;;
     down-testing)
-        down_testing $@
+        down_testing "$@"
     ;;
     --help)
         usage
