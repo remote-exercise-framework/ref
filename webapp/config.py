@@ -84,7 +84,7 @@ class ReleaseConfig(object):
     # One for the core services (i.e., webserver, ssh server, db, ...) and
     # a another one for the instance containers. For now we leave the cgroup
     # settings alone, such that both child groups are guranteed 50% CPU time
-    # in case of congestion.
+    # in case of contention.
     INSTANCES_CGROUP_PARENT = os.environ.get('INSTANCES_CGROUP_PARENT', None)
 
     #If True, only admin are allowed to use the API.

@@ -35,7 +35,14 @@ RUN apt update && apt install -y \
     man-db \
     rsync \
     sysbench \
-    htop
+    htop \
+    gdb \
+    nano \
+    nasm \
+    screen tmux \
+    vim \
+    strace \
+    attr
 
 # Restore stripped stuff like man pages
 RUN yes | unminimize
@@ -135,16 +142,6 @@ COPY mypyrc /etc/mypyrc
 # Unset variables only set by GDB
 RUN echo "unset environment LINES" >> .gdbinit && \
     echo "unset environment COLUMNS" >> .gdbinit
-
-# Install convenience packages the users might want to use
-RUN apt update && apt install -y \
-    gdb \
-    nano \
-    nasm \
-    screen tmux \
-    vim \
-    clang \
-    strace
 
 # Import and install ref-utils
 COPY --from=ref_utils_builder /home/ref-utils/dist/ref_utils-*-py3-none-any.whl /tmp

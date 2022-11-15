@@ -4,6 +4,7 @@ import subprocess
 import traceback
 from threading import Thread
 from typing import List
+from pathlib import Path
 
 import docker
 from flask import Flask, current_app
@@ -197,10 +198,31 @@ class ExerciseImageManager():
                     dc.rmi(image_name)
                 raise Exception('Failed to copy data') from e
 
+            ExerciseImageManager.handle_no_randomize_files(exercise, dc, build_log, image_name)
+
+
         with app.app_context():
-            app.logger.info(f'Entry service build finished.')
+            app.logger.info('Entry service build finished.')
 
         return build_log
+
+    @staticmethod
+    def handle_no_randomize_files(exercise, dc, build_log, image_name):
+        for entry in exercise.entry_service.no_randomize_files:
+            build_log += f'[+] Disabling ASLR for {entry}'
+            path = Path(exercise.entry_service.persistance_lower) / entry
+            if not path.exists():
+                build_log += f'[!] Failed to find {entry} in {exercise.entry_service.persistance_container_path}'
+                dc.rmi(image_name)
+                raise Exception(f'Failed to disable ASLR for {entry}')
+
+            cmd = f'sudo setfattr -n security.no_randomize -v true {path}'
+            build_log += f'Running {cmd}'
+            try:
+                subprocess.check_call(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except Exception as e:
+                dc.rmi(image_name)
+                raise Exception(f'Failed to disable ASLR for {entry}') from e
 
     @staticmethod
     def __run_build_peripheral_services(app, exercise: Exercise) -> str:

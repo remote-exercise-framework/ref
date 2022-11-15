@@ -190,6 +190,7 @@ class ExerciseManager():
                 entry.build_cmd += [f"{line}"]
 
         entry.disable_aslr = ExerciseManager._parse_attr(entry_cfg, 'disable-aslr', bool, required=False, default=False)
+        entry.no_randomize_files = ExerciseManager._parse_attr(entry_cfg, 'no-randomize', list, required=False, default=[])
         entry.cmd = ExerciseManager._parse_attr(entry_cfg, 'cmd', list, required=False, default=['/bin/bash'])
         entry.persistance_container_path = ExerciseManager._parse_attr(entry_cfg, 'persistance-path', str, required=False, default=None)
         entry.readonly = ExerciseManager._parse_attr(entry_cfg, 'read-only', bool, required=False, default=False)
