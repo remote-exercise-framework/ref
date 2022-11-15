@@ -2,11 +2,10 @@ import datetime
 import re
 from functools import partial
 
-from Crypto.PublicKey import RSA, DSA, ECC
+from Crypto.PublicKey import RSA
 from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
 from itsdangerous import URLSafeTimedSerializer
-from sqlalchemy.exc import IntegrityError, OperationalError
 from werkzeug.local import LocalProxy
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, SelectMultipleField, StringField, SubmitField,
@@ -422,6 +421,7 @@ def student_edit(user_id):
 
         # Invalidate login if the authentication group changed
         new_auth_groups = set()
+        assert form.auth_group.data is not None
         for auth_group in form.auth_group.data:
             new_auth_groups.add(UserAuthorizationGroups(auth_group))
         if new_auth_groups != set(user.auth_groups):
