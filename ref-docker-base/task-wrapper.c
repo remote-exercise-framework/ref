@@ -25,12 +25,9 @@ int main(int argc, char const *argv[])
     /* Write all environments variables into the dump */
     size_t elms_written;
     while (*env) {
-        /* Append a new line to each environment variable */
-        char env_var[strlen(*env) + 2];
-        strcpy(env_var, *env);
-        strcat(env_var, "\n");
-
-        elms_written = fwrite(env_var, strlen(env_var), 1, f);
+        // We are writing the value including the zero byte which we will
+        // use as delimiter if read back.
+        elms_written = fwrite(*env, strlen(*env) + 1, 1, f);
         if (elms_written != 1) {
             printf("[!] Error while writing environment variable\n");
             FATAL_ERROR();
