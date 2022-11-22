@@ -114,17 +114,6 @@ class ExerciseManager():
             end_time = ExerciseManager._parse_attr(end, 'time', datetime.time, required=True, default=None)
             exercise.submission_deadline_start = datetime_transmute_into_local(datetime.datetime.combine(start_date, start_time))
             exercise.submission_deadline_end = datetime_transmute_into_local(datetime.datetime.combine(end_date, end_time))
-        else:
-            # TODO: Legacy -> Remove
-            exercise.submission_deadline_start = ExerciseManager._parse_attr(cfg, 'deadline-start', datetime.datetime, required=False, default=None)
-            #Strip timezone from datetime and make it utc
-            if exercise.submission_deadline_start:
-                exercise.submission_deadline_start = datetime_to_naive_utc(exercise.submission_deadline_start)
-
-            exercise.submission_deadline_end = ExerciseManager._parse_attr(cfg, 'deadline-end', datetime.datetime, required=False, default=None)
-            #Strip timezone from datetime and make it utc
-            if exercise.submission_deadline_end:
-                exercise.submission_deadline_end = datetime_to_naive_utc(exercise.submission_deadline_end)
 
         exercise.submission_test_enabled = ExerciseManager._parse_attr(cfg, 'submission-test', bool, required=False, default=False)
 
