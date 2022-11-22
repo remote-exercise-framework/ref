@@ -374,9 +374,12 @@ class ExerciseManager():
         try:
             with open(cfg_path, 'r') as f:
                 cfg = f.read()
-            cfg = yaml.unsafe_load(cfg)
+                cfg = yaml.unsafe_load(cfg)
         except Exception as e:
             raise ExerciseConfigError(str(e))
+
+        if cfg is None:
+            raise ExerciseConfigError(f'Config {cfg_path} is empty.')
 
         #Parse general attributes like task name, version,...
         ExerciseManager._parse_general_data(exercise, cfg, cfg_folder)
