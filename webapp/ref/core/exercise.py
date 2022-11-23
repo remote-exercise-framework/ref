@@ -178,7 +178,11 @@ class ExerciseManager():
                     raise ExerciseConfigError(f"Command must be a list of strings: {cmd}")
                 entry.build_cmd += [f"{line}"]
 
-        entry.disable_aslr = ExerciseManager._parse_attr(entry_cfg, 'disable-aslr', bool, required=False, default=False)
+        entry.disable_aslr = False
+        disable_aslr = ExerciseManager._parse_attr(entry_cfg, 'disable-aslr', bool, required=False, default=None)
+        if disable_aslr is not None:
+            raise ExerciseConfigError('"disable-aslr" attribute is deprecated, please use "no-randomize" instead')
+
         entry.no_randomize_files = ExerciseManager._parse_attr(entry_cfg, 'no-randomize', list, required=False, default=[])
         entry.cmd = ExerciseManager._parse_attr(entry_cfg, 'cmd', list, required=False, default=['/bin/bash'])
         entry.persistance_container_path = ExerciseManager._parse_attr(entry_cfg, 'persistance-path', str, required=False, default=None)
@@ -283,7 +287,10 @@ class ExerciseManager():
                 raise ExerciseConfigError(f'There is already a service with name {service_name}.')
             services_names.add(service_name)
 
-            service.disable_aslr = ExerciseManager._parse_attr(service_values, 'disable-aslr', bool, required=False, default=False)
+            service.disable_aslr = False
+            disable_aslr = ExerciseManager._parse_attr(service_values, 'disable-aslr', bool, required=False, default=None)
+            if disable_aslr is not None:
+                raise ExerciseConfigError('"disable-aslr" attribute is deprecated, and "no-randomize" ist not implemented for peripheral services yet. Please remove the attribute.')
 
             service.files = ExerciseManager._parse_attr(service_values, 'files', list, required=False, default=None)
             if service.files:

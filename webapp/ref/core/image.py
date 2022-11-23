@@ -207,7 +207,10 @@ class ExerciseImageManager():
         return build_log
 
     @staticmethod
-    def handle_no_randomize_files(exercise, dc, build_log, image_name):
+    def handle_no_randomize_files(exercise: Exercise, dc, build_log, image_name):
+        if not exercise.entry_service.no_randomize_files:
+            return
+
         for entry in exercise.entry_service.no_randomize_files:
             build_log += f'[+] Disabling ASLR for {entry}'
             path = Path(exercise.entry_service.persistance_lower) / entry

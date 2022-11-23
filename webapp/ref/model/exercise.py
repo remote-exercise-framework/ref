@@ -70,7 +70,7 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     build_cmd: List[str] = db.Column(db.PickleType(), nullable=True)
 
-    no_randomize_files: List[str] = db.Column(db.PickleType(), nullable=True)
+    no_randomize_files: typing.Optional[List[str]] = db.Column(db.PickleType(), nullable=True)
 
     disable_aslr: bool = db.Column(db.Boolean(), nullable=False)
 
