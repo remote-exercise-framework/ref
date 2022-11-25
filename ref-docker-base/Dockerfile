@@ -1,14 +1,13 @@
-FROM nbars/ubuntu-unminimized-base-docker:20.04 as ref_utils_builder
-ARG DEBIAN_FRONTEND=noninteractive
+# FROM nbars/ubuntu-unminimized-base-docker:20.04 as ref_utils_builder
+# ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt update && \
-    apt install -y python3 python3-pip python3-setuptools && \
-    python3 -m pip install -U pip setuptools wheel
+# RUN apt update && \
+#     apt install -y python3 python3-pip python3-setuptools && \
+#     python3 -m pip install -U pip wheel
 
-COPY ref-utils /home/ref-utils
-RUN cd /home/ref-utils && \
-    python3 setup.py bdist_wheel
-
+# COPY ref-utils /home/ref-utils
+# RUN cd /home/ref-utils && \
+#     python3 -m pip install .
 
 
 FROM nbars/ubuntu-unminimized-base-docker:20.04
@@ -144,9 +143,8 @@ RUN echo "unset environment LINES" >> .gdbinit && \
     echo "unset environment COLUMNS" >> .gdbinit
 
 # Import and install ref-utils
-COPY --from=ref_utils_builder /home/ref-utils/dist/ref_utils-*-py3-none-any.whl /tmp
-RUN python3 -m pip install -U pip setuptools wheel && \
-    python3 -m pip install -U /tmp/ref_utils-*-py3-none-any.whl && \
-    rm -f /tmp/ref_utils-*-py3-none-any.whl
+COPY ref-utils /home/ref-utils
+RUN cd /home/ref-utils && \
+    python3 -m pip install .
 
 RUN rm -rf /tmp/*
