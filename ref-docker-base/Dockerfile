@@ -1,13 +1,4 @@
-# FROM nbars/ubuntu-unminimized-base-docker:20.04 as ref_utils_builder
-# ARG DEBIAN_FRONTEND=noninteractive
-
-# RUN apt update && \
-#     apt install -y python3 python3-pip python3-setuptools && \
-#     python3 -m pip install -U pip wheel
-
-# COPY ref-utils /home/ref-utils
-# RUN cd /home/ref-utils && \
-#     python3 -m pip install .
+# syntax=docker/dockerfile:1.3-labs
 
 
 FROM nbars/ubuntu-unminimized-base-docker:20.04
@@ -80,6 +71,12 @@ RUN echo 'export HISTTIMEFORMAT="%F %T "' >> .bashrc
 
 # Flush commands immediately to the history
 RUN echo 'export PROMPT_COMMAND="history -a"' >> .bashrc
+
+COPY <<EOF /home/user/.nanorc
+set linenumbers
+set tabsize 4
+set tabstospaces
+EOF
 
 # Deploy the default ssh-key that is used for authentication by the ssh entry server as user "user".
 RUN mkdir .ssh
