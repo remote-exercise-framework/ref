@@ -50,12 +50,9 @@ def instance_update(instance_id):
         flash.error(f'Unknown instance ID {instance_id}')
         abort(400)
 
-    user = instance.user.refresh(lock=True)
+    user = instance.user
 
     new_exercise: Exercise = get_newest_exercise_version(instance.exercise)
-    #Lock the exercise
-    if new_exercise:
-        new_exercise = new_exercise.refresh(lock=True)
     if not new_exercise:
         flash.error('There is no new version for this exercise')
         abort(400)
