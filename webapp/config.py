@@ -26,8 +26,6 @@ class ReleaseConfig(object):
     LOGIN_DISABLED = False
 
     ADMIN_PASSWORD = os.environ['ADMIN_PASSWORD']
-
-    HOSTNAME = os.environ['HOSTNAME']
     SSH_HOST_PORT = os.environ['SSH_HOST_PORT']
 
     # The container name of the ssh entry server.

@@ -26,17 +26,21 @@ function txt_yellow {
 }
 
 function info {
-    echo "$(txt_bold)$(txt_green)$1$(txt_reset)"
+    echo "$(txt_bold)$(txt_green)$*$(txt_reset)"
 }
 
 function error {
-    echo "$(txt_bold)$(txt_red)$1$(txt_reset)"
+    echo "$(txt_bold)$(txt_red)$*$(txt_reset)"
 }
 
 function warning {
-    echo "$(txt_bold)$(txt_yellow)$1$(txt_reset)"
+    echo "$(txt_bold)$(txt_yellow)$*$(txt_reset)"
 }
 
+function execute_cmd {
+    info "* $*"
+    "$@"
+}
 
 function usage {
 cat <<EOF
@@ -176,18 +180,22 @@ if ! has_binary "docker"; then
     exit 1
 fi
 
-if ! has_binary docker-compose; then
-    error "Please install docker-compose!"
+if has_binary docker-compose; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version > /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
+    error "Please install docker compose!"
     exit 1
 fi
 
 if ! has_binary "jq"; then
-    error "Please install jq"
+    error "Please install jq (apt install -y jq)"
     exit 1
 fi
 
 if ! has_binary "pip3"; then
-    error "Please install pip3"
+    error "Please install pip3 (apt install -y python3-pip)"
     exit 1
 fi
 
@@ -214,74 +222,63 @@ fi
 
 
 #Check the .env files used to parametrize the docker-compose file.
+ENV_SETTINGS_FILE="settings.env"
 
-if [[ ! -f '.env' ]]; then
-    error "Please copy template.env to .env and adapt the values"
+if [[ ! -f $ENV_SETTINGS_FILE ]]; then
+    error "Please copy template.env to $ENV_SETTINGS_FILE and adapt the values"
     exit 1
 fi
 
-source .env
+source "$ENV_SETTINGS_FILE"
 if [[ -z "$DOCKER_GROUP_ID" ]]; then
-    error "Please set DOCKER_GROUP_ID in .env to your docker group ID"
+    error "Please set DOCKER_GROUP_ID in $ENV_SETTINGS_FILE to your docker group ID (getent group docker)"
     exit 1
 fi
 
 if [[ "$(getent group docker | cut -d ':' -f 3)" != "$DOCKER_GROUP_ID" ]]; then
-    error "DOCKER_GROUP_ID in .env does not match the local docker group ID."
+    error "DOCKER_GROUP_ID in $ENV_SETTINGS_FILE does not match the local docker group ID."
     error "Use the id command to get the correct group ID."
     exit 1
 fi
 
 if [[ -z "$SSH_HOST_PORT" ]]; then
-    error "Please set SSH_HOST_PORT in .env to the port the entry ssh server should be expose on the host"
+    error "Please set SSH_HOST_PORT in $ENV_SETTINGS_FILE to the port the entry ssh server should be expose on the host"
     exit 1
 fi
 
 if [[ -z "$HTTP_HOST_PORT" ]]; then
-    error "Please set HTTP_HOST_PORT in .env to the port the entry ssh server should be expose on the host"
+    error "Please set HTTP_HOST_PORT in $ENV_SETTINGS_FILE to the port the entry ssh server should be expose on the host"
     exit 1
 fi
 
 if [[ -z "$SECRET_KEY" ]]; then
-    error "Please set SECRET_KEY in .env to a random string"
+    error "Please set SECRET_KEY in $ENV_SETTINGS_FILE to a random string"
     exit 1
 fi
 
 if [[ -z "$SSH_TO_WEB_KEY" ]]; then
-    error "Please set SSH_TO_WEB_KEY in .env to a random string"
+    error "Please set SSH_TO_WEB_KEY in $ENV_SETTINGS_FILE to a random string"
     exit 1
 fi
 
 if [[ -z "$POSTGRES_PASSWORD" ]]; then
-    error "Please set POSTGRES_PASSWORD in .env to a random string"
+    error "Please set POSTGRES_PASSWORD in $ENV_SETTINGS_FILE to a random string"
     exit 1
 fi
 
 if [[ -z "$PGADMIN_HTTP_PORT" ]]; then
-    error "Please set PGADMIN_HTTP_PORT in .env to a port PGADMIN should be exposed on the host"
+    error "Please set PGADMIN_HTTP_PORT in $ENV_SETTINGS_FILE to a port PGADMIN should be exposed on the host"
     exit 1
 fi
 
 if [[ -z "$PGADMIN_DEFAULT_PASSWORD" ]]; then
-    error "Please set PGADMIN_DEFAULT_PASSWORD in .env to a random string"
-    exit 1
-fi
-
-if [[ -z "$REDIS_KEY" ]]; then
-    error "Please set REDIS_KEY in .env to a random string"
+    error "Please set PGADMIN_DEFAULT_PASSWORD in $ENV_SETTINGS_FILE to a random string"
     exit 1
 fi
 
 if [[ -z "$ADMIN_PASSWORD" ]]; then
-    error "Please set ADMIN_PASSWORD in .env to a random string"
+    error "Please set ADMIN_PASSWORD in $ENV_SETTINGS_FILE to a random string"
     exit 1
-fi
-
-
-if [[ ! -d "./data/redis-db" || "$(stat -c '%u' './data/redis-db')" != "1001" ]]; then
-    info "=> Fixing redis DB permissions, requesting super user access..."
-    sudo mkdir -p './data/redis-db'
-    sudo chown 1001:1001 -R './data/redis-db'
 fi
 
 if [[ ! -d "./data/pgadmin" || "$(stat -c '%u' './data/pgadmin')" != "5050" ]]; then
@@ -295,14 +292,14 @@ fi
 if [[ ! -f "/etc/docker/daemon.json" ]]; then
     docker_subnet_warning
 else
-    #FIXME: Just counting the number of configured nets, not their size
+    #FIXME: We are just counting the number of configured nets, not their size
     net_cnt="$(cat /etc/docker/daemon.json | jq '."default-address-pools"' | grep base | wc -l)"
     if [[ $net_cnt -lt 4 ]]; then
         docker_subnet_warning
     fi
 fi
 
-# Generate docker-compose files. If the 'settings.ini' is erroneous, we exit here.
+# Generate docker-compose files.
 ./generate-configs.py || exit 1
 
 function build {
@@ -318,14 +315,9 @@ function build {
     )
     (
         info "=> Building release container"
-        docker-compose -p ref build "$@"
-        docker-compose -p ref pull
+        execute_cmd $DOCKER_COMPOSE -p ref --env-file $ENV_SETTINGS_FILE build "$@"
+        execute_cmd $DOCKER_COMPOSE -p ref --env-file $ENV_SETTINGS_FILE pull
     )
-    # (
-    #     info "=> Building test container"
-    #     docker-compose -f docker-compose-testing.yml -p ref-testing build "$@"
-    #     docker-compose -f docker-compose-testing.yml -p ref-testing pull
-    # )
 }
 
 function up {
@@ -365,51 +357,47 @@ function up {
         esac
     done
 
-    docker-compose -p ref up "$@"
+    execute_cmd $DOCKER_COMPOSE -p ref --env-file $ENV_SETTINGS_FILE up "$@"
 }
 
 function down {
-    docker-compose -p ref down
+    execute_cmd $DOCKER_COMPOSE -p ref --env-file $ENV_SETTINGS_FILE down
 }
 
 function log {
-    docker-compose -p ref logs "$@"
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref logs "$@"
 }
 
 function stop {
-    docker-compose -p ref stop
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref stop
 }
 
 function restart {
-    docker-compose -p ref restart "$@"
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref restart "$@"
 }
 
 function ps {
-    docker-compose -p ref ps "$@"
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref ps "$@"
 }
 
 function top {
-    docker-compose -p ref top "$@"
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref top "$@"
 }
 
 function db_migrate {
-    info "FLASK_APP=ref python3 -m flask db migrate"
-    docker-compose -p ref run --rm web bash -c "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db migrate"
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref run --rm web bash -c "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db migrate"
 }
 
 function db_init {
-    info "FLASK_APP=ref python3 -m flask db init"
-    docker-compose -p ref run --rm web bash -c "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db init"
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref run --rm web bash -c "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db init"
 }
 
 function db_upgrade {
-    info "FLASK_APP=ref python3 -m flask db upgrade"
-    docker-compose -p ref run --rm web bash -c "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db upgrade"
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref run --rm web bash -c "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db upgrade"
 }
 
 function flask-cmd {
-    info "FLASK_APP=ref python3 -m flask $*"
-    docker-compose -p ref run --rm web bash -c "FLASK_APP=ref python3 -m flask $*"
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref run --rm web bash -c "FLASK_APP=ref python3 -m flask $*"
 }
 
 function are_you_sure {
@@ -420,19 +408,6 @@ function are_you_sure {
     else
         return 1
     fi
-}
-
-function up_testing {
-    export TESTING=1
-    docker-compose -f docker-compose-testing.yml -p ref-testing up "$@"
-}
-
-function down_testing {
-    docker-compose -f docker-compose-testing.yml -p ref-testing down "$@"
-}
-
-function run_tests {
-    docker exec -it ref-testing_web_1 /bin/bash -c 'pytest --cov=. --cov-report html -v --failed-first  ./test'
 }
 
 cmd="$1"

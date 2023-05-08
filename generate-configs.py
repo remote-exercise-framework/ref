@@ -20,12 +20,15 @@ def main():
     cgroup_parent = f'{cgroup_base}-core.slice'
     instances_cgroup_parent = f'{cgroup_base}-instances.slice'
 
-    render_out = template.render(testing=False, data_path='./data', exercises_path='./exercises', cgroup_parent=cgroup_parent, instances_cgroup_parent=instances_cgroup_parent)
+    render_out = template.render(
+        testing=False,
+        data_path='./data',
+        exercises_path='./exercises',
+        cgroup_parent=cgroup_parent,
+        instances_cgroup_parent=instances_cgroup_parent,
+        binfmt_support=False,
+        )
     with open('docker-compose.yml', 'w') as f:
-        f.write(render_out)
-
-    render_out = template.render(testing=True, data_path='./data-testing', exercises_path='./exercises-testing', cgroup_parent=cgroup_parent, instances_cgroup_parent=instances_cgroup_parent)
-    with open('docker-compose-testing.yml', 'w') as f:
         f.write(render_out)
 
 
