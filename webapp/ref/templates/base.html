@@ -142,7 +142,10 @@
 
     <footer class="footer">
         <div class="container">
-            <p class="text-center">Rendered in {{ g.request_time() }}ms</span>
+            <!-- In case of exceptions happending before the attribute is set, we need to avoid calling it -->
+            {% if g.request_time is defined %}
+                <p class="text-center">Rendered in {{ g.request_time() }}ms</span>
+            {% endif %}
         </div>
     </footer>
 </body>
