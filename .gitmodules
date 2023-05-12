@@ -7,3 +7,6 @@
 [submodule "ref-linux"]
 	path = ref-linux
 	url = git@github.com:nbars/linux-ref.git
+[submodule "webapp/ref/static/ace-builds"]
+	path = webapp/ref/static/ace-builds
+	url = https://github.com/ajaxorg/ace-builds.git
