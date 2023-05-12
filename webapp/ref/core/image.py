@@ -18,6 +18,10 @@ from .exercise import Exercise, ExerciseBuildStatus, ExerciseService
 
 log = LocalProxy(lambda: current_app.logger)
 
+class ImageBuildError(Exception):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
 class ExerciseImageManager():
     """
     This class is used to manage an image that belong to an exercise.
@@ -207,20 +211,19 @@ class ExerciseImageManager():
         return build_log
 
     @staticmethod
-    def handle_no_randomize_files(exercise: Exercise, dc, build_log, image_name):
+    def handle_no_randomize_files(exercise: Exercise, dc, build_log: str, image_name: str):
         if not exercise.entry_service.no_randomize_files:
             return
 
         for entry in exercise.entry_service.no_randomize_files:
-            build_log += f'[+] Disabling ASLR for {entry}'
+            build_log += f'[+] Disabling ASLR for {entry}\n'
             path = Path(exercise.entry_service.persistance_lower) / entry
             if not path.exists():
-                build_log += f'[!] Failed to find {entry} in {exercise.entry_service.persistance_container_path}'
                 dc.rmi(image_name)
-                raise Exception(f'Failed to disable ASLR for {entry}')
+                raise ImageBuildError(f'[!] Failed to find file "{entry}" in "{exercise.entry_service.persistance_container_path}. Make sure to use path relative from home."\n')
 
             cmd = f'sudo setfattr -n security.no_randomize -v true {path}'
-            build_log += f'Running {cmd}'
+            build_log += f'Running {cmd}\n'
             try:
                 subprocess.check_call(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             except Exception as e:
@@ -302,7 +305,7 @@ class ExerciseImageManager():
         Builds all docker images that are needed by the passed exercise.
         """
         failed = False
-        log_buffer = ""
+        log_buffer: str = ""
         try:
             #Build entry service
             with app.app_context():
@@ -317,18 +320,17 @@ class ExerciseImageManager():
                 elif isinstance(e, docker.errors.ContainerError):
                     if e.stderr:
                         log_buffer = e.stderr.decode()
+                elif isinstance(e, ImageBuildError):
+                    log_buffer = f'Error while building image:\n{e}'
                 else:
-                    app.logger.error('Error during build', exc_info=True)
+                    app.logger.error(f'{log_buffer}\nUnexpected error during build', exc_info=True)
                 log_buffer += traceback.format_exc()
-                exercise.build_job_status = ExerciseBuildStatus.FAILED
                 failed = True
-        else:
-            with app.app_context():
-                exercise.build_job_status = ExerciseBuildStatus.FINISHED
 
         exercise.build_job_result = log_buffer
 
         if failed:
+            exercise.build_job_status = ExerciseBuildStatus.FAILED
             try:
                 with app.app_context():
                     ExerciseImageManager.__purge_entry_service_image(exercise)
@@ -337,6 +339,9 @@ class ExerciseImageManager():
                 #No one we can report the error to, so just log it.
                 with app.app_context():
                     app.logger.error('Cleanup failed', exc_info=True)
+        else:
+            with app.app_context():
+                exercise.build_job_status = ExerciseBuildStatus.FINISHED
 
         with app.app_context():
             app.logger.info('Commiting build result to DB')
