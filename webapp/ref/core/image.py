@@ -202,7 +202,7 @@ class ExerciseImageManager():
                     dc.rmi(image_name)
                 raise Exception('Failed to copy data') from e
 
-            ExerciseImageManager.handle_no_randomize_files(exercise, dc, build_log, image_name)
+            build_log = ExerciseImageManager.handle_no_randomize_files(exercise, dc, build_log, image_name)
 
 
         with app.app_context():
@@ -229,6 +229,7 @@ class ExerciseImageManager():
             except Exception as e:
                 dc.rmi(image_name)
                 raise Exception(f'Failed to disable ASLR for {entry}') from e
+        return build_log
 
     @staticmethod
     def __run_build_peripheral_services(app, exercise: Exercise) -> str:
