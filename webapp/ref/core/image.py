@@ -241,6 +241,7 @@ class ExerciseImageManager():
             The build log on success
         """
         services = []
+        log: str = ''
 
         #Load objects completely from the database, since we can not lazy load them later
         #joinedload causes eager loading of all attributes of the exercise
