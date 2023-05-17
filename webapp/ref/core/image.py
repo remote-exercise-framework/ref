@@ -143,7 +143,7 @@ class ExerciseImageManager():
             return log
 
     @staticmethod
-    def __run_build_entry_service(app, exercise: Exercise):
+    def __run_build_entry_service(app, exercise: Exercise) -> str:
         """
         Builds the entry service of an exercise.
         Raises:
@@ -202,7 +202,7 @@ class ExerciseImageManager():
                     dc.rmi(image_name)
                 raise Exception('Failed to copy data') from e
 
-            build_log = ExerciseImageManager.handle_no_randomize_files(exercise, dc, build_log, image_name)
+            build_log += ExerciseImageManager.handle_no_randomize_files(exercise, dc, build_log, image_name)
 
 
         with app.app_context():
@@ -211,9 +211,10 @@ class ExerciseImageManager():
         return build_log
 
     @staticmethod
-    def handle_no_randomize_files(exercise: Exercise, dc, build_log: str, image_name: str):
+    def handle_no_randomize_files(exercise: Exercise, dc, build_log: str, image_name: str) -> str:
+        build_log = ''
         if not exercise.entry_service.no_randomize_files:
-            return
+            return build_log
 
         for entry in exercise.entry_service.no_randomize_files:
             build_log += f'[+] Disabling ASLR for {entry}\n'
