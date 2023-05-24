@@ -77,7 +77,7 @@ function copy_text(id) {
 
 {% endif %}
 
-{% if pubkey %}
+{% if pubkey and signed_mat %}
 
     <div class="alert alert-success" role="alert">
         <h4 class="alert-heading">Public RSA Key</h4>
@@ -93,7 +93,7 @@ function copy_text(id) {
 
 {% endif %}
 
-{% if privkey %}
+{% if privkey and signed_mat %}
 
     <div class="alert alert-success" role="alert">
         <h4 class="alert-heading">Private RSA Key</h4>
