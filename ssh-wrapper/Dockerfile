@@ -2,7 +2,7 @@ FROM python:3.9
 SHELL ["/bin/bash", "-c"]
 
 RUN apt update && apt install -y sudo gcc git autoconf zlib1g-dev \
-    libssl-dev build-essential valgrind netcat tinyproxy wget netcat curl
+    libssl-dev build-essential valgrind tinyproxy wget curl netcat-traditional
 
 # Install cargo
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y

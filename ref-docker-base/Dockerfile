@@ -18,7 +18,7 @@ RUN apt update && apt install -y \
     python3 python3-pip \
     software-properties-common \
     sudo \
-    netcat \
+    netcat-traditional \
     hexcurse \
     clang \
     socat \
