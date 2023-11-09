@@ -154,26 +154,34 @@ if [[ $# -lt 1 ]]; then
     exit 1
 fi
 
-if [[ ! -f "ssh-wrapper/openssh-portable/README.md"  ]]; then
+if [[ ! -f "ssh-wrapper/openssh-portable/README.md" ]]; then
     error "Please checkout the OpenSSH submodule with the following command:"
     error "git submodule update --init --recursive"
     error "For further notice, consult the README.md."
     exit 1
 fi
 
-if [[ ! -f "ref-docker-base/ref-utils/README.md"  ]]; then
+if [[ ! -f "ref-docker-base/ref-utils/README.md" ]]; then
     error "Please checkout the ref-utils submodule with the following command:"
     error "git submodule update --init --recursive"
     error "For further notice, consult the README.md."
     exit 1
 fi
 
-if [[ ! -f "ref-linux/README"  ]]; then
+if [[ ! -f "ref-linux/README" ]]; then
     error "Please checkout the ref-linux submodule with the following command:"
     error "git submodule update --init --recursive"
     error "For further notice, consult the README.md."
     exit 1
 fi
+
+if [[ ! -f "webapp/ref/static/ace-builds/README.md" ]]; then
+    error "Please checkout the ace-builds submodule with the following command:"
+    error "git submodule update --init --recursive"
+    error "For further notice, consult the README.md."
+    exit 1
+fi
+
 
 if ! has_binary "docker"; then
     error "Please install docker!"
