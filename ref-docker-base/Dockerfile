@@ -32,7 +32,9 @@ RUN apt update && apt install -y \
     screen tmux \
     vim \
     strace \
-    attr
+    attr \
+    pkg-config \
+    libcairo2-dev
 
 # Restore stripped stuff like man pages
 RUN yes | unminimize
