@@ -208,7 +208,7 @@ if ! has_binary "pip3"; then
 fi
 
 if ! has_python_module "jinja2"; then
-     echo "Please install the jinja2 python module"
+     echo "Please install jinja2 (apt install -y python3-jinja2)"
      exit 1
 fi
 
