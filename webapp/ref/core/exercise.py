@@ -163,20 +163,17 @@ class ExerciseManager():
         entry.exercise = exercise
         entry_cfg = cfg['entry']
 
-        entry.files = ExerciseManager._parse_attr(entry_cfg, 'files', list, required=False, default=None)
-        if entry.files:
-            for f in entry.files:
-                if not isinstance(f, str):
-                    raise ExerciseConfigError(f'Files must be a list of strings {entry.files}')
+        files_to_copy = ExerciseManager._parse_attr(entry_cfg, 'files', list, required=False, default=[])
+        for f in files_to_copy:
+            if not isinstance(f, str):
+                raise ExerciseConfigError(f'files must be a list of strings {files_to_copy}')
+        entry.files = files_to_copy
 
-        cmd = ExerciseManager._parse_attr(entry_cfg, 'build-cmd', list, required=False, default=None)
-        entry.build_cmd = None
-        if cmd:
-            entry.build_cmd = []
-            for line in cmd:
-                if not isinstance(line, str):
-                    raise ExerciseConfigError(f"Command must be a list of strings: {cmd}")
-                entry.build_cmd += [f"{line}"]
+        build_cmd = ExerciseManager._parse_attr(entry_cfg, 'build-cmd', list, required=False, default=[])
+        for line in build_cmd:
+            if not isinstance(line, str):
+                raise ExerciseConfigError(f"Command must be a list of strings: {cmd}")
+        entry.build_cmd = build_cmd
 
         entry.disable_aslr = False
         disable_aslr = ExerciseManager._parse_attr(entry_cfg, 'disable-aslr', bool, required=False, default=None)

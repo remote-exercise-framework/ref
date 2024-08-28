@@ -68,13 +68,14 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     files: List[str] = db.Column(PickleType(), nullable=True)
 
+    # List of commands that are executed when building the service's Docker image.
     build_cmd: List[str] = db.Column(db.PickleType(), nullable=True)
 
     no_randomize_files: typing.Optional[List[str]] = db.Column(db.PickleType(), nullable=True)
 
     disable_aslr: bool = db.Column(db.Boolean(), nullable=False)
 
-    #Command that is executed as soon a user connects (list)
+    # Command that is executed as soon a user connects (list)
     cmd: List[str] = db.Column(db.PickleType(), nullable=False)
 
     readonly: bool = db.Column(db.Boolean(), nullable=False, default=False)
