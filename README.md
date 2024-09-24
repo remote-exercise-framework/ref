@@ -58,15 +58,6 @@ User: 0
 Password: See .env
 ```
 
-#### PgAdmin Interface
-Webinterface to interface with the postgres database. Currently the the service configuration is volatile, hence the connection must be manually configured using the credentials from the `.env` file.
-```
-Hostname: pgadmin
-Port: 8005
-User: admin@admin.de
-Password: See .env
-```
-
 #### Postgres Database
 ```
 Hostname: db

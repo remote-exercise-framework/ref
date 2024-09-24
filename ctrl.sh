@@ -274,25 +274,9 @@ if [[ -z "$POSTGRES_PASSWORD" ]]; then
     exit 1
 fi
 
-if [[ -z "$PGADMIN_HTTP_PORT" ]]; then
-    error "Please set PGADMIN_HTTP_PORT in $ENV_SETTINGS_FILE to a port PGADMIN should be exposed on the host"
-    exit 1
-fi
-
-if [[ -z "$PGADMIN_DEFAULT_PASSWORD" ]]; then
-    error "Please set PGADMIN_DEFAULT_PASSWORD in $ENV_SETTINGS_FILE to a random string"
-    exit 1
-fi
-
 if [[ -z "$ADMIN_PASSWORD" ]]; then
     error "Please set ADMIN_PASSWORD in $ENV_SETTINGS_FILE to a random string"
     exit 1
-fi
-
-if [[ ! -d "./data/pgadmin" || "$(stat -c '%u' './data/pgadmin')" != "5050" ]]; then
-    info "=> Fixing pgadmin DB permissions, requesting super user access..."
-    sudo mkdir -p './data/pgadmin'
-    sudo chown 5050:5050 -R './data/pgadmin'
 fi
 
 
