@@ -26,15 +26,15 @@ function txt_yellow {
 }
 
 function info {
-    echo "$(txt_bold)$(txt_green)$*$(txt_reset)"
+    echo "$(txt_bold)$(txt_green)[+] $*$(txt_reset)"
 }
 
 function error {
-    echo "$(txt_bold)$(txt_red)$*$(txt_reset)"
+    echo "$(txt_bold)$(txt_red)[!] $*$(txt_reset)"
 }
 
 function warning {
-    echo "$(txt_bold)$(txt_yellow)$*$(txt_reset)"
+    echo "$(txt_bold)$(txt_yellow)[!] $*$(txt_reset)"
 }
 
 function execute_cmd {
@@ -93,25 +93,11 @@ Commands:
             -f
             Follow to the log output and print incoming messages.
 
-    db-init (for development only)
-        Initialize the DB migration directory. This is only necessary if the
-        webapp/migrations directory was erased. After executing db-init,
-        db-migrate must be called to add a initial migration.
-
-    db-migrate (for development only)
-        Create a new migration that can be subsequently used with
-        db-upgrade to apply the DB schema changes to the current database.
-        This must be executed once after calling db-init.
-
-    db-upgrade
-        Upgrade the database to the latest DB schema.
-        This must be called once before "up" can be called.
-
     flask-cmd
-        Run a flask CLI command like:
-            db init
-            db migrate
-            db upgrade
+        Run a flask CLI command, e.g.,
+            flask-cmd db init
+            flask-cmd db migrate
+            flask-cmd db upgrade
             ...
 EOF
 }
@@ -120,23 +106,25 @@ function docker_subnet_warning {
 txt_yellow
 txt_bold
 cat <<EOF
-You should consider adding more subnets to docker, thus
-we are able to create enough instances of each task.
+You should consider adding more subnets to Docker, thus
+we are able to create enough instances of each exercise.
 
-cat /etc/docker/daemon.json 
+cat /etc/docker/daemon.json
 {
         "default-address-pools":[
-                {"base":"172.80.0.0/16","size":24},
-                {"base":"172.81.0.0/16","size":24},
-                {"base":"172.82.0.0/16","size":24},
-                {"base":"172.83.0.0/16","size":24},
-                {"base":"172.84.0.0/16","size":24}
+                {"base":"172.16.0.0/16","size":24},
+                {"base":"172.17.0.0/16","size":24},
+                {"base":"172.18.0.0/16","size":24},
+                {"base":"172.19.0.0/16","size":24},
+                {"base":"172.20.0.0/16","size":24}
         ]
 }
 EOF
 txt_reset
 echo ""
 }
+
+# Check if the environment has all features we expect and that the framework has been cloned properly.
 
 function has_binary {
     command -v $1 >/dev/null 2>&1
@@ -154,39 +142,39 @@ if [[ $# -lt 1 ]]; then
     exit 1
 fi
 
-if [[ ! -f "ssh-wrapper/openssh-portable/README.md" ]]; then
-    error "Please checkout the OpenSSH submodule with the following command:"
-    error "git submodule update --init --recursive"
-    error "For further notice, consult the README.md."
-    exit 1
-fi
+submodules=(
+    "ssh-wrapper/openssh-portable/README.md"
+    "ref-docker-base/ref-utils/README.md"
+    "ref-linux/README"
+    "webapp/ref/static/ace-builds/README.md"
+)
 
-if [[ ! -f "ref-docker-base/ref-utils/README.md" ]]; then
-    error "Please checkout the ref-utils submodule with the following command:"
-    error "git submodule update --init --recursive"
-    error "For further notice, consult the README.md."
-    exit 1
-fi
+for m in "${submodules[@]}"; do
+    if [[ ! -f "$m" ]]; then
+        error "Failed to find all required submodules!"
+        error "Please run: git submodule update --init --recursive"
+        error "For further notice, consult the README.md."
+        exit 1
+    fi
+done
 
-if [[ ! -f "ref-linux/README" ]]; then
-    error "Please checkout the ref-linux submodule with the following command:"
-    error "git submodule update --init --recursive"
-    error "For further notice, consult the README.md."
-    exit 1
-fi
-
-if [[ ! -f "webapp/ref/static/ace-builds/README.md" ]]; then
-    error "Please checkout the ace-builds submodule with the following command:"
-    error "git submodule update --init --recursive"
-    error "For further notice, consult the README.md."
-    exit 1
-fi
+# TODO: Check if custom kernel is used.
 
 
 if ! has_binary "docker"; then
     error "Please install docker!"
     exit 1
 fi
+
+# Check if cgroup freezer is used.
+container_id=$(docker run -dt --rm alpine:latest sh -c "sleep 60")
+if ! docker pause "$container_id" > /dev/null ; then
+    error "It looks like your current kernel does not support the cgroup freezer."
+    error "The feature is required, please update your kernel!"
+    docker rm -f "$container_id" > /dev/null
+    exit 1
+fi
+docker rm -f "$container_id" > /dev/null
 
 cgroup_version="$(docker system info | grep "Cgroup Version" | cut -d ':' -f 2 | tr -d ' ')"
 if [[ "$cgroup_version" != 2 ]]; then
@@ -203,7 +191,7 @@ if has_binary docker-compose; then
 elif docker compose version > /dev/null; then
     DOCKER_COMPOSE="docker compose"
 else
-    error "Please install docker compose!"
+    error "Please install Docker Compose!"
     exit 1
 fi
 
@@ -230,6 +218,7 @@ if [[ ! -f $ENV_SETTINGS_FILE ]]; then
     exit 1
 fi
 
+# shellcheck disable=SC1090
 source "$ENV_SETTINGS_FILE"
 if [[ -z "$DOCKER_GROUP_ID" ]]; then
     error "Please set DOCKER_GROUP_ID in $ENV_SETTINGS_FILE to your docker group ID (getent group docker)"

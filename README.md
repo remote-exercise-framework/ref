@@ -49,6 +49,10 @@ cp /boot/config-<...> .config
 scripts/config --disable CONFIG_SYSTEM_TRUSTED_KEYS
 scripts/config --disable CONFIG_SYSTEM_REVOCATION_LIST
 scripts/config --disable MODULE_SIG_KEY
+scripts/config --disable CONFIG_MODULE_SIG
+
+# Reduce build time by disabling debug info
+scripts/config --disable DEBUG_INFO
 
 # Set default values for config attributes not found in the copied config.
 make olddefconfig
@@ -60,16 +64,16 @@ scripts/config --set-str CONFIG_LOCALVERSION 'ref'
 make -j$(nproc) bindeb-pkg
 ```
 
-After the kernel has been built, it needs to be installed. This can happen via the following command:
+After the kernel has been built (the artifact is located in the parent directory), it needs to be installed. This can happen via the following command:
 ```bash
-dpkg -i linux-*.deb
+sudo dpkg -i linux-*.deb
 ```
 
 Eventually, the bootloader must be configured to boot the desired kernel. If you have access to the boot menu, it is sufficient to select the new kernel (with -ref suffix) during booting. If this is no option, the process is a bit more involved:
 1. First, sub-menus in GRUB have to be disabled. For this add (or set) `GRUB_DISABLE_SUBMENU=y` in `/etc/default/grub`
 2. Then update Grub via `sudo update-grub`.
 3. Run `sudo grep 'menuentry ' /boot/grub/grub.cfg | cut -f 2 -d "'" | nl -v 0` which gives you the boot-id for each installed kernel.
-4. Execute `sudo grub-reboot <id>` with the `id` set to the one of the REF kernel.
+4. Execute `sudo grub-reboot <id>` with the `id` set to the one of the REF kernel. This will temporary set the selected kernel for the next boot.
 5. Reboot the system, and check via `uname -a` if currently used kernel is the REF kernel (recognizable by the -ref suffix).
 6. If the kernel has been loaded successfully, the kernel can be configured as default via `sudo grub-set-default <id>`.
 

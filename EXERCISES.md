@@ -51,6 +51,13 @@ entry:
     # Files are by default owned by root. Thus, in this example, we wish to give the user access to solution.c and chown it.
     build-cmd:
         - chown user:user solution.c
+
+    # For executables listed here, ASLR is disabled, even if its a setuid binary.
+    # This feature only works if the custom kernel (see README.md) is used.
+    no-randomize:
+        solution
+
+    # TODO: Document ressource_limit, flag, 
 ```
 
 ## Automated Solution Checking
