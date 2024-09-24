@@ -12,7 +12,8 @@ RUN wget https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /
 COPY requirements.txt /tmp/
 RUN pip install -r requirements.txt && rm requirements.txt
 
-RUN groupmod -g $DOCKER_GROUP_ID docker
+# This may fail if the group already has the specified id.
+RUN  groupmod -g $DOCKER_GROUP_ID docker || true
 RUN useradd -G docker,sudo -ms /bin/bash user
 RUN mkdir -p /app && chown user /app
 
