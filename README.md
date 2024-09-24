@@ -2,7 +2,7 @@
 The REF framework intends to provide students with an interactive, practical learning environment: For pre-defined tasks, each student can work in an indvidiual Docker container with automated goal verification aiding their progress.
 The framework consists of multiple components that have to be built the first time REF is set up and when it is updated. The framework heavily relies on Docker for the runtime environment itself as well as for deploying the different exercises to the students.
 
-The following describes how to build REF, how to run it, and how to upgrade it. To learn more about creating new exercises, head to [exercises.md](./exercises.md).
+The following describes how to build REF, how to run it, and how to upgrade it. To learn more about creating new exercises, head to [exercises.md](./EXERCISES.md).
 
 ### Building REF
 The build process is split into two parts. While the first part is mandatory and entails building the framework itself, the second part is only required if you plan to host exercises where ASLR is disabled for setuid binaries.
@@ -57,7 +57,7 @@ make olddefconfig
 scripts/config --set-str CONFIG_LOCALVERSION 'ref'
 
 # Build the kernel as .deb package. The files will be located in the parent directory.
-make -j bindeb-pkg
+make -j$(nproc) bindeb-pkg
 ```
 
 After the kernel has been built, it needs to be installed. This can happen via the following command:
