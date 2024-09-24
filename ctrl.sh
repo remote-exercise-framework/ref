@@ -188,6 +188,16 @@ if ! has_binary "docker"; then
     exit 1
 fi
 
+cgroup_version="$(docker system info | grep "Cgroup Version" | cut -d ':' -f 2 | tr -d ' ')"
+if [[ "$cgroup_version" != 2 ]]; then
+    error "docker system info report that you are using an unsupported cgroup version ($cgroup_version)"
+    error "We require cgroup v2 which should be the default on more recent distributions."
+    error "In order to force the kernel to use v2, you may append systemd.unified_cgroup_hierarchy=1"
+    error "to GRUB_CMDLINE_LINUX in /etc/default/grub."
+    error "However, it is perferable to update your distribution since it likely missen additional features."
+    exit 1
+fi
+
 if has_binary docker-compose; then
     DOCKER_COMPOSE="docker-compose"
 elif docker compose version > /dev/null; then
