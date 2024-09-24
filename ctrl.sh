@@ -208,26 +208,9 @@ if ! has_binary "pip3"; then
 fi
 
 if ! has_python_module "jinja2"; then
-     echo "Please install jinja2 (apt install -y python3-jinja2)"
+     error "Please install jinja2 (apt install -y python3-jinja2)"
      exit 1
 fi
-
-if ! has_binary "kpatch" || ! has_binary "kpatch-build"; then
-    warning "kpatch or kpatch-build are not installed but are required for disabling"
-    warning "ASLR on a per exercise basis. See aslr-patch for further instructions."
-    echo ""
-else
-    pushd aslr-patch
-    set +e
-    ./enable.sh
-    if [[ $? != 0 ]]; then
-        warning "Failed to load ASLR patch."
-        warning "Disabling ASLR for setuid binaries will not work..."
-    fi
-    set -e
-    popd
-fi
-
 
 #Check the .env files used to parametrize the docker-compose file.
 ENV_SETTINGS_FILE="settings.env"
