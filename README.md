@@ -27,8 +27,14 @@ cp template.env setting.env
 
 After successfully building REF, the database has to be initialized:
 ```bash
-# This command will apply the current database and create all tables.
+# First, you have to start all services
+./ctrl.sh up
+
+# Then, the database has to be initialized
 ./ctrl.sh flask-cmd db upgrade
+
+# Next, the framework must be shutdown, in order to pick up the changes applied to the db.
+./ctrl.sh down
 ```
 
 
@@ -126,7 +132,7 @@ git pull && git submodule update --init --recursive
 ./ctrl.sh build
 
 # Migrate the database to the new version (if any changeupgrades have been applied)
-./ctrl.sh flask-cmd db migrate
+./ctrl.sh flask-cmd db upgrade
 
 # Now REF can be started again and should operate normally.
 ./ctrl.sh up
