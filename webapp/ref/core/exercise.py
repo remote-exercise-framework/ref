@@ -182,7 +182,7 @@ class ExerciseManager():
 
         entry.no_randomize_files = ExerciseManager._parse_attr(entry_cfg, 'no-randomize', list, required=False, default=[])
         entry.cmd = ExerciseManager._parse_attr(entry_cfg, 'cmd', list, required=False, default=['/bin/bash'])
-        entry.persistance_container_path = ExerciseManager._parse_attr(entry_cfg, 'persistance-path', str, required=False, default=None)
+        entry.persistance_container_path = ExerciseManager._parse_attr(entry_cfg, 'persistance-path', str, required=False, default="/home/user")
         entry.readonly = ExerciseManager._parse_attr(entry_cfg, 'read-only', bool, required=False, default=False)
         entry.allow_internet = ExerciseManager._parse_attr(entry_cfg, 'allow-internet', bool, required=False, default=False)
 
