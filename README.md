@@ -18,7 +18,7 @@ git submodule update --init --recursive
 
 # Create an environment file used for configuration and adapt the values in settings.env.
 # Make sure to uncomment the settings and to change the password!
-cp template.env setting.env
+cp template.env settings.env
 
 # Build all images. This command will check if your system meets the requirements
 # and will print error messages in case something is not working as expected.
