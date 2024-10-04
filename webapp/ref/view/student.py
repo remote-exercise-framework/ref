@@ -2,7 +2,7 @@ import datetime
 import re
 from functools import partial
 
-from Crypto.PublicKey import RSA
+from Crypto.PublicKey import RSA, ECC
 from flask import (
     Blueprint,
     Flask,
@@ -102,11 +102,13 @@ def validate_pubkey(form, field):
     if field.data is None or field.data == "":
         return
 
-    for fn in [RSA.import_key]:
+    for fn in [RSA.import_key, ECC.import_key]:
         try:
             # Replace the key with the parsed one, thus we use everywhere exactly
             # the same string to represent a specific key.
-            key = fn(field.data).export_key(format="OpenSSH").decode()
+            key = fn(field.data).export_key(format="OpenSSH")
+            if isinstance(key, bytes):
+                key = key.decode()
             field.data = key
             return key
         except:
