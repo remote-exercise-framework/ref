@@ -261,15 +261,20 @@ if [[ -z "$ADMIN_PASSWORD" ]]; then
     exit 1
 fi
 
-
 #Check whether we have enough docker subnets configured.
 if [[ ! -f "/etc/docker/daemon.json" ]]; then
     docker_subnet_warning
 else
-    #FIXME: We are just counting the number of configured nets, not their size
-    net_cnt="$(cat /etc/docker/daemon.json | jq '."default-address-pools"' | grep base | wc -l)"
-    if [[ $net_cnt -lt 4 ]]; then
+    if ! grep -q "default-address-pools" /etc/docker/daemon.json; then
+        warning "It looks like that there are no default-address-pools defined in your /etc/docker/daemon.json."
+        warning "This may cause you to run out of addresses depending on the number of deployed instances."
         docker_subnet_warning
+    else
+        #TODO: We are just counting the number of configured nets, not their size
+        net_cnt="$(cat /etc/docker/daemon.json | jq '."default-address-pools"' | grep base | wc -l)"
+        if [[ $net_cnt -lt 4 ]]; then
+            docker_subnet_warning
+        fi
     fi
 fi
 
