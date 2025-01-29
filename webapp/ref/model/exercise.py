@@ -57,6 +57,8 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     __to_str_fields__ = ['id', 'exercise_id']
     __tablename__ = 'exercise_entry_service'
+    __allow_unmapped__ = True
+
     id = db.Column(db.Integer, primary_key=True)
 
     #The exercise this entry service belongs to
@@ -115,8 +117,9 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     the implementation of a networked service that must be hacked by a user.
     """
     __to_str_fields__ = ['id', 'exercise_id']
-
     __tablename__ = 'exercise_service'
+    __allow_unmapped__ = True
+
     id: int = db.Column(db.Integer, primary_key=True)
 
     name: str = db.Column(db.Text())
@@ -161,6 +164,8 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     __to_str_fields__ = ['id', 'short_name', 'version', 'category', 'build_job_status']
     __tablename__ = 'exercise'
+    __allow_unmapped__ = True
+
 
     id: int = db.Column(db.Integer, primary_key=True)
 

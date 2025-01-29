@@ -1,6 +1,7 @@
 import os
 import signal
 import traceback
+import sqlalchemy
 from contextlib import contextmanager
 from datetime import datetime
 from functools import wraps
@@ -14,7 +15,7 @@ from flask import (abort, current_app, g, redirect, render_template, request,
 #http://initd.org/psycopg/docs/errors.html
 from psycopg2.errors import DeadlockDetected, TransactionRollback
 from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
-from werkzeug.urls import url_parse
+from urllib.parse import urlparse as url_parse
 
 from ref.core import flash
 from ref.model import SystemSettingsManager
@@ -80,11 +81,11 @@ def is_deadlock_error(err: OperationalError):
 # def have_db_lock():
 #     return g.get('db_lock_cnt', 0) > 0
 
-def lock_db(readonly=False):
+def lock_db(connection: sqlalchemy.engine.Connection, readonly=False):
     if readonly:
-        current_app.db.session.execute('select pg_advisory_xact_lock_shared(1337);')
+        connection.execute(sqlalchemy.text('select pg_advisory_xact_lock_shared(1234);'))
     else:
-        current_app.db.session.execute('select pg_advisory_xact_lock(1337);')
+        connection.execute(sqlalchemy.text('select pg_advisory_xact_lock(1234);'))
 
 def unlock_db_and_commit():
     current_app.db.session.commit()

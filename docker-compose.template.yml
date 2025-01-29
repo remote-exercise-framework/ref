@@ -27,7 +27,7 @@ services:
          - SETGID
          - CHOWN
    db:
-      image: postgres:16
+      image: postgres:17.2
       restart: always
 {% if not testing %}
       volumes:

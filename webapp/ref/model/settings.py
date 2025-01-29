@@ -14,9 +14,10 @@ from ref.model.enums import CourseOfStudies
 from .util import CommonDbOpsMixin, ModelToStringMixin
 
 class SystemSetting(CommonDbOpsMixin, ModelToStringMixin, db.Model):
-
     __to_str_fields__ = ['id', 'name']
     __tablename__ = 'system_setting'
+    __allow_unmapped__ = True
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text(), nullable=False, unique=True)
     value = db.Column(db.PickleType(), nullable=True)

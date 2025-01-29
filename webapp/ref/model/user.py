@@ -16,6 +16,7 @@ from .util import CommonDbOpsMixin, ModelToStringMixin
 class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id', 'name']
     __tablename__ = 'user_group'
+    __allow_unmapped__ = True
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text(), nullable=False, unique=True)
@@ -24,8 +25,9 @@ class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
 class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     __to_str_fields__ = ['id', 'is_admin', 'first_name', 'surname', 'nickname']
-
     __tablename__ = 'user'
+    __allow_unmapped__ = True
+
     id = db.Column(db.Integer, primary_key=True)
     login_token = db.Column(db.Text(), nullable=True)
 

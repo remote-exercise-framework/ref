@@ -16,7 +16,7 @@ from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
 from sqlalchemy.orm import joinedload, raiseload
 from werkzeug.local import LocalProxy
-from werkzeug.urls import url_parse
+from urllib.parse import urlparse as url_parse
 from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp

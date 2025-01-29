@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.13.1-bookworm
 SHELL ["/bin/bash", "-c"]
 
 RUN apt update && apt install -y sudo gcc git autoconf zlib1g-dev \
@@ -10,7 +10,7 @@ RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
 
 RUN mkdir -p /var/run/sshd
 
-RUN wget https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
+RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
     && chmod 555 /usr/bin/wait-for
 
 RUN useradd -m -d /home/sshd -s /bin/bash sshd

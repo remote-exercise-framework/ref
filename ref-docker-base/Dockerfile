@@ -1,7 +1,4 @@
-# syntax=docker/dockerfile:1.3-labs
-
-
-FROM nbars/ubuntu-unminimized-base-docker:20.04
+FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -36,10 +33,7 @@ RUN apt update && apt install -y \
     pkg-config \
     libcairo2-dev
 
-# Restore stripped stuff like man pages
-RUN yes | unminimize
-
-RUN wget https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
+RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
     && chmod 555 /usr/bin/wait-for
 
 COPY wait-for-host /usr/bin/wait-for-host
@@ -61,7 +55,6 @@ RUN groupadd -g 9999 user && useradd -g 9999 -u 9999 -d /home/user -m -s /bin/ba
 
 WORKDIR /root
 
-RUN mkdir .ssh
 COPY container-key/root-container.pub .ssh/authorized_keys
 RUN chown root:root .ssh/authorized_keys \
     && chmod 644 .ssh/authorized_keys
@@ -126,12 +119,12 @@ RUN groupadd -g 7799 admin  && useradd -g 7799 -u 7799 -s /bin/false admin  && \
 RUN echo "user:user" | chpasswd
 
 # Install gef
-RUN wget -O /home/user/.gdbinit-gef.py -q https://gef.blah.cat/py \
+RUN wget -4 -O /home/user/.gdbinit-gef.py -q https://gef.blah.cat/py \
     && echo source /home/user/.gdbinit-gef.py >> /home/user/.gdbinit \
     && chown user:user /home/user/.gdbinit
 
 COPY requirements.txt /tmp/requirements.txt
-RUN python3 -m pip install -r /tmp/requirements.txt && rm /tmp/requirements.txt
+RUN python3 -m pip install --break-system-packages -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
 # Copy mypy and pylint configs
 COPY pylintrc /etc/pylintrc
@@ -144,6 +137,6 @@ RUN echo "unset environment LINES" >> .gdbinit && \
 # Import and install ref-utils
 COPY ref-utils /home/ref-utils
 RUN cd /home/ref-utils && \
-    python3 -m pip install .
+    python3 -m pip install --break-system-packages .
 
 RUN rm -rf /tmp/*

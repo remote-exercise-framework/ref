@@ -33,9 +33,9 @@ class InstanceService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     Each InstanceService belongs to an Instance and is responsible to keep
     runtime information of the service it is impelmenting.
     """
-
     __to_str_fields__ = ['id', 'instance_id', 'exercise_service_id', 'container_id']
     __tablename__ = 'instance_service'
+    __allow_unmapped__ = True
 
     # 1. Each instance only uses a specific service once.
     __table_args__ = (db.UniqueConstraint('instance_id', 'exercise_service_id'), )
@@ -65,6 +65,8 @@ class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     __to_str_fields__ = ['id', 'instance_id', 'container_id']
     __tablename__ = 'exercise_instance_entry_service'
+    __allow_unmapped__ = True
+
     id: int = db.Column(db.Integer, primary_key=True)
 
     #The instance this entry service belongs to
@@ -123,6 +125,7 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     __to_str_fields__ = ['id', 'exercise', 'entry_service', 'user', 'network_id', 'peripheral_services_internet_network_id', 'peripheral_services_network_id']
     __tablename__ = 'exercise_instance'
+    __allow_unmapped__ = True
 
     id: int = db.Column(db.Integer, primary_key=True)
 
@@ -223,6 +226,7 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     __to_str_fields__ = ['id', 'origin_instance_id', 'submitted_instance_id']
     __tablename__ = 'submission'
+    __allow_unmapped__ = True
 
     id = db.Column(db.Integer, primary_key=True)
 
@@ -264,6 +268,7 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 class Grading(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id']
     __tablename__ = 'grading'
+    __allow_unmapped__ = True
 
     id: int = db.Column(db.Integer, primary_key=True)
 
