@@ -279,7 +279,11 @@ else
 fi
 
 # Generate docker-compose files.
-./generate-configs.py || exit 1
+if ! ./generate-configs.py; then
+    error "Failed to generate configs"
+    exit 1
+fi
+
 
 function build {
     (
