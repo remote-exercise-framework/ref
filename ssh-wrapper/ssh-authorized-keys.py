@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3.9
+#!/usr/bin/env python
 
 """
 This script acts as a replacement for the .authorized_keys file.

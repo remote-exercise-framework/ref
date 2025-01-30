@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3.9
+#!/usr/bin/env python
 
 """
 This script is executed each time a SSH connection is successfully established
