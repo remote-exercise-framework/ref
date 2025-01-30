@@ -1,12 +1,12 @@
 [submodule "ssh-wrapper/openssh-portable"]
 	path = ssh-wrapper/openssh-portable
-	url = git@git.noc.ruhr-uni-bochum.de:SysSec-Teaching/ref-openssh-portable.git
+	url = git@github.com:remote-exercise-framework/ref-openssh-portable.git
 [submodule "ref-docker-base/ref-utils"]
 	path = ref-docker-base/ref-utils
-	url = git@git.noc.ruhr-uni-bochum.de:SysSec-Teaching/ref-utils.git
+	url = git@github.com:remote-exercise-framework/ref-utils.git
 [submodule "ref-linux"]
 	path = ref-linux
-	url = https://github.com/nbars/linux-ref.git
+	url = git@github.com:remote-exercise-framework/ref-linux.git
 [submodule "webapp/ref/static/ace-builds"]
 	path = webapp/ref/static/ace-builds
 	url = https://github.com/ajaxorg/ace-builds.git
