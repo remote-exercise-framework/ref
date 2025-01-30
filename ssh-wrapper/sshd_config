@@ -15,7 +15,8 @@ Port 4444
 #ListenAddress 0.0.0.0
 #ListenAddress ::
 
-HostKey /etc/ssh/ssh_host_rsa_key
+HostKey "/ssh-server-keys/ssh_host_ed25519_key"
+HostKey "/ssh-server-keys/ssh_host_ecdsa_key"
 
 # Ciphers and keying
 #RekeyLimit default none

@@ -55,7 +55,7 @@ RUN groupadd -g 9999 user && useradd -g 9999 -u 9999 -d /home/user -m -s /bin/ba
 
 WORKDIR /root
 
-COPY container-key/root-container.pub .ssh/authorized_keys
+COPY container-keys/root_key.pub .ssh/authorized_keys
 RUN chown root:root .ssh/authorized_keys \
     && chmod 644 .ssh/authorized_keys
 
@@ -75,7 +75,7 @@ EOF
 
 # Deploy the default ssh-key that is used for authentication by the ssh entry server as user "user".
 RUN mkdir .ssh
-COPY container-key/user-container.pub .ssh/authorized_keys
+COPY container-keys/user_key.pub .ssh/authorized_keys
 RUN chown root:root .ssh/authorized_keys \
     && chmod 644 .ssh/authorized_keys
 

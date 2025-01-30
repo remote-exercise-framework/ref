@@ -168,10 +168,10 @@ def main():
     ip = resp['ip']
     if resp['as_root']:
         user = 'root'
-        key_path = '/home/sshserver/.ssh/root-container.key'
+        key_path = '/home/sshserver/.ssh/root_key'
     else:
         user = 'user'
-        key_path = '/home/sshserver/.ssh/user-container.key'
+        key_path = '/home/sshserver/.ssh/user_key'
 
     cmd = [
         '/usr/bin/ssh',

@@ -1,17 +1,13 @@
-docker-compose*
-.env
-settings.env
-
-exercises
-
 **/.vscode
 **/__pycache__
 **/*.py[cod]
 **/*$py.class
 **/.mypy_cache
+**/Cargo.lock
 
-rq-worker
-
+docker-compose.yml
+settings.env
+exercises
 data
 
 webapp/.coverage
@@ -19,7 +15,10 @@ webapp/.testmondata
 webapp/htmlcov/
 
 ref-docker-base/task-wrapper
+ref-docker-base/container-keys
 
 ref-interface/target
+
 ssh-wrapper/ref-interface/target/
-**/Cargo.lock
+ssh-wrapper/container-keys
+ssh-wrapper/ssh-server-keys/

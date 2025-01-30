@@ -278,9 +278,9 @@ else
     fi
 fi
 
-# Generate docker-compose files.
-if ! ./generate-configs.py; then
-    error "Failed to generate configs"
+# Generate docker-compose files and generate keys.
+if ! ./prepare.py; then
+    error "Failed to run prepare.py"
     exit 1
 fi
 
