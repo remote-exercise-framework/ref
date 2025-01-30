@@ -13,6 +13,7 @@ data
 webapp/.coverage
 webapp/.testmondata
 webapp/htmlcov/
+webapp/venv
 
 ref-docker-base/task-wrapper
 ref-docker-base/container-keys
