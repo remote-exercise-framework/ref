@@ -7,7 +7,12 @@ def env_var_to_bool_or_false(env_key):
     assert isinstance(val, str)
     return val == '1' or val.lower() == 'true'
 
-class ReleaseConfig(object):
+class Config():
+    """
+    A configuration that can be loaded via the .from_object() method provided by the Flask
+    config object.
+    """
+class ReleaseConfig(Config):
     BASEDIR = '/data'
     DATADIR = os.path.join(BASEDIR, 'data')
     DBDIR = os.path.join(DATADIR, 'db')
