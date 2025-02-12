@@ -33,6 +33,9 @@ RUN apt update && apt install -y \
     pkg-config \
     libcairo2-dev
 
+COPY requirements.txt /tmp/requirements.txt
+RUN python3 -m pip install --break-system-packages -r /tmp/requirements.txt && rm /tmp/requirements.txt
+
 RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
     && chmod 555 /usr/bin/wait-for
 
@@ -122,9 +125,6 @@ RUN echo "user:user" | chpasswd
 RUN wget -4 -O /home/user/.gdbinit-gef.py -q https://gef.blah.cat/py \
     && echo source /home/user/.gdbinit-gef.py >> /home/user/.gdbinit \
     && chown user:user /home/user/.gdbinit
-
-COPY requirements.txt /tmp/requirements.txt
-RUN python3 -m pip install --break-system-packages -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
 # Copy mypy and pylint configs
 COPY pylintrc /etc/pylintrc
