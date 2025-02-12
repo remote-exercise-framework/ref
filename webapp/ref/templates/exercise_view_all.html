@@ -6,67 +6,6 @@ Exercises
 
 {% block admin_content %}
 
-{% if importable|length %}
-<div class="card mb-5">
-    <h4 class="card-header">
-        Importable
-    </h4>
-    <table class="table table-hover">
-        <thead>
-            <tr>
-            <th scope="col">Short Name</th>
-            <th scope="col">Version</th>
-            <th scope="col">Category</th>
-            <th scope="col"></th>
-            </tr>
-        </thead>
-        <tbody>
-    {% for exercise in importable|sort(attribute='category') %}
-        <tr>
-                <td>{{ exercise.short_name }}
-                </td>
-                <td>{{ exercise.version }}<br>
-                        {% if exercise.is_update() %}
-                        <span class="badge badge-secondary">Update</span>
-                        {% else %}
-                        <span class="badge badge-secondary">New</span>
-                        {% endif %}
-                </td>
-                <td>{{ exercise.category }}</td>
-                <td>
-                    <div class="btn-group">
-                        {% if not exercise.errors|length %}
-                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_do_import', cfg_path=exercise.template_import_path|quote_plus, next=request.path) }}">Import</a>
-                        {% endif %}
-                        {% if exercise.is_update() %}
-                        <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_diff', path_a=exercise.template_import_path) }}" data-toggle="tooltip" data-placement="top" title="Tooltip on top">Diff</a>
-                        {% endif %}
-                        </div>
-                </td>
-            {% for message in exercise.errors  %}
-            <tr>
-                <td colspan="4">
-                <div class="alert alert-danger" role="alert">
-                        {{ message }}
-                </div>
-                </td>
-            </tr>
-            {% endfor %}
-            {% for message in exercise.warnings  %}
-            <tr>
-                <td colspan="4">
-                <div class="alert alert-warning" role="alert">
-                        {{ message }}
-                </div>
-                </td>
-            </tr>
-            {% endfor %}
-    {% endfor %}
-    </tbody>
-    </table>
-</div>
-{% endif %}
-
 {% set ssh_host = settings.SSH_HOSTNAME.value  %}
 {% set ssh_port  = settings.SSH_PORT.value  %}
 
@@ -143,5 +82,66 @@ Exercises
         {% endfor %}
     </div>
 {% endfor %}
+
+{% if importable|length %}
+<div class="card mb-5">
+    <h4 class="card-header">
+        Importable
+    </h4>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+            <th scope="col">Short Name</th>
+            <th scope="col">Version</th>
+            <th scope="col">Category</th>
+            <th scope="col"></th>
+            </tr>
+        </thead>
+        <tbody>
+    {% for exercise in importable|sort(attribute='category') %}
+        <tr>
+                <td>{{ exercise.short_name }}
+                </td>
+                <td>{{ exercise.version }}<br>
+                        {% if exercise.is_update() %}
+                        <span class="badge badge-secondary">Update</span>
+                        {% else %}
+                        <span class="badge badge-secondary">New</span>
+                        {% endif %}
+                </td>
+                <td>{{ exercise.category }}</td>
+                <td>
+                    <div class="btn-group">
+                        {% if not exercise.errors|length %}
+                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.exercise_do_import', cfg_path=exercise.template_import_path|quote_plus, next=request.path) }}">Import</a>
+                        {% endif %}
+                        {% if exercise.is_update() %}
+                        <a role="button" class="btn btn-outline-success ok-modal" href="{{ url_for('ref.exercise_diff', path_a=exercise.template_import_path) }}" data-toggle="tooltip" data-placement="top" title="Tooltip on top">Diff</a>
+                        {% endif %}
+                        </div>
+                </td>
+            {% for message in exercise.errors  %}
+            <tr>
+                <td colspan="4">
+                <div class="alert alert-danger" role="alert">
+                        {{ message }}
+                </div>
+                </td>
+            </tr>
+            {% endfor %}
+            {% for message in exercise.warnings  %}
+            <tr>
+                <td colspan="4">
+                <div class="alert alert-warning" role="alert">
+                        {{ message }}
+                </div>
+                </td>
+            </tr>
+            {% endfor %}
+    {% endfor %}
+    </tbody>
+    </table>
+</div>
+{% endif %}
 
 {% endblock %}
