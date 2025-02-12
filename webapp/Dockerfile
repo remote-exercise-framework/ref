@@ -4,7 +4,7 @@ ARG DOCKER_GROUP_ID
 
 # Install dependencies
 WORKDIR /tmp/
-RUN apt-get update && apt-get install -y docker docker.io git python3 sudo dnsutils wget netcat-traditional rsync attr
+RUN apt-get update && apt-get install -y docker docker.io git python3 sudo dnsutils wget netcat-traditional rsync attr inotify-tools
 
 RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
     && chmod 555 /usr/bin/wait-for
@@ -30,4 +30,4 @@ RUN chown -R user /app
 
 # Run
 #EXPOSE 8000
-CMD ["./run-server.sh"]
+ENTRYPOINT ["./run-server.sh"]
