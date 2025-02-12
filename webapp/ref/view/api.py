@@ -19,10 +19,10 @@ from queue import Queue
 import socket
 import socks
 
-import typing
+import typing as ty
 import select
 
-from flask import (Blueprint, Flask, abort, current_app, jsonify,
+from flask import (Blueprint, Flask, Request, abort, current_app, jsonify,
                    make_response, redirect, render_template, request, url_for)
 from itsdangerous import Serializer, TimedSerializer
 from werkzeug.local import Local, LocalProxy
@@ -579,7 +579,7 @@ def api_get_header():
     return ok_response(resp)
 
 
-def _sanitize_container_request(request, max_age=60) -> str:
+def _unwrap_signed_container_request(request: Request, max_age_s: int = 60) -> ty.Any:
     """
     Requests send by a container must have the following structure:
     {
@@ -629,7 +629,7 @@ def _sanitize_container_request(request, max_age=60) -> str:
 
     s = TimedSerializer(instance_key, salt='from-container-to-web')
     try:
-        signed_content = s.loads(content, max_age=max_age)
+        signed_content = s.loads(content, max_age=max_age_s)
     except Exception as e:
         log.warning(f'Invalid request', exc_info=True)
         raise Exception('Invalid request')
@@ -648,7 +648,7 @@ def api_instance_reset():
     }
     """
     try:
-        content = _sanitize_container_request(request)
+        content = _unwrap_signed_container_request(request)
     except Exception as e:
         return error_response(str(e))
 
@@ -685,15 +685,17 @@ def api_instance_submit():
     Creates a submission of the instance with the given instance ID.
     This function expects the following signed data structure:
     {
-        'instance_id': <ID>
+        'instance_id': <ID>,
+        'test_log': The output of the submission test,
+        'test_ret': The return value of the submission test.
     }
     """
     try:
-        content = _sanitize_container_request(request)
+        content: ty.Dict[str, ty.Any] = _unwrap_signed_container_request(request)
     except Exception as e:
         return error_response(str(e))
 
-    instance_id = content.get('instance_id')
+    instance_id = content['instance_id']
     try:
         instance_id = int(instance_id)
     except ValueError:
@@ -704,7 +706,7 @@ def api_instance_submit():
 
     try:
         test_log = content['test_log']
-        # Apparently postgres does not like \x00 bytes in strings,
+        # Postgres does not like \x00 bytes in strings,
         # hence we replace them by a printable error mark.
         test_log = test_log.replace("\x00", "\uFFFD")
         test_ret = int(content['test_ret'])
@@ -760,7 +762,7 @@ def api_instance_info():
     }
     """
     try:
-        content = _sanitize_container_request(request)
+        content = _unwrap_signed_container_request(request)
     except Exception as e:
         return error_response(str(e))
 
