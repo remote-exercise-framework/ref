@@ -4,7 +4,8 @@ def env_var_to_bool_or_false(env_key):
     val = os.environ.get(env_key, False)
     if val is False:
         return val
-    return val == '1' or val == 'True' or val == 'true'
+    assert isinstance(val, str)
+    return val == '1' or val.lower() == 'true'
 
 class ReleaseConfig(object):
     BASEDIR = '/data'
