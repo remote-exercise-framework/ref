@@ -28,7 +28,6 @@ class ReleaseConfig(Config):
     PERSISTANCE_PATH =  os.path.join(DATADIR, 'persistance')
     SQLALCHEMY_MIGRATE_REPO = 'migrations'
 
-    IMAGE_BUILD_TIMEOUT = 120
     LOGIN_DISABLED = False
 
     ADMIN_PASSWORD = os.environ['ADMIN_PASSWORD']
