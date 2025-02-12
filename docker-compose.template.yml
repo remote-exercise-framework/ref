@@ -1,197 +1,202 @@
 version: "3.7"
 services:
-   sshserver:
-      environment:
-         - DEBUG=${DEBUG:?"DEBUG not set"}
-         - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
-      build:
-         context: ./ssh-wrapper
-         args:
-             SSH_TO_WEB_KEY: ${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
-{% if not testing %}
-      ports:
-         - "${SSH_HOST_PORT:?SSH_HOST_PORT not set}:4444"
-{% endif %}
-      volumes:
-         - ./ssh-wrapper/ssh-wrapper.py:/usr/bin/ssh-wrapper.py:ro
-         - ./ssh-wrapper/ssh-server-keys:/ssh-server-keys:rw
-      networks:
-         - ssh-and-host
-         - ssh-proxy-and-ssh
-         - web-and-ssh
-      cgroup_parent: "{{ cgroup_parent }}-core.slice"
-      cap_drop:
-         - ALL
-      cap_add:
-         - SYS_CHROOT
-         - SETUID
-         - SETGID
-         - CHOWN
-   db:
-      image: postgres:17.2
-      restart: always
-{% if not testing %}
-      volumes:
-         - ./data/postgresql-db:/var/lib/postgresql/data
-{% endif %}
-      environment:
-         - POSTGRES_USER=ref
-         - POSTGRES_DB=ref
-         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
-         - REAL_HOSTNAME=${REAL_HOSTNAME}
-      networks:
-         - web-and-db
-         - ssh-proxy-and-db
-      cgroup_parent: "{{ cgroup_parent }}-core.slice"
-      cap_drop:
-         - ALL
-      cap_add:
-         # Set owner of DB files to the correct user
-         - CAP_FOWNER
-         - CAP_CHOWN
-         - CAP_DAC_OVERRIDE
-         # Drop privileges to postgres user
-         - CAP_SETUID
-         - CAP_SETGID
+    sshserver:
+        init: true
+        environment:
+            - DEBUG=${DEBUG:?"DEBUG not set"}
+            - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
+        build:
+            context: ./ssh-wrapper
+            args:
+                SSH_TO_WEB_KEY: ${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
+    {% if not testing %}
+        ports:
+            - "${SSH_HOST_PORT:?SSH_HOST_PORT not set}:4444"
+    {% endif %}
+        volumes:
+            - ./ssh-wrapper/ssh-wrapper.py:/usr/bin/ssh-wrapper.py:ro
+            - ./ssh-wrapper/ssh-server-keys:/ssh-server-keys:rw
+        networks:
+            - ssh-and-host
+            - ssh-proxy-and-ssh
+            - web-and-ssh
+        cgroup_parent: "{{ cgroup_parent }}-core.slice"
+        cap_drop:
+            - ALL
+        cap_add:
+            - SYS_CHROOT
+            - SETUID
+            - SETGID
+            - CHOWN
+    db:
+        init: true
+        image: postgres:17.2
+        restart: always
+    {% if not testing %}
+        volumes:
+            - ./data/postgresql-db:/var/lib/postgresql/data
+    {% endif %}
+        environment:
+            - POSTGRES_USER=ref
+            - POSTGRES_DB=ref
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
+            - REAL_HOSTNAME=${REAL_HOSTNAME}
+        networks:
+            - web-and-db
+            - ssh-proxy-and-db
+        cgroup_parent: "{{ cgroup_parent }}-core.slice"
+        cap_drop:
+            - ALL
+        cap_add:
+            # Set owner of DB files to the correct user
+            - CAP_FOWNER
+            - CAP_CHOWN
+            - CAP_DAC_OVERRIDE
+            # Drop privileges to postgres user
+            - CAP_SETUID
+            - CAP_SETGID
 
 {% if binfmt_support %}
-   foreign-arch-runner:
-      image: multiarch/qemu-user-static
-      privileged: true
-      command: ["--reset", "--persistent", "yes", "--credential", "yes"]
+    foreign-arch-runner:
+        init: true
+        image: multiarch/qemu-user-static
+        privileged: true
+        command: ["--reset", "--persistent", "yes", "--credential", "yes"]
 {% endif %}
 
-   web:
-      security_opt:
-         #Needed for mounting overlay inside containers
-         - apparmor:unconfined
-      environment:
-         - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD not set}
-         - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
-         - DEBUG=${DEBUG:?DEBUG not set}
-         - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
-         - POSTGRES_USER=ref
-         - POSTGRES_DB=ref
-         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
-         - SECRET_KEY=${SECRET_KEY:?SECRET_KEY not set}
-         - SSH_HOST_PORT=${SSH_HOST_PORT:?SSH_HOST_PORT not set}
-         - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
-         - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
-         - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
-         - TESTING=${TESTING}
-         - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
-         - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
-         - REAL_HOSTNAME=${REAL_HOSTNAME}
-      cap_add:
-         - SYS_ADMIN
-      build:
-         context: ./webapp
-         args:
-            #Pass the hosts docker group id, since we are using the docker socket from the host.
-            DOCKER_GROUP_ID: ${DOCKER_GROUP_ID:?DOCKER_GROUP_ID not set}
-      volumes:
-         #Persistance folder (db, templates, ...)
-         #The mounts need to be propageted, thus we can mount mounts created
-         #in this container from the host into other containers
-         - type: bind
-           source: {{ data_path }} # NOTE: Indented with two spaces!!!
-           target: /data # NOTE: Indented with two spaces!!!
-           bind: # NOTE: Indented with two spaces!!!
-             propagation: shared
-         #The webinterface, only needed for live updating during development
-         - ./webapp/:/app
-         #The exercise templates to import
-         - {{ exercises_path }}:/exercises
-         #Make docker availabe inside the container
-         - /var/run/docker.sock:/var/run/docker.sock
-{% if not testing %}
-      ports:
-         - "${HTTP_HOST_PORT}:8000"
-{% endif %}
-      networks:
-         - web-host
-         - web-and-ssh
-         - web-and-db
-      depends_on:
-         - db
-         - sshserver
-      cgroup_parent: "{{ cgroup_parent }}-core.slice"
+    web:
+        init: true
+        security_opt:
+            #Needed for mounting overlay inside containers
+            - apparmor:unconfined
+        environment:
+            - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD not set}
+            - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
+            - DEBUG=${DEBUG:?DEBUG not set}
+            - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
+            - POSTGRES_USER=ref
+            - POSTGRES_DB=ref
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
+            - SECRET_KEY=${SECRET_KEY:?SECRET_KEY not set}
+            - SSH_HOST_PORT=${SSH_HOST_PORT:?SSH_HOST_PORT not set}
+            - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
+            - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
+            - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
+            - TESTING=${TESTING}
+            - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
+            - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
+            - REAL_HOSTNAME=${REAL_HOSTNAME}
+        cap_add:
+            - SYS_ADMIN
+        build:
+            context: ./webapp
+            args:
+                #Pass the hosts docker group id, since we are using the docker socket from the host.
+                DOCKER_GROUP_ID: ${DOCKER_GROUP_ID:?DOCKER_GROUP_ID not set}
+        volumes:
+            #Persistance folder (db, templates, ...)
+            #The mounts need to be propageted, thus we can mount mounts created
+            #in this container from the host into other containers
+            - type: bind
+              source: {{ data_path }} # NOTE: Indented with two spaces!!!
+              target: /data # NOTE: Indented with two spaces!!!
+              bind: # NOTE: Indented with two spaces!!!
+                propagation: shared
+            #The webinterface, only needed for live updating during development
+            - ./webapp/:/app
+            #The exercise templates to import
+            - {{ exercises_path }}:/exercises
+            #Make docker availabe inside the container
+            - /var/run/docker.sock:/var/run/docker.sock
+        {% if not testing %}
+        ports:
+            - "${HTTP_HOST_PORT}:8000"
+        {% endif %}
+        networks:
+            - web-host
+            - web-and-ssh
+            - web-and-db
+        depends_on:
+            - db
+            - sshserver
+        cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
-   ssh-proxy:
-      command: "bash -c \"cd /app && python -c 'import ref; ref.create_ssh_proxy()'\""
-      environment:
-         - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD not set}
-         - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
-         - DEBUG=${DEBUG:?DEBUG not set}
-         - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
-         - POSTGRES_USER=ref
-         - POSTGRES_DB=ref
-         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
-         - SECRET_KEY=${SECRET_KEY:?SECRET_KEY not set}
-         - SSH_HOST_PORT=${SSH_HOST_PORT:?SSH_HOST_PORT not set}
-         - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
-         - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
-         - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
-         - TESTING=${TESTING}
-         - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
-         - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
-         - REAL_HOSTNAME=${REAL_HOSTNAME}
-      build:
-         context: "./webapp"
-         args:
-            #Pass the hosts docker group id, since we are using the docker socket from the host.
-            DOCKER_GROUP_ID: ${DOCKER_GROUP_ID:?DOCKER_GROUP_ID not set}
-      volumes:
-         #Persistance folder (db, templates, ...)
-         #The mounts need to be propageted, thus we can mount mounts created
-         #in this container from the host into other containers
-         - type: bind
-           source: {{ data_path }} # NOTE: Indented with two spaces!!!
-           target: /data # NOTE: Indented with two spaces!!!
-         #The webinterface, only needed for live updating during development
-         - ./webapp/:/app
-      networks:
-         - ssh-proxy-and-ssh
-         - ssh-proxy-and-db
-      depends_on:
-         - db
-         - sshserver
-      cgroup_parent: "{{ cgroup_parent }}-core.slice"
+    ssh-proxy:
+        init: true
+        command: "bash -c \"cd /app && python -c 'import ref; ref.create_ssh_proxy()'\""
+        environment:
+            - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD not set}
+            - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
+            - DEBUG=${DEBUG:?DEBUG not set}
+            - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
+            - POSTGRES_USER=ref
+            - POSTGRES_DB=ref
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
+            - SECRET_KEY=${SECRET_KEY:?SECRET_KEY not set}
+            - SSH_HOST_PORT=${SSH_HOST_PORT:?SSH_HOST_PORT not set}
+            - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
+            - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
+            - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
+            - TESTING=${TESTING}
+            - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
+            - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
+            - REAL_HOSTNAME=${REAL_HOSTNAME}
+        build:
+            context: "./webapp"
+            args:
+                #Pass the hosts docker group id, since we are using the docker socket from the host.
+                DOCKER_GROUP_ID: ${DOCKER_GROUP_ID:?DOCKER_GROUP_ID not set}
+        volumes:
+            #Persistance folder (db, templates, ...)
+            #The mounts need to be propageted, thus we can mount mounts created
+            #in this container from the host into other containers
+            - type: bind
+              source: {{ data_path }} # NOTE: Indented with two spaces!!!
+              target: /data # NOTE: Indented with two spaces!!!
+            #The webinterface, only needed for live updating during development
+            - ./webapp/:/app
+        networks:
+            - ssh-proxy-and-ssh
+            - ssh-proxy-and-db
+        depends_on:
+            - db
+            - sshserver
+        cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
 networks:
    #Network used to connect the webinterface to the host
-   web-host:
-      driver: bridge
-      driver_opts:
-         com.docker.network.bridge.name: "brref-webhost{{ 't' if testing }}"
-   #Interface between the SSH entry server and the webinterface.
-   #This interface is used by the SSH server to retrive information
-   #on how a incoming connection should be routed.
-   web-and-ssh:
-      driver: bridge
-      internal: true
-      driver_opts:
-         com.docker.network.bridge.name: "brref-webtossh{{ 't' if testing }}"
-   #This network connects the SSH entry server to the host.
-   ssh-and-host:
-      driver: bridge
-      driver_opts:
-         com.docker.network.bridge.name: "brref-sshhost{{ 't' if testing }}"
-   #Connect web to postgres
-   web-and-db:
-      driver: bridge
-      internal: true
-      driver_opts:
-         com.docker.network.bridge.name: "brref-webtodb{{ 't' if testing }}"
+    web-host:
+        driver: bridge
+        driver_opts:
+            com.docker.network.bridge.name: "brref-webhost{{ 't' if testing }}"
+    #Interface between the SSH entry server and the webinterface.
+    #This interface is used by the SSH server to retrive information
+    #on how a incoming connection should be routed.
+    web-and-ssh:
+        driver: bridge
+        internal: true
+        driver_opts:
+            com.docker.network.bridge.name: "brref-webtossh{{ 't' if testing }}"
+    #This network connects the SSH entry server to the host.
+    ssh-and-host:
+        driver: bridge
+        driver_opts:
+            com.docker.network.bridge.name: "brref-sshhost{{ 't' if testing }}"
+    #Connect web to postgres
+    web-and-db:
+        driver: bridge
+        internal: true
+        driver_opts:
+            com.docker.network.bridge.name: "brref-webtodb{{ 't' if testing }}"
 
-   ssh-proxy-and-ssh:
-      driver: bridge
-      internal: true
-      driver_opts:
-         com.docker.network.bridge.name: "brref-sshpro{{ 't' if testing }}"
+    ssh-proxy-and-ssh:
+        driver: bridge
+        internal: true
+        driver_opts:
+            com.docker.network.bridge.name: "brref-sshpro{{ 't' if testing }}"
 
-   ssh-proxy-and-db:
-      driver: bridge
-      internal: true
-      driver_opts:
-         com.docker.network.bridge.name: "brref-prodb{{ 't' if testing }}"
+    ssh-proxy-and-db:
+        driver: bridge
+        internal: true
+        driver_opts:
+            com.docker.network.bridge.name: "brref-prodb{{ 't' if testing }}"
