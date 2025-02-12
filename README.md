@@ -12,8 +12,8 @@ Building the framework is always required, and is described in the following.
 
 Clone the source and the submodules:
 ```bash
-git clone git@git.noc.ruhr-uni-bochum.de:SysSec-Teaching/remote-exercises-framework.git
-cd remote-exercises-framework
+git clone git@github.com:remote-exercise-framework/ref.git
+cd ref
 git submodule update --init --recursive
 
 # Create an environment file used for configuration and adapt the values in settings.env.
