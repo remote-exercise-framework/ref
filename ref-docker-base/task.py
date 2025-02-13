@@ -21,7 +21,7 @@ class TestResult():
     """
     The result of an submission test.
     """
-    name: str
+    task_name: str
     success: bool
     score: ty.Optional[float]
 

@@ -715,7 +715,7 @@ def api_instance_submit():
     # ! Keep in sync with ref-docker-base/task.py
     @dataclass
     class TestResult():
-        name: str
+        task_name: str
         success: bool
         score: ty.Optional[float]
 
@@ -766,7 +766,7 @@ def api_instance_submit():
     # about the error!
     test_result_objs = []
     for r in test_results:
-        o = SubmissionTestResult(r.name, user_controlled_test_output, r.success, r.score)
+        o = SubmissionTestResult(r.task_name, user_controlled_test_output, r.success, r.score)
         test_result_objs.append(o)
     new_instance = mgr.create_submission(test_result_objs)
 
