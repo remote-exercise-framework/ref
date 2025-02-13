@@ -8,6 +8,7 @@ import time
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Collection, List
+import typing as ty
 
 import docker
 import yaml
@@ -74,7 +75,7 @@ class InstanceEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     instance: 'Instance' = db.relationship('Instance', foreign_keys=[instance_id], back_populates="entry_service")
 
     #ID of the docker container.
-    container_id: int = db.Column(db.Text(), unique=True)
+    container_id: str = db.Column(db.Text(), unique=True)
 
     @property
     def overlay_submitted(self) -> str:
@@ -220,6 +221,54 @@ class Instance(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return self.submission
 
 
+class SubmissionTestResult(CommonDbOpsMixin, ModelToStringMixin, db.Model):
+    __to_str_fields__ = ['id']
+    __tablename__ = 'submission_test_result'
+    __allow_unmapped__ = True
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # The name of the task this results belongs to.
+    task_name: str = db.Column(db.Text(), nullable=False)
+    # The output of the test.
+    output: str = db.Column(db.Text(), nullable=False)
+    # Whether the test was successfull.
+    success: bool = db.Column(db.Boolean(), nullable=False)
+
+    # If the task supports grading, this is the score that was reached.
+    score: ty.Optional[float] = db.Column(db.Float(), nullable=True)
+
+    submission_id: int = db.Column(db.Integer, db.ForeignKey('submission.id', ondelete='RESTRICT'), nullable=False)
+    submission: 'Submission' = db.relationship("Submission", foreign_keys=[submission_id], back_populates="submission_test_results")
+
+    def __init__(self, task_name: str, output: str, success: bool, score: ty.Optional[float]) -> None:
+        super().__init__()
+        self.task_name = task_name
+        self.output = output
+        self.success = success
+        self.score = score
+
+
+class SubmissionExtendedTestResult(CommonDbOpsMixin, ModelToStringMixin, db.Model):
+    __to_str_fields__ = ['id']
+    __tablename__ = 'submission_extended_test_result'
+    __allow_unmapped__ = True
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # The name of the task this results belongs to.
+    task_name: str = db.Column(db.Text(), nullable=False)
+    # The output of the test.
+    output: str = db.Column(db.Text(), nullable=False)
+    # Whether the test was successfull.
+    success: bool = db.Column(db.Boolean(), nullable=False)
+
+    # If the task supports grading, this is the score that was reached.
+    score: ty.Optional[float] = db.Column(db.Float(), nullable=True)
+
+    submission_id: int = db.Column(db.Integer, db.ForeignKey('submission.id', ondelete='RESTRICT'), nullable=False)
+    submission: 'Submission' = db.relationship("Submission", foreign_keys=[submission_id], back_populates="extended_submission_test_results")
+
 class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     A submission represents a specific state of an instance at one point in time (snapshot).
@@ -248,8 +297,8 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     grading_id: int = db.Column(db.Integer, db.ForeignKey('grading.id', ondelete='RESTRICT'), nullable=True)
     grading: 'Grading' = db.relationship("Grading", foreign_keys=[grading_id], back_populates="submission")
 
-    test_output: str = db.Column(db.Text(), nullable=True)
-    test_passed: bool = db.Column(db.Boolean(), nullable=True)
+    submission_test_results: List[SubmissionTestResult] = db.relationship('SubmissionTestResult', back_populates='submission', lazy=True, passive_deletes='all')
+    extended_submission_test_results: List[SubmissionExtendedTestResult] = db.relationship('SubmissionExtendedTestResult', back_populates='submission', lazy=True, passive_deletes='all')
 
     def is_graded(self) -> bool:
         return self.grading_id is not None

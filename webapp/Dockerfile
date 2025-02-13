@@ -30,4 +30,4 @@ RUN chown -R user /app
 
 # Run
 #EXPOSE 8000
-ENTRYPOINT ["./run-server.sh"]
+CMD ["./run-server.sh"]

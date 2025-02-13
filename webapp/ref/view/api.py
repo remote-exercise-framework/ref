@@ -1,5 +1,7 @@
+from dataclasses import dataclass
 import datetime
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -37,6 +39,7 @@ from ref.core.util import lock_db
 from ref.model import (ConfigParsingError, Exercise, Instance, SystemSetting,
                        SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
+from ref.model.instance import SubmissionTestResult
 
 log = LocalProxy(lambda: current_app.logger)
 
@@ -686,8 +689,12 @@ def api_instance_submit():
     This function expects the following signed data structure:
     {
         'instance_id': <ID>,
-        'test_log': The output of the submission test,
-        'test_ret': The return value of the submission test.
+        'output': str, # The output of the submission test (!!! user controlled)
+        [
+            'name': str,
+            'success': bool, # The return value of the submission test (!!! user controlled)
+            'score': float | null
+        ]
     }
     """
     try:
@@ -703,13 +710,24 @@ def api_instance_submit():
         abort(400)
 
     log.info(f'Got submit request for instance_id={instance_id}')
+    print(json.dumps(content, indent=4))
 
+    # ! Keep in sync with ref-docker-base/task.py
+    @dataclass
+    class TestResult():
+        name: str
+        success: bool
+        score: ty.Optional[float]
+
+    test_results: ty.List[TestResult] = []
     try:
-        test_log = content['test_log']
+        test_results_list: ty.List[ty.Dict[ty.Any, ty.Any]] = content['test_results']
+        for r in test_results_list:
+            test_results.append(TestResult(**r))
+
         # Postgres does not like \x00 bytes in strings,
         # hence we replace them by a printable error mark.
-        test_log = test_log.replace("\x00", "\uFFFD")
-        test_ret = int(content['test_ret'])
+        user_controlled_test_output = content["output"].replace("\x00", "\uFFFD")
     except:
         log.warning('Invalid request', exc_info=True)
         abort(400)
@@ -746,7 +764,11 @@ def api_instance_submit():
     # This will stop the instance the submission was initiated from.
     # If the commit down below fails, the user does not receive any feedback
     # about the error!
-    new_instance = mgr.create_submission(test_ret, test_log)
+    test_result_objs = []
+    for r in test_results:
+        o = SubmissionTestResult(r.name, user_controlled_test_output, r.success, r.score)
+        test_result_objs.append(o)
+    new_instance = mgr.create_submission(test_result_objs)
 
     current_app.db.session.commit()
     log.info(f'Created submission: {new_instance.submission}')

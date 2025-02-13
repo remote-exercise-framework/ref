@@ -20,6 +20,7 @@ from werkzeug.local import LocalProxy
 from ref.core import InconsistentStateError, inconsistency_on_error
 from ref.model import (Instance, InstanceEntryService, InstanceService,
                        Submission, User, RessourceLimits)
+from ref.model import SubmissionTestResult
 
 from .docker import DockerClient
 from .exercise import Exercise, ExerciseService
@@ -96,7 +97,7 @@ class InstanceManager():
 
         return instance
 
-    def create_submission(self, test_ret: int, test_out: str) -> Instance:
+    def create_submission(self, test_results: List[SubmissionTestResult]) -> Instance:
         """
         Args:
             test_ret: The return value of the submission test (user controlled!)
@@ -146,16 +147,14 @@ class InstanceManager():
             raise
 
         submission = Submission()
-        submission.test_output = test_out
-        submission.test_passed = test_ret == 0
-
+        submission.submission_test_results = test_results
         submission.submission_ts = datetime.datetime.now()
         submission.origin_instance = self.instance
         submission.submitted_instance = new_instance
 
         try:
-            current_app.db.session.add(submission)
-            current_app.db.session.add(self.instance)
+            current_app.db.session.add(submission) # type: ignore
+            current_app.db.session.add(self.instance) # type: ignore
         except:
             log.error('Error while adding objects to DB', exc_info=True)
             with inconsistency_on_error():

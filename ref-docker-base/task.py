@@ -1,17 +1,32 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import subprocess
 import sys
-import typing
+import typing as ty
 import shutil
 from pathlib import Path
+from dataclasses import asdict, dataclass
 
 import requests
 from itsdangerous import TimedSerializer
 
 from ref_utils import print_err, print_ok, print_warn
+
+# ! Keep in sync with _TestResult in ref_utils/decorator.py
+@dataclass
+class TestResult():
+    """
+    The result of an submission test.
+    """
+    name: str
+    success: bool
+    score: ty.Optional[float]
+
+# ! Keep in sync with ref_utils/decorator.py
+TEST_RESULT_PATH = Path("/var/test_result")
 
 with open('/etc/key', 'rb') as f:
     KEY = f.read()
@@ -28,7 +43,7 @@ def finalize_request(req):
     req = signer.dumps(req)
     return req
 
-def handle_response(resp, expected_status=(200, )) -> typing.Tuple[int, typing.Dict]:
+def handle_response(resp, expected_status=(200, )) -> ty.Tuple[int, ty.Dict]:
     """
     Process a response of a "requests" request.
     If the response has a status code not in expected_status,
@@ -62,7 +77,7 @@ def handle_response(resp, expected_status=(200, )) -> typing.Tuple[int, typing.D
             print_err(f'[!]', 'Unknown error! Please contact the staff')
         exit(1)
 
-def check_answer(prompt=None):
+def user_answered_yes(prompt=None):
     if prompt:
         print(prompt, end='')
     try:
@@ -77,7 +92,7 @@ def check_answer(prompt=None):
 def cmd_reset(_):
     print_warn('[!] This operation will revert all modifications.\n    All your data will be lost and you will have to start from scratch!\n    You have been warned.')
     print_warn('[!] Are you sure you want to continue? [y/n] ', end='')
-    if not check_answer():
+    if not user_answered_yes():
         exit(0)
 
     print_ok('[+] Resetting instance now. In case of success, you will be disconnected from the instance.', flush=True)
@@ -86,45 +101,60 @@ def cmd_reset(_):
     res = requests.post('http://sshserver:8000/api/instance/reset', json=req)
     handle_response(res)
 
-def _run_tests():
+def _run_tests() ->  ty.Tuple[str, ty.List[TestResult]]:
     test_path = '/usr/local/bin/submission_tests'
     if not os.path.isfile(test_path):
         print_warn('[+] No testsuite found! Skipping tests..')
-        return 0, 'No testsuit found'
+        return "No testsuite found! Skipping tests..", []
 
-    log_path = '/tmp/test_logfile'
-    with open(log_path, 'w') as logfile:
+    output_log_path = Path('/tmp/test_logfile')
+    with output_log_path.open("w") as output_logfile:
         proc = subprocess.Popen(test_path, shell=False, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        assert proc.stdout
         for line in proc.stdout:
             sys.stdout.write(line)
-            logfile.write(line)
+            output_logfile.write(line)
         proc.wait()
 
-    return proc.returncode, open(log_path, 'r').read()
+    if not TEST_RESULT_PATH.exists():
+        print_err("[!] The submission test did not produce any output, this should not happend! Please ask for assistance.")
+        exit(1)
+
+    test_details_json = json.loads(TEST_RESULT_PATH.read_text())
+    test_details_parsed = []
+    for subtask in test_details_json:
+        subtask_details = TestResult(**subtask)
+        test_details_parsed.append(subtask_details)
+
+    return output_log_path.read_text(), test_details_parsed
 
 def cmd_submit(_):
     print_ok('[+] Submitting instance..', flush=True)
 
-    ret, out = _run_tests()
-    if ret != 0:
+    test_output, test_results = _run_tests()
+    any_test_failed =  any([not t.success for t in test_results])
+
+    if any_test_failed:
         print_warn('[!] Failing tests may indicate that your solution is erroneous or not complete yet.')
         print_warn('[!] Are you sure you want to submit? [y/n] ', end='')
-        if not check_answer():
+        if not user_answered_yes():
             exit(0)
     else:
         print_ok('[+] Are you sure you want to submit? [y/n] ', end='')
-        if not check_answer():
+        if not user_answered_yes():
             exit(0)
-    print_ok("[+] Submitting now...", flush=True)
-    req = {
-        'test_log': out,
-        'test_ret': ret
-    }
 
-    if len(out) > MAX_TEST_OUTPUT_LENGTH:
+    if len(test_output) > MAX_TEST_OUTPUT_LENGTH:
         print_err(f'[!] Test output exceeded maximum length of {MAX_TEST_OUTPUT_LENGTH} characters.')
         print_err(f'[!] You need to trim the output of your solution script(s) to submit!')
         exit(0)
+
+    print_ok("[+] Submitting now...", flush=True)
+
+    req = {
+        'output': test_output,
+        'test_results': [asdict(e) for e in test_results]
+    }
 
     req = finalize_request(req)
     res = requests.post('http://sshserver:8000/api/instance/submit', json=req)
