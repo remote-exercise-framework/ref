@@ -22,7 +22,7 @@ pycairo==1.27.0
 pygobject==3.48.2
 pyjwt==2.7.0
 pylint==3.3.4
-python-apt==2.7.7+ubuntu3
+python-apt
 pyyaml==6.0.1
 r2env==0.5.7
 requests-unixsocket==0.3.0
