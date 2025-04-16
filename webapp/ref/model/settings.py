@@ -65,6 +65,10 @@ class SystemSettingsManager():
     MAINTENANCE_ENABLED = Setting('MAINTENANCE_ENABLED', bool, False)
     SUBMISSION_DISABLED = Setting('SUBMISSION_DISABLED', bool, False)
     SUBMISSION_ALLOW_DELETE = Setting('SUBMISSION_ALLOW_DELETE', bool, False)
+    TELEGRAM_LOGGER_TOKEN = Setting('TELEGRAM_LOGGER_TOKEN', str, "")
+    TELEGRAM_LOGGER_CHANNEL_ID = Setting('TELEGRAM_LOGGER_CHANNEL_ID', str, "")
+
+
     # Whether to hide submissins that belong to an ongoing exercise
     # for the grading assistant.
     SUBMISSION_HIDE_ONGOING = Setting('SUBMISSION_HIDE_ONGOING', bool, False)

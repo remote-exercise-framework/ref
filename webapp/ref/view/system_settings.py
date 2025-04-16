@@ -46,6 +46,8 @@ class GeneralSettings(Form):
         choices=[(e, e) for e in pytz.all_timezones]
         )
 
+    telegram_logger_token = StringField('Telegram Logger Token')
+    telegram_logger_channel_id = StringField("Telegram Logger Channel ID")
 
 class GroupSettings(Form):
     group_size = IntegerField('Max. group size', validators=[validators.NumberRange(1)])
@@ -94,6 +96,8 @@ def view_system_settings():
         (SystemSettingsManager.SUBMISSION_HIDE_ONGOING, general_settings_form.hide_ongoing_exercises_for_grading_assistant),
         (SystemSettingsManager.TIMEZONE, general_settings_form.timezone),
         (SystemSettingsManager.MAINTENANCE_ENABLED, general_settings_form.maintenance_enabled),
+        (SystemSettingsManager.TELEGRAM_LOGGER_TOKEN, general_settings_form.telegram_logger_token),
+        (SystemSettingsManager.TELEGRAM_LOGGER_CHANNEL_ID, general_settings_form.telegram_logger_channel_id),
     ]
     process_setting_form(general_settings_form, general_settings_mapping)
 

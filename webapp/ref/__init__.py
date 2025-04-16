@@ -65,46 +65,41 @@ def db_get(self, model, **kwargs):
     return self.session.query(model).filter_by(**kwargs).first()
 db.get = MethodType(db_get, db)
 
+from colorama import init, Fore
+class ColorFormatter(logging.Formatter):
+    COLORS = {
+        'DEBUG': Fore.BLUE,
+        'INFO': Fore.GREEN,
+        'WARNING': Fore.YELLOW,
+        'ERROR': Fore.RED,
+        'CRITICAL': Fore.MAGENTA
+    }
+
+    def format(self, record):
+        log_color = self.COLORS.get(record.levelname, Fore.WHITE)
+        log_message = super().format(record)
+        return f"{log_color}{log_message}{Fore.RESET}"
+
+class HostnameFilter(logging.Filter):
+    hostname = os.environ.get('REAL_HOSTNAME', 'Hostname unset')
+
+    def filter(self, record):
+        record.hostname = HostnameFilter.hostname
+        return True
+
+log_format = '[%(asctime)s][%(process)d][%(hostname)s][%(levelname)s] %(filename)s:%(lineno)d %(funcName)s(): %(message)s'
+colored_log_formatter = ColorFormatter(log_format)
+bw_log_formatter = Formatter(log_format)
+
+
 def setup_loggin(app):
     """
     Setup all loggin related functionality.
     """
-    from colorama import init, Fore
-
-    class ColorFormatter(logging.Formatter):
-        COLORS = {
-            'DEBUG': Fore.BLUE,
-            'INFO': Fore.GREEN,
-            'WARNING': Fore.YELLOW,
-            'ERROR': Fore.RED,
-            'CRITICAL': Fore.MAGENTA
-        }
-
-        def format(self, record):
-            log_color = self.COLORS.get(record.levelname, Fore.WHITE)
-            log_message = super().format(record)
-            return f"{log_color}{log_message}{Fore.RESET}"
-
-    class HostnameFilter(logging.Filter):
-        hostname = os.environ.get('REAL_HOSTNAME', 'Hostname unset')
-
-        def filter(self, record):
-            record.hostname = HostnameFilter.hostname
-            return True
-
-    default_formatter = ColorFormatter('[%(asctime)s][%(process)d][%(hostname)s][%(levelname)s] %(filename)s:%(lineno)d %(funcName)s(): %(message)s')
-
     #Logs to the WSGI servers stderr
     wsgi_handler = StreamHandler(wsgi_errors_stream)
     wsgi_handler.addFilter(HostnameFilter())
-    wsgi_handler.setFormatter(default_formatter)
-
-    #Setup a logger that sends notifications into an telgram chat if an error occurs.
-    # telegram_token = "<token>"
-    # telegram_handler = TelegramHandler(telegram_token, <chat-id>)
-    # telegram_handler.setLevel(logging.ERROR)
-    # telegram_handler.addFilter(HostnameFilter())
-    # telegram_handler.setFormatter(default_formatter)
+    wsgi_handler.setFormatter(colored_log_formatter)
 
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
@@ -122,6 +117,25 @@ def setup_loggin(app):
     app.logger.removeHandler(default_handler)
     app.logger.info('Logging setup finished')
 
+def setup_telegram_logger(app):
+    from ref.model import SystemSettingsManager
+    with app.app_context():
+        token = SystemSettingsManager.TELEGRAM_LOGGER_TOKEN.value
+        channel_id = SystemSettingsManager.TELEGRAM_LOGGER_CHANNEL_ID.value
+    if token and channel_id:
+        try:
+            app.logger.info(f'Setting up Telegram log handler with {token=:.8}... and {channel_id=:.4}...')
+            root_logger = logging.getLogger()
+            telegram_token = token
+            telegram_handler = TelegramHandler(telegram_token, channel_id)
+            telegram_handler.setLevel(logging.ERROR)
+            telegram_handler.addFilter(HostnameFilter())
+            telegram_handler.setFormatter(bw_log_formatter)
+            root_logger.addHandler(telegram_handler)
+        except:
+            app.logger.error("Failed to setup telegram logger. Running without it. Check your settings in the webinterface!", exc_info=True)
+        else:
+            app.logger.info('Telegram handler installed!')
 
 def setup_db(app: Flask):
     """
@@ -250,7 +264,10 @@ def setup_instances(app: Flask):
         for i in instances:
             mgr = InstanceManager(i)
             # raises
-            mgr.mount()
+            try:
+                mgr.mount()
+            except:
+                pass
 
 def setup_jinja(app: Flask):
     if app.debug:
@@ -382,6 +399,10 @@ def create_app(config=None):
             exit(1)
 
     setup_db_default_data(app)
+
+    # Must happen after we have db access, since the credentails are store inthere.
+    setup_telegram_logger(app)
+
     setup_login(app)
     setup_instances(app)
     setup_jinja(app)

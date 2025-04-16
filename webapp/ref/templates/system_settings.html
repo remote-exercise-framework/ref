@@ -51,6 +51,16 @@ System Settings
                     {{ general_settings_form.timezone() }}
                 </div>
             </div>
+            <div class="col-md-12">
+                <div class="form-group">
+                    {{ wtf_utils.render_field(general_settings_form.telegram_logger_token, "text") }}
+                </div>
+            </div>
+            <div class="col-md-12">
+                <div class="form-group">
+                    {{ wtf_utils.render_field(general_settings_form.telegram_logger_channel_id, "text") }}
+                </div>
+            </div>
 
                 {{ general_settings_form.csrf_token }}
                 {{ wtf_utils.render_submit(general_settings_form.submit) }}
