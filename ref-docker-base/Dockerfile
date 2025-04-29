@@ -28,6 +28,7 @@ RUN apt update && apt install -y \
     nasm \
     screen tmux \
     vim \
+    neovim \
     strace \
     attr \
     pkg-config \
