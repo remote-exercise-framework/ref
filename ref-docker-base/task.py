@@ -26,7 +26,7 @@ class TestResult():
     score: ty.Optional[float]
 
 # ! Keep in sync with ref_utils/decorator.py
-TEST_RESULT_PATH = Path("/var/test_result")
+TEST_JSON_RESULT_PATH = Path("/var/test_result")
 
 with open('/etc/key', 'rb') as f:
     KEY = f.read()
@@ -101,37 +101,42 @@ def cmd_reset(_):
     res = requests.post('http://sshserver:8000/api/instance/reset', json=req)
     handle_response(res)
 
-def _run_tests() ->  ty.Tuple[str, ty.List[TestResult]]:
-    test_path = '/usr/local/bin/submission_tests'
-    if not os.path.isfile(test_path):
+def _run_tests(*, result_will_be_submitted: bool =False) ->  ty.Tuple[str, ty.List[TestResult]]:
+    test_path = Path('/usr/local/bin/submission_tests')
+    if not test_path.exists():
         print_warn('[+] No testsuite found! Skipping tests..')
         return "No testsuite found! Skipping tests..", []
 
-    output_log_path = Path('/tmp/test_logfile')
-    with output_log_path.open("w") as output_logfile:
-        proc = subprocess.Popen(test_path, shell=False, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    env = os.environ.copy()
+    if result_will_be_submitted:
+        env["RESULT_WILL_BE_SUBMITTED"] = "1"
+
+    test_stdout_stderr_path = Path('/tmp/test_logfile')
+    with test_stdout_stderr_path.open("w") as stdout_stderr_log:
+        proc = subprocess.Popen(test_path.as_posix(), env=env, shell=False, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         assert proc.stdout
         for line in proc.stdout:
             sys.stdout.write(line)
-            output_logfile.write(line)
+            stdout_stderr_log.write(line)
         proc.wait()
 
-    if not TEST_RESULT_PATH.exists():
+    # The result of the test should be written as json into the file.
+    if not TEST_JSON_RESULT_PATH.exists():
         print_err("[!] The submission test did not produce any output, this should not happend! Please ask for assistance.")
         exit(1)
 
-    test_details_json = json.loads(TEST_RESULT_PATH.read_text())
+    test_details_json = json.loads(TEST_JSON_RESULT_PATH.read_text())
     test_details_parsed = []
     for subtask in test_details_json:
         subtask_details = TestResult(**subtask)
         test_details_parsed.append(subtask_details)
 
-    return output_log_path.read_text(), test_details_parsed
+    return test_stdout_stderr_path.read_text(), test_details_parsed
 
 def cmd_submit(_):
     print_ok('[+] Submitting instance..', flush=True)
 
-    test_output, test_results = _run_tests()
+    test_output, test_results = _run_tests(result_will_be_submitted=True)
     any_test_failed =  any([not t.success for t in test_results])
 
     if any_test_failed:
