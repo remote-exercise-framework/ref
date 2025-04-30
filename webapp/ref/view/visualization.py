@@ -9,11 +9,15 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Set
 
 import docker
+import docker.models
+import docker.models.containers
 import redis
 import rq
 import yaml
 from flask import (Blueprint, Flask, abort, current_app, redirect,
                    render_template, request, url_for)
+
+from dataclasses import dataclass
 
 from flask_login import login_required
 from ref.core.util import utc_datetime_to_local_tz
@@ -25,29 +29,36 @@ from ref.model.enums import ExerciseBuildStatus
 from wtforms import Form, IntegerField, SubmitField, validators
 from gviz_api import DataTable
 
+import typing as t
+
 lerr = lambda msg: current_app.logger.error(msg)
 linfo = lambda msg: current_app.logger.info(msg)
 lwarn = lambda msg: current_app.logger.warning(msg)
 
+@dataclass
 class Node():
+    id: str
+    name: str
+    type: str
+    size: float = 1.0
+    color: t.Optional[str] = None
 
-    def __init__(self, id, name, type, size=1, color=None):
-        self.id = id
-        self.name = name
-        self.type = type
-        self.size = size
-        self.color = color
 
+@dataclass
 class Link():
-
-    def __init__(self, name, source, target):
-        self.name = name
-        self.source = source
-        self.target = target
+    name: t.Optional[str]
+    source: str
+    target: str
 
 def _container_top(container):
     #Create nodes and links for processes running in each container
-    processes = container.top()['Processes']
+    try:
+        processes = container.top()['Processes']
+    except:
+        # When we query the container, it may already have vanished.
+        # Any error happening here is not fatal, so we just ignore it.
+        return [], []
+
     nodes = []
     links = []
     for p in processes:
