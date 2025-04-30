@@ -31,13 +31,12 @@ function on_signal() {
 
 trap "on_signal" TERM INT
 
-if [[ "$DEBUG" == "1" || "$DEBUG" == "true" || "$DEBUG" == "True" ]]; then
+if [[ "$HOT_RELOADING" == "1" || "$HOT_RELOADING" == "true" || "$HOT_RELOADING" == "True" ]]; then
     # Our costom inotify loop since uwsgi's py-reload does not work if there are, e.g., syntax
     # errors. Such error cause the server stop responding to fs events.
     (
         # shellcheck disable=SC2034
-        inotifywait -m -e modify,create,delete -r . | while read -r path action file; do
-            # echo "[+] Detected $action on $file in $path, reloading"
+        inotifywait -m --exclude ".*\.sh" --exclude ".*\.html" --exclude ".*\.css" --exclude ".*\.js"  -e modify,create,delete -r . | while read -r path action file; do
             uwsgi --reload "$pid_file_path"
         done
     ) &

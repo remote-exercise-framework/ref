@@ -160,12 +160,6 @@ def setup_db(app: Flask):
     migrate.init_app(app, db)
     app.migrate = migrate
 
-    if app.config['TESTING']:
-        with app.app_context():
-            db.drop_all()
-            db.create_all()
-        return True
-
     with app.app_context():
         # A DB only containing the table alembic_version is consider uninitialized.
         inspection = sqlalchemy.inspect(app.db.engine)

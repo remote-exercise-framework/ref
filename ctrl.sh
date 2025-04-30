@@ -63,6 +63,9 @@ Commands:
             Only allow admin users to login.
             --disable-telegram
             Disable error reporting via telegram.
+            --hot-reloading
+            Enable hot reloading of the server if any file expect .html, .js or .sh
+            is changed in tree.
 
     stop
         Stop all services without removing the associated containers.
@@ -310,6 +313,7 @@ function up {
     export MAINTENANCE_ENABLED=false
     export DISABLE_TELEGRAM=false
     export DEBUG_TOOLBAR=false
+    export HOT_RELOADING=false
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -331,6 +335,10 @@ function up {
             ;;
             '--debug-toolbar')
                 export DEBUG_TOOLBAR=true
+                shift
+            ;;
+            '--hot-reloading')
+                export HOT_RELOADING=true
                 shift
             ;;
             *)

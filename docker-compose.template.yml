@@ -82,7 +82,7 @@ services:
             - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
             - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
             - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
-            - TESTING=${TESTING}
+            - HOT_RELOADING=${HOT_RELOADING}
             - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
             - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
             - REAL_HOSTNAME=${REAL_HOSTNAME}
@@ -137,7 +137,7 @@ services:
             - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
             - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
             - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
-            - TESTING=${TESTING}
+            - HOT_RELOADING=${HOT_RELOADING}
             - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
             - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
             - REAL_HOSTNAME=${REAL_HOSTNAME}
