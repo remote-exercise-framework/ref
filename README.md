@@ -131,14 +131,14 @@ git pull && git submodule update --init --recursive
 # Rebuild all services.
 ./ctrl.sh build
 
-# Migrate the database to the new version (if any changeupgrades have been applied)
+# Migrate the database to the new version.
 ./ctrl.sh flask-cmd db upgrade
 
 # Now REF can be started again and should operate normally.
 ./ctrl.sh up
 ```
 
-In case the update fails, remove the `data` andirectory and move the backup back to its location.
+In case the update fails, remove the `data` directory and move the backup to `data`.
 
 ### Services
 After starting the application, the following services are running on the host:
