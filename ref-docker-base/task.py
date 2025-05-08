@@ -101,7 +101,9 @@ def cmd_reset(_):
     res = requests.post('http://sshserver:8000/api/instance/reset', json=req)
     handle_response(res)
 
-def _run_tests(*, result_will_be_submitted: bool =False) ->  ty.Tuple[str, ty.List[TestResult]]:
+# FIXME: We should include the `submission_tests? as module, this would considerably simplify
+# passing args and reading back the results.
+def _run_tests(*, result_will_be_submitted: bool =False, only_run_these_tasks: ty.Optional[ty.Sequence[str]] = None) ->  ty.Tuple[str, ty.List[TestResult]]:
     test_path = Path('/usr/local/bin/submission_tests')
     if not test_path.exists():
         print_warn('[+] No testsuite found! Skipping tests..')
@@ -110,6 +112,9 @@ def _run_tests(*, result_will_be_submitted: bool =False) ->  ty.Tuple[str, ty.Li
     env = os.environ.copy()
     if result_will_be_submitted:
         env["RESULT_WILL_BE_SUBMITTED"] = "1"
+
+    if only_run_these_tasks:
+        env["ONLY_RUN_THESE_TASKS"] = ":".join(only_run_these_tasks)
 
     test_stdout_stderr_path = Path('/tmp/test_logfile')
     with test_stdout_stderr_path.open("w") as stdout_stderr_log:
@@ -166,11 +171,12 @@ def cmd_submit(_):
     _, ret = handle_response(res)
     print_ok(ret)
 
-def cmd_check(_):
+def cmd_check(args: argparse.Namespace):
     """
     Run a script that is specific to the current task and print its output?
     """
-    _run_tests()
+    only_run_these_tasks = args.only_run_these_tasks
+    _run_tests(only_run_these_tasks=only_run_these_tasks)
 
 def cmd_id(_):
     print_ok('[+] If you need support, please provide this ID alongside your request.')
@@ -214,6 +220,7 @@ def main():
     check_parser = subparsers.add_parser('check',
         help='Run various checks which verify whether your environment and submission match the solution.'
         )
+    check_parser.add_argument('only_run_these_tasks', metavar="task-name", nargs='*', help='Only run the checks for the passed `task-name`s')
     check_parser.set_defaults(func=cmd_check)
 
     id_parser = subparsers.add_parser('id',
