@@ -5,37 +5,39 @@ set -o pipefail
 
 mkdir -p data
 
+function txt {
+    case "$1" in
+        bold) tput bold 2>/dev/null ;;
+        reset) tput sgr0 2>/dev/null ;;
+        red) tput setaf 1 2>/dev/null ;;
+        green) tput setaf 2 2>/dev/null ;;
+        yellow) tput setaf 3 2>/dev/null ;;
+    esac
+}
+
 function txt_bold {
-  tput bold 2> /dev/null
+  txt bold
 }
 
 function txt_reset {
-  tput sgr0 2> /dev/null
+  txt reset
 }
 
 function txt_red {
-  tput setaf 1 2> /dev/null
+  txt red
 }
 
 function txt_green {
-  tput setaf 2 2> /dev/null
+  txt green
 }
 
 function txt_yellow {
-  tput setaf 3 2> /dev/null
+  txt yellow
 }
 
-function info {
-    echo "$(txt_bold)$(txt_green)[+] $*$(txt_reset)"
-}
-
-function error {
-    echo "$(txt_bold)$(txt_red)[!] $*$(txt_reset)"
-}
-
-function warning {
-    echo "$(txt_bold)$(txt_yellow)[!] $*$(txt_reset)"
-}
+function info { echo "$(txt bold)$(txt green)[+] $*$(txt reset)"; }
+function error { echo "$(txt bold)$(txt red)[!] $*$(txt reset)"; }
+function warning { echo "$(txt bold)$(txt yellow)[!] $*$(txt reset)"; }
 
 function execute_cmd {
     info "* $*"
@@ -45,65 +47,64 @@ function execute_cmd {
 function usage {
 cat <<EOF
 Usage:
-$0 <Command> [OPTIONS...]
+  $0 <command> [OPTIONS...]
 
 Commands:
-    build
-        Build and pull all images including the docker based image.
-    update
-        Update the repository and all submodules.
+  build
+      Build and pull all images, including the docker base image.
 
-    up
-        Start all serviceses.
-            --debug
-            Enables debug mode. This causes exception to be printed
-            on the webinterface. Use this only for development.
-            --debug-toolbar
-            Enable the debug toolbar. This should never be enabled in
-            production (not even in the maintenance mode).
-            --maintenance
-            Only allow admin users to login.
-            --disable-telegram
-            Disable error reporting via telegram.
-            --hot-reloading
-            Enable hot reloading of the server if any file expect .html, .js or .sh
-            is changed in tree.
+  update
+      Update the repository and all submodules.
 
-    stop
-        Stop all services without removing the associated containers.
+  up [OPTIONS...]
+      Start all services.
+      Options:
+        --debug               Enable debug mode (prints exceptions on web interface).
+        --debug-toolbar       Enable the debug toolbar (never use in production).
+        --maintenance         Only allow admin users to login.
+        --disable-telegram    Disable error reporting via telegram.
+        --hot-reloading       Enable hot reloading of the server (except .html, .js, .sh files).
 
-    ps
-        List all running containers.
+  down
+      Stop and delete all services and networks. Disconnects all users and orphans running instances.
 
-    top
-        List all processes running inside the containers.
+  stop
+      Stop all services without removing the associated containers.
 
-    restart-web
-        Only restart the webinterface without the other services, thus
-        user get not disconnected since the SSH server is left untouched.
-        This command can be used to reload changes applied to the webinterface.
+  restart
+      Restart all services (disconnects currently connected users).
 
-    restart
-        Restart all services. This will disconnect currently connected users.
+  restart-web
+      Restart only the web interface (users stay connected via SSH).
 
-    down
-        Stop and delete all services and networks. This operation disconnects all users
-        and orphans all currently running instances since the network connecting them
-        with the ssh entry server is deleted. Consequently, all instances must be recreated
-        on demand when a user first connects. In general this command is only needed if
-        changes where applied to the container composition itself.
+  ps
+      List all running containers.
 
-    logs
-        Print the logs of all services on stdout.
-            -f
-            Follow to the log output and print incoming messages.
+  top
+      List all processes running inside the containers.
 
-    flask-cmd
-        Run a flask CLI command, e.g.,
-            flask-cmd db init
-            flask-cmd db migrate
-            flask-cmd db upgrade
-            ...
+  logs [-f]
+      Print the logs of all services.
+      -f    Follow log output and print incoming messages.
+
+  flask-cmd <args>
+      Run a Flask CLI command, e.g.:
+        flask-cmd db init
+        flask-cmd db migrate
+        flask-cmd db upgrade
+
+  db-migrate
+      Run Flask database migration.
+
+  db-init
+      Initialize the Flask database.
+
+  db-upgrade
+      Upgrade the Flask database.
+
+  --help
+      Show this help message and exit.
+
 EOF
 }
 
@@ -412,13 +413,8 @@ function flask-cmd {
 }
 
 function are_you_sure {
-    info "Are you sure? [y/n]"
-    read yes_no
-    if [[ "$yes_no" == "y" ]]; then
-        return 0
-    else
-        return 1
-    fi
+    read -r -p "$(txt bold)$(txt green)Are you sure? [y/N] $(txt reset)" yes_no
+    [[ "$yes_no" =~ ^[Yy]$ ]]
 }
 
 cmd="$1"
@@ -470,15 +466,6 @@ case "$cmd" in
     ;;
     db-upgrade)
         db_upgrade "$@"
-    ;;
-    run-tests)
-        run_tests "$@"
-    ;;
-    up-testing)
-        up_testing "$@"
-    ;;
-    down-testing)
-        down_testing "$@"
     ;;
     --help)
         usage
