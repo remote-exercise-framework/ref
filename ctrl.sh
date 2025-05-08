@@ -50,6 +50,8 @@ $0 <Command> [OPTIONS...]
 Commands:
     build
         Build and pull all images including the docker based image.
+    update
+        Update the repository and all submodules.
 
     up
         Start all serviceses.
@@ -287,12 +289,30 @@ if ! ./prepare.py; then
     exit 1
 fi
 
-
-function build {
+function update {
     (
+        # Check for uncommitted changes, ignoring untracked files
+        # -n tests if string length is non-zero
+        # git status --porcelain -uno returns modified files (excluding untracked)
+        if [[ -n "$(git status --porcelain -uno)" ]]; then
+            error "There are uncommitted changes in the main repository. Please commit or stash them first."
+            exit 1
+        fi
+
+        # Check submodules for uncommitted changes, suppressing "Entering..." messages
+        if [[ -n "$(git submodule foreach --quiet git status --porcelain -uno)" ]]; then
+            error "There are uncommitted changes in one or more submodules. Please commit or stash them first."
+            exit 1
+        fi
+
+        info "=> Updating repository"
+        git pull
         info "=> Updating submodules"
         git submodule update --recursive
     )
+}
+
+function build {
     #Build the base image for all exercises
     (
         info "=> Building docker base image"
@@ -407,6 +427,9 @@ shift
 case "$cmd" in
     build)
         build "$@"
+    ;;
+    update)
+        update "$@"
     ;;
     up)
         up "$@"
