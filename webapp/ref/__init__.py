@@ -350,6 +350,21 @@ def create_ssh_proxy(config=None):
     from ref.proxy import server_loop
     server_loop(app)
 
+
+def fix_stuck_exercise_builds(app: Flask):
+    """
+    Resets any exercises that are stuck in BUILDING status back to NOT_BUILD.
+    This can happen if the server was restarted during a build.
+    """
+    with app.app_context():
+        from ref.model import Exercise, ExerciseBuildStatus
+        stuck = Exercise.query.filter_by(build_job_status=ExerciseBuildStatus.BUILDING).all()
+        if stuck:
+            for ex in stuck:
+                ex.build_job_status = ExerciseBuildStatus.NOT_BUILD
+            app.db.session.commit()
+            app.logger.warning(f"Reset {len(stuck)} exercises from BUILDING to NOT_BUILD on startup.")
+
 @flask_failsafe
 def create_app(config=None):
     """
@@ -396,6 +411,7 @@ def create_app(config=None):
 
     # Must happen after we have db access, since the credentails are store inthere.
     setup_telegram_logger(app)
+    fix_stuck_exercise_builds(app)
 
     setup_login(app)
     setup_instances(app)
