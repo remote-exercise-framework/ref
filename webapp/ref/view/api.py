@@ -581,6 +581,12 @@ def api_get_header():
         resp += f'\n{msg_of_the_day}'
     return ok_response(resp)
 
+class SignatureUnwrappingError(Exception):
+
+    def __init__(self, user_error_message: str):
+        # Message without any sensitive data that can be presented to the user.
+        self.user_error_message = user_error_message
+        super().__init__(self, user_error_message)
 
 def _unwrap_signed_container_request(request: Request, max_age_s: int = 60) -> ty.Any:
     """
@@ -596,18 +602,18 @@ def _unwrap_signed_container_request(request: Request, max_age_s: int = 60) -> t
     content = request.get_json(force=True, silent=True)
     if not content:
         log.warning('Got request without JSON body')
-        raise Exception('Request is missing JSON body')
+        raise SignatureUnwrappingError('Request is missing JSON body')
 
     if not isinstance(content, str):
         log.warning(f'Invalid type {type(content)}')
-        raise Exception('Invalid request')
+        raise SignatureUnwrappingError('Invalid request')
 
     s = TimedSerializer(b"", salt='from-container-to-web')
     try:
         _, unsafe_content = s.loads_unsafe(content)
     except:
         log.warning(f'Failed to decode payload', exc_info=True)
-        raise Exception('Error during decoding')
+        raise SignatureUnwrappingError('Error during decoding')
 
     #This instance ID (['instance_id']) is just used to calculate the signature (['data']),
     #thus we do not have to iterate over all instance. After checking the signature,
@@ -615,27 +621,27 @@ def _unwrap_signed_container_request(request: Request, max_age_s: int = 60) -> t
     instance_id = unsafe_content.get('instance_id')
     if instance_id is None:
         log.warning('Missing instance_id')
-        raise Exception('Missing instance_id')
+        raise SignatureUnwrappingError('Missing instance_id')
 
     try:
         instance_id = int(instance_id)
     except:
         log.warning(f'Failed to convert {instance_id} to int', exc_info=True)
-        raise Exception('Invalid instance ID')
+        raise SignatureUnwrappingError('Invalid instance ID')
 
     instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
     if not instance:
         log.warning(f'Failed to find instance with ID {instance_id}')
-        raise Exception("Unable to find given instance")
+        raise SignatureUnwrappingError("Unable to find given instance")
 
     instance_key = instance.get_key()
 
     s = TimedSerializer(instance_key, salt='from-container-to-web')
     try:
         signed_content = s.loads(content, max_age=max_age_s)
-    except Exception as e:
+    except SignatureUnwrappingError as e:
         log.warning(f'Invalid request', exc_info=True)
-        raise Exception('Invalid request')
+        raise SignatureUnwrappingError('Invalid request')
 
     return signed_content
 
@@ -652,8 +658,8 @@ def api_instance_reset():
     """
     try:
         content = _unwrap_signed_container_request(request)
-    except Exception as e:
-        return error_response(str(e))
+    except SignatureUnwrappingError as e:
+        return error_response(e.user_error_message)
 
     instance_id = content.get('instance_id')
     try:
@@ -699,8 +705,8 @@ def api_instance_submit():
     """
     try:
         content: ty.Dict[str, ty.Any] = _unwrap_signed_container_request(request)
-    except Exception as e:
-        return error_response(str(e))
+    except SignatureUnwrappingError as e:
+        return error_response(e.user_error_message)
 
     instance_id = content['instance_id']
     try:
@@ -785,8 +791,8 @@ def api_instance_info():
     """
     try:
         content = _unwrap_signed_container_request(request)
-    except Exception as e:
-        return error_response(str(e))
+    except SignatureUnwrappingError as e:
+        return error_response(e.user_error_message)
 
     instance_id = content.get('instance_id')
     try:
