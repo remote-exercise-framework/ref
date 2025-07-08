@@ -122,7 +122,7 @@ def datetime_transmute_into_local(dt: datetime):
     Change the datetime's timezone to the local timezone without
     considering its current timezone (if any).
     NOTE: The datetime is just interpreted as the local timezone while being
-    treaded as having no timezone at all.
+    treated as having no timezone at all.
     Args:
         ts - A datetime with an arbitrary timezone.
     Returns:
