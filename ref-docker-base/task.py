@@ -35,7 +35,7 @@ with open('/etc/instance_id', 'r') as f: # type: ignore
     INSTANCE_ID = int(f.read())
 
 IS_SUBMISSION = os.path.isfile('/etc/is_submission')
-MAX_TEST_OUTPUT_LENGTH = 10000
+MAX_TEST_OUTPUT_LENGTH = 1024 * 64
 
 def finalize_request(req):
     signer = TimedSerializer(KEY, salt='from-container-to-web')
