@@ -238,7 +238,8 @@ class SubmissionTestResult(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     # If the task supports grading, this is the score that was reached.
     score: ty.Optional[float] = db.Column(db.Float(), nullable=True)
 
-    submission_id: int = db.Column(db.Integer, db.ForeignKey('submission.id', ondelete='RESTRICT'), nullable=False)
+    # ondelete='CASCADE' => Delete result if associated submission is deleted (realized via db-constraint)
+    submission_id: int = db.Column(db.Integer, db.ForeignKey('submission.id', ondelete='CASCADE'), nullable=False)
     submission: 'Submission' = db.relationship("Submission", foreign_keys=[submission_id], back_populates="submission_test_results")
 
     def __init__(self, task_name: str, output: str, success: bool, score: ty.Optional[float]) -> None:
@@ -266,7 +267,8 @@ class SubmissionExtendedTestResult(CommonDbOpsMixin, ModelToStringMixin, db.Mode
     # If the task supports grading, this is the score that was reached.
     score: ty.Optional[float] = db.Column(db.Float(), nullable=True)
 
-    submission_id: int = db.Column(db.Integer, db.ForeignKey('submission.id', ondelete='RESTRICT'), nullable=False)
+    # ondelete='CASCADE' => Delete result if associated submission is deleted (realized via db-constraint)
+    submission_id: int = db.Column(db.Integer, db.ForeignKey('submission.id', ondelete='CASCADE'), nullable=False)
     submission: 'Submission' = db.relationship("Submission", foreign_keys=[submission_id], back_populates="extended_submission_test_results")
 
 class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
@@ -294,11 +296,13 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     submission_ts: datetime.datetime = db.Column(db.DateTime(), nullable=False)
 
     #Set if this Submission was graded
-    grading_id: int = db.Column(db.Integer, db.ForeignKey('grading.id', ondelete='RESTRICT'), nullable=True)
+    # ondelete='RESTRICT' => restrict deletetion of referenced row if it is still referenced from here.
+    grading_id: ty.Optional[int] = db.Column(db.Integer, db.ForeignKey('grading.id', ondelete='RESTRICT'), nullable=True)
     grading: 'Grading' = db.relationship("Grading", foreign_keys=[grading_id], back_populates="submission")
 
-    submission_test_results: List[SubmissionTestResult] = db.relationship('SubmissionTestResult', back_populates='submission', lazy=True, passive_deletes='all')
-    extended_submission_test_results: List[SubmissionExtendedTestResult] = db.relationship('SubmissionExtendedTestResult', back_populates='submission', lazy=True, passive_deletes='all')
+    # passive_deletes=True => actual delete is performed by database constraint (ForeignKey ondelete='CASCADE')
+    submission_test_results: List[SubmissionTestResult] = db.relationship('SubmissionTestResult', back_populates='submission', lazy=True, cascade="all", passive_deletes=True)
+    extended_submission_test_results: List[SubmissionExtendedTestResult] = db.relationship('SubmissionExtendedTestResult', back_populates='submission', lazy=True, cascade="all", passive_deletes=True)
 
     def is_graded(self) -> bool:
         return self.grading_id is not None
