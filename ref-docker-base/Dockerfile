@@ -2,8 +2,9 @@ FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# 1. Install packages necessary for setup
-RUN apt update && apt install -y \
+RUN apt update
+
+RUN apt install -y \
     build-essential \
     ca-certificates \
     gcc gcc-multilib g++-multilib \
@@ -32,7 +33,8 @@ RUN apt update && apt install -y \
     strace \
     attr \
     pkg-config \
-    libcairo2-dev
+    libcairo2-dev \
+    gnuplot
 
 COPY requirements.txt /tmp/requirements.txt
 RUN python3 -m pip install --break-system-packages -r /tmp/requirements.txt && rm /tmp/requirements.txt
