@@ -9,14 +9,14 @@ from pathlib import Path
 import docker
 from flask import Flask, current_app
 from sqlalchemy.orm import joinedload, raiseload
-from werkzeug.local import LocalProxy
 
 from ref.core import InconsistentStateError, inconsistency_on_error
+from ref.core.logging import get_logger
 
 from .docker import DockerClient
 from .exercise import Exercise, ExerciseBuildStatus, ExerciseService
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 class ImageBuildError(Exception):
     def __init__(self, *args: object) -> None:

@@ -15,19 +15,19 @@ import yaml
 from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
 from sqlalchemy.orm import joinedload, raiseload
-from werkzeug.local import LocalProxy
 from urllib.parse import urlparse as url_parse
 from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, InstanceManager, admin_required, flash)
+from ref.core.logging import get_logger
 from ref.core.util import redirect_to_next
 from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
                        Instance, Submission, SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 @refbp.route('/admin/submissions')
 @admin_required

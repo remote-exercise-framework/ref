@@ -6,12 +6,12 @@ from pathlib import Path
 from flask import (Response, abort, current_app, render_template, request,
                    url_for)
 from itsdangerous import URLSafeTimedSerializer
-from werkzeug.local import LocalProxy
 
 from ref import refbp
 from ref.core import grading_assistant_required
+from ref.core.logging import get_logger
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 @dataclasses.dataclass
 class PathSignatureToken():

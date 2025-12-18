@@ -2,13 +2,12 @@ from functools import wraps
 from pathlib import Path
 
 from flask import current_app
-from werkzeug.local import LocalProxy
-
 from flask_login import current_user, login_required
-from ref.core import flash
+
+from ref.core.logging import get_logger
 from ref.model.enums import UserAuthorizationGroups
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 def admin_required(func):
     """
@@ -54,7 +53,7 @@ def sanitize_path_is_subdir(parent_path, child_path):
         parent_path = parent_path.resolve()
         child_path = child_path.resolve()
     except ValueError:
-        log.warning(f'Failed to sanitize path', exc_info=True)
+        log.warning('Failed to sanitize path', exc_info=True)
         return False
 
-    return child_path.as_posix().startswith(parent_path.as_posix())
+    return child_path.is_relative_to(parent_path)

@@ -5,17 +5,17 @@ from Crypto.PublicKey import RSA
 from flask import (Blueprint, Flask, Response, current_app, redirect,
                    render_template, request, url_for)
 from itsdangerous import URLSafeTimedSerializer
-from werkzeug.local import LocalProxy
 from wtforms import (Form, IntegerField, PasswordField, RadioField,
                      StringField, SubmitField, validators)
 
 from flask_login import current_user, login_user, logout_user
 from ref import db, refbp
 from ref.core import flash
+from ref.core.logging import get_logger
 from ref.core.util import redirect_to_next
 from ref.model import User
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 class LoginForm(Form):
     username = StringField('Matriculation Number', validators=[validators.DataRequired(), validators.Regexp(r'[0-9]+')], default='')

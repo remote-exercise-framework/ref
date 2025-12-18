@@ -15,7 +15,6 @@ from flask import (
     url_for,
 )
 from itsdangerous import URLSafeTimedSerializer
-from werkzeug.local import LocalProxy
 from wtforms import (
     BooleanField,
     Form,
@@ -31,6 +30,7 @@ from wtforms import (
 
 from ref import db, limiter, refbp
 from ref.core import admin_required, flash
+from ref.core.logging import get_logger
 from ref.core.util import (
     is_deadlock_error,
     lock_db,
@@ -50,7 +50,7 @@ DOWNLOAD_LINK_SIGN_SALT = "dl-keys"
 MAT_REGEX = r"^[0-9]+$"
 GROUP_REGEX = r"^[a-zA-Z0-9-_]+$"
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 
 class StringFieldDefaultEmpty(StringField):

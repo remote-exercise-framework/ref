@@ -27,7 +27,7 @@ import select
 from flask import (Blueprint, Flask, Request, abort, current_app, jsonify,
                    make_response, redirect, render_template, request, url_for)
 from itsdangerous import Serializer, TimedSerializer
-from werkzeug.local import Local, LocalProxy
+from werkzeug.local import Local
 from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, limiter, refbp
@@ -35,13 +35,14 @@ from ref.core import AnsiColorUtil as ansi
 from ref.core import (ExerciseImageManager, ExerciseManager,
                       InconsistentStateError, InstanceManager,
                       utc_datetime_to_local_tz, datetime_to_string, flash, DockerClient)
+from ref.core.logging import get_logger
 from ref.core.util import lock_db
 from ref.model import (ConfigParsingError, Exercise, Instance, SystemSetting,
                        SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
 from ref.model.instance import SubmissionTestResult
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 class ApiRequestError(Exception):
     """

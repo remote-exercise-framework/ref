@@ -9,15 +9,15 @@ import time
 from typing import Tuple, Optional
 from threading import Lock, Thread
 from flask import Flask, current_app
-from werkzeug.local import LocalProxy
 from types import SimpleNamespace
 from select import select
 from collections import namedtuple
 
+from ref.core.logging import get_logger
 from ref.model import Instance
 from dataclasses import dataclass
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 # Maximum message body size we accept.
 MAX_MESSAGE_SIZE = 4096

@@ -16,7 +16,6 @@ import yaml
 from flask import (Blueprint, Flask, abort, current_app, jsonify, redirect,
                    render_template, request, url_for)
 from sqlalchemy import and_, or_
-from werkzeug.local import LocalProxy
 from wtforms import Form, IntegerField, SubmitField, validators
 
 from flask_login import login_required
@@ -24,6 +23,7 @@ from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, admin_required, flash,
                       inconsistency_on_error, InstanceManager)
+from ref.core.logging import get_logger
 from ref.core.security import sanitize_path_is_subdir
 from ref.core.util import failsafe, redirect_to_next
 from ref.model import ConfigParsingError, Exercise, User
@@ -31,7 +31,7 @@ from ref.model.enums import ExerciseBuildStatus
 
 from ref.core import InconsistentStateError
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 @refbp.route('/admin/exercise/build/<int:exercise_id>')
 @admin_required

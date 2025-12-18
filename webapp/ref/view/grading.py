@@ -18,13 +18,13 @@ from flask import (Blueprint, Flask, abort, current_app, jsonify, redirect,
                    render_template, request, url_for)
 
 from sqlalchemy import and_, or_
-from werkzeug.local import LocalProxy
 from wtforms import Form, IntegerField, StringField, SubmitField, validators
 
 from flask_login import current_user, login_required
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, flash)
+from ref.core.logging import get_logger
 from ref.core.security import (admin_required, grading_assistant_required,
                                sanitize_path_is_subdir)
 from ref.core.util import redirect_to_next
@@ -33,7 +33,7 @@ from ref.model.enums import ExerciseBuildStatus, UserAuthorizationGroups
 
 from ref.model import SystemSettingsManager
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 class GradingForm(Form):
     points = IntegerField('Points', validators=[validators.NumberRange(min=0)])

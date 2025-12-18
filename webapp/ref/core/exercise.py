@@ -18,8 +18,8 @@ import itsdangerous
 import yaml
 from flask import current_app
 from sqlalchemy.orm import joinedload, raiseload
-from werkzeug.local import LocalProxy
 
+from ref.core.logging import get_logger
 from ref.model import (
     Exercise,
     ExerciseEntryService,
@@ -37,7 +37,7 @@ from .docker import DockerClient
 from .image import ExerciseImageManager
 from .instance import InstanceManager
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 
 class ExerciseConfigError(Exception):

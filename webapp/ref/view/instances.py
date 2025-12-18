@@ -15,24 +15,23 @@ from functools import lru_cache
 import yaml
 from flask import (Blueprint, Flask, Response, abort, current_app, redirect,
                    render_template, request, url_for)
-from werkzeug.local import LocalProxy
 from urllib.parse import urlparse as url_parse
 from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, refbp
 from ref.core import (ExerciseConfigError, ExerciseImageManager,
                       ExerciseManager, InstanceManager, admin_required, flash)
+from ref.core.logging import get_logger
 from ref.core.util import lock_db, redirect_to_next
 from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
                        Instance, SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
 from sqlalchemy.orm import joinedload, raiseload
 
-lerr = lambda msg: current_app.logger.error(msg)
-linfo = lambda msg: current_app.logger.info(msg)
-lwarn = lambda msg: current_app.logger.warning(msg)
-
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
+lerr = lambda msg: log.error(msg)
+linfo = lambda msg: log.info(msg)
+lwarn = lambda msg: log.warning(msg)
 
 @lru_cache(maxsize=None)
 def get_newest_exercise_version(exercise: Exercise):

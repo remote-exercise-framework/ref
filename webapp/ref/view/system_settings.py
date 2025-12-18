@@ -5,7 +5,6 @@ from Crypto.PublicKey import RSA
 from flask import (Blueprint, Flask, Response, current_app, redirect,
                    render_template, request, url_for)
 from itsdangerous import URLSafeTimedSerializer
-from werkzeug.local import LocalProxy
 from wtforms import (BooleanField, Form, IntegerField, PasswordField,
                      RadioField, SelectField, StringField, SubmitField,
                       validators)
@@ -14,13 +13,14 @@ from flask import copy_current_request_context
 import pytz
 from ref import db, refbp
 from ref.core import admin_required, flash, InstanceManager
+from ref.core.logging import get_logger
 from ref.core.util import redirect_to_next
 from ref.model import SystemSettingsManager, UserGroup, Instance
 
 import concurrent.futures as cf
 from functools import partial
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 
 def field_to_str(_, field):
