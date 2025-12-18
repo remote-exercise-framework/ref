@@ -22,13 +22,13 @@ except:
     raise
 
 def print_ok(*args, **kwargs):
-    print(Fore.GREEN, *args, Style.RESET_ALL, **kwargs, sep='')
+    print(Fore.GREEN, *args, Style.RESET_ALL, **kwargs, sep='', file=sys.stderr)
 
 def print_warn(*args, **kwargs):
-    print(Fore.YELLOW, *args, Style.RESET_ALL, **kwargs, sep='')
+    print(Fore.YELLOW, *args, Style.RESET_ALL, **kwargs, sep='', file=sys.stderr)
 
 def print_err(*args, **kwargs):
-    print(Fore.RED, *args, Style.RESET_ALL, **kwargs, sep='')
+    print(Fore.RED, *args, Style.RESET_ALL, **kwargs, sep='', file=sys.stderr)
 
 #Secret used to sign messages send from the SSH server to the webserver
 with open('/etc/request_key', 'rb') as f:
@@ -145,12 +145,15 @@ def main():
     #Real name of the user/student
     real_name = resp['name']
 
-    #Welcome header (e.g., OSSec as ASCII-Art)
-    resp = get_header()
-    print(resp)
+    #Only print banner for interactive sessions (TTY)
+    #SFTP and non-interactive sessions need a clean stdout channel
+    if sys.stdout.isatty():
+        #Welcome header (e.g., OSSec as ASCII-Art)
+        resp = get_header()
+        print(resp)
 
-    #Greet the connected user
-    print(f'Hello {real_name}!\n[+] Connecting to task "{real_user}"...')
+        #Greet the connected user
+        print(f'Hello {real_name}!\n[+] Connecting to task "{real_user}"...')
 
 
     #Get the details needed to connect to the users container. 
@@ -158,8 +161,9 @@ def main():
 
     #Welcome message specific to this container.
     #E.g., submission status, time until deadline...
-    msg = resp['welcome_message']
-    print(msg)
+    if sys.stdout.isatty():
+        msg = resp['welcome_message']
+        print(msg)
 
     # FIXME: We use for all containers the same ssh key for authentication (see -i below).
     # Consequently we have right now two "trust chains":
@@ -208,8 +212,8 @@ def main():
             break
 
     if result != 0:
-        print('Failed to connect. Please try again.', flush=True)
-        print('If the problem persist, please contact your system administrator.', flush=True)
+        print('Failed to connect. Please try again.', flush=True, file=sys.stderr)
+        print('If the problem persist, please contact your system administrator.', flush=True, file=sys.stderr)
         exit(1)
 
     # XXX: cmd contains user controlled contend, thus do not pass it to a shell!
@@ -219,6 +223,6 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print('Bye bye\n', flush=True)
+        print('Bye bye\n', flush=True, file=sys.stderr)
     except Exception as e:
-        print(traceback.format_exc(), flush=True)
+        print(traceback.format_exc(), flush=True, file=sys.stderr)
