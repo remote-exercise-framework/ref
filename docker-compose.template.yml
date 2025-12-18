@@ -1,10 +1,19 @@
 version: "3.7"
+{% if testing %}
+volumes:
+    coverage-data:
+        name: "{{ prefix }}_coverage_data"
+{% endif %}
 services:
     sshserver:
         init: true
         environment:
             - DEBUG=${DEBUG:?"DEBUG not set"}
             - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
+{% if testing %}
+            - COVERAGE_PROCESS_START=/coverage-config/.coveragerc
+            - COVERAGE_CONTAINER_NAME=sshserver
+{% endif %}
         build:
             context: ./ssh-wrapper
             args:
@@ -16,6 +25,10 @@ services:
         volumes:
             - ./ssh-wrapper/ssh-wrapper.py:/usr/bin/ssh-wrapper.py:ro
             - ./ssh-wrapper/ssh-server-keys:/ssh-server-keys:rw
+{% if testing %}
+            - coverage-data:/coverage-data:rw
+            - ./coverage:/coverage-config:ro
+{% endif %}
         networks:
             - ssh-and-host
             - ssh-proxy-and-ssh
@@ -86,6 +99,10 @@ services:
             - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
             - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
             - REAL_HOSTNAME=${REAL_HOSTNAME}
+{% if testing %}
+            - COVERAGE_PROCESS_START=/coverage-config/.coveragerc
+            - COVERAGE_CONTAINER_NAME=web
+{% endif %}
         cap_add:
             - SYS_ADMIN
         build:
@@ -108,6 +125,10 @@ services:
             - {{ exercises_path }}:/exercises
             #Make docker availabe inside the container
             - /var/run/docker.sock:/var/run/docker.sock
+{% if testing %}
+            - coverage-data:/coverage-data:rw
+            - ./coverage:/coverage-config:ro
+{% endif %}
         {% if not testing %}
         ports:
             - "${HTTP_HOST_PORT}:8000"
@@ -141,6 +162,10 @@ services:
             - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
             - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
             - REAL_HOSTNAME=${REAL_HOSTNAME}
+{% if testing %}
+            - COVERAGE_PROCESS_START=/coverage-config/.coveragerc
+            - COVERAGE_CONTAINER_NAME=ssh-proxy
+{% endif %}
         build:
             context: "./webapp"
             args:
@@ -155,6 +180,10 @@ services:
               target: /data # NOTE: Indented with two spaces!!!
             #The webinterface, only needed for live updating during development
             - ./webapp/:/app
+{% if testing %}
+            - coverage-data:/coverage-data:rw
+            - ./coverage:/coverage-config:ro
+{% endif %}
         networks:
             - ssh-proxy-and-ssh
             - ssh-proxy-and-db

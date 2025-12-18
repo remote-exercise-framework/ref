@@ -16,6 +16,16 @@ RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -
 COPY pyproject.toml /tmp/
 RUN uv pip install --system --break-system-packages . && rm pyproject.toml
 
+# Install coverage for code coverage collection during e2e tests
+RUN uv pip install --system --break-system-packages coverage
+
+# Copy sitecustomize.py for automatic coverage collection
+COPY coverage/sitecustomize.py /usr/local/lib/python3.13/site-packages/sitecustomize.py
+RUN chmod 644 /usr/local/lib/python3.13/site-packages/sitecustomize.py
+
+# Create coverage data directory
+RUN mkdir -p /coverage-data && chmod 777 /coverage-data
+
 # This may fail if the group already has the specified id.
 RUN  groupmod -g $DOCKER_GROUP_ID docker || true
 RUN useradd -G docker,sudo -ms /bin/bash user

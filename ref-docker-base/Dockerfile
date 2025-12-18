@@ -148,4 +148,15 @@ COPY ref-utils /home/ref-utils
 RUN cd /home/ref-utils && \
     uv pip install --system --break-system-packages .
 
+# Install coverage for code coverage collection during e2e tests
+RUN uv pip install --system --break-system-packages coverage
+
+# Copy sitecustomize.py for automatic coverage collection
+# Ubuntu 24.04 uses Python 3.12
+COPY coverage/sitecustomize.py /usr/lib/python3/dist-packages/sitecustomize.py
+RUN chmod 644 /usr/lib/python3/dist-packages/sitecustomize.py
+
+# Create coverage data directory (student containers write to /shared)
+RUN mkdir -p /shared && chmod 777 /shared
+
 RUN rm -rf /tmp/*

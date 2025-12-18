@@ -30,6 +30,16 @@ WORKDIR /tmp
 COPY pyproject.toml /tmp/
 RUN uv pip install --system --break-system-packages . && rm pyproject.toml
 
+# Install coverage for code coverage collection during e2e tests
+RUN uv pip install --system --break-system-packages coverage
+
+# Copy sitecustomize.py for automatic coverage collection
+COPY coverage/sitecustomize.py /usr/local/lib/python3.13/site-packages/sitecustomize.py
+RUN chmod 644 /usr/local/lib/python3.13/site-packages/sitecustomize.py
+
+# Create coverage data directory
+RUN mkdir -p /coverage-data && chmod 777 /coverage-data
+
 # Install the interfacing library that is used by sshd to communicate
 # via rest with the web server.
 COPY "ref-interface" ./ref-interface

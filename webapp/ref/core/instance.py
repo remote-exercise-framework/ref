@@ -15,9 +15,9 @@ from typing import List
 
 import itsdangerous
 from flask import current_app
-from werkzeug.local import LocalProxy
 
 from ref.core import InconsistentStateError, inconsistency_on_error
+from ref.core.logging import get_logger
 from ref.model import (Instance, InstanceEntryService, InstanceService,
                        Submission, User, RessourceLimits)
 from ref.model import SubmissionTestResult
@@ -25,7 +25,7 @@ from ref.model import SubmissionTestResult
 from .docker import DockerClient
 from .exercise import Exercise, ExerciseService
 
-log = LocalProxy(lambda: current_app.logger)
+log = get_logger(__name__)
 
 class InstanceManager():
     """
@@ -506,6 +506,20 @@ class InstanceManager():
 
         mounts[self.dc.local_path_to_host(local_shared_folder_path.as_posix())] = {'bind': shared_folder_path, 'mode': 'rw'}
 
+        # Coverage configuration for testing
+        coverage_env = {}
+        if os.environ.get('COVERAGE_PROCESS_START'):
+            coverage_env = {
+                'COVERAGE_PROCESS_START': f'{shared_folder_path}/.coveragerc',
+                'COVERAGE_CONTAINER_NAME': f'student-{self.instance.id}',
+            }
+            # Copy .coveragerc to shared folder for student container
+            coveragerc_src = Path('/coverage-config/.coveragerc')
+            coveragerc_dst = local_shared_folder_path / '.coveragerc'
+            if coveragerc_src.exists():
+                # Ensure the shared folder exists before copying
+                local_shared_folder_path.mkdir(parents=True, exist_ok=True)
+                shutil.copy(coveragerc_src, coveragerc_dst)
 
         # Default setting shared by the entry service and the peripheral services.
         default_config = self.__get_container_config_defaults()
@@ -526,6 +540,7 @@ class InstanceManager():
                 volumes=mounts,
                 read_only=exercise.entry_service.readonly,
                 hostname=self.instance.exercise.short_name,
+                environment=coverage_env if coverage_env else None,
                 **config
             )
         except:
