@@ -197,7 +197,7 @@ networks:
     web-host:
         driver: bridge
         driver_opts:
-            com.docker.network.bridge.name: "brref-webhost{{ 't' if testing }}"
+            com.docker.network.bridge.name: "br-whost-{{ bridge_id if testing else 'ref' }}"
     #Interface between the SSH entry server and the webinterface.
     #This interface is used by the SSH server to retrive information
     #on how a incoming connection should be routed.
@@ -205,27 +205,27 @@ networks:
         driver: bridge
         internal: true
         driver_opts:
-            com.docker.network.bridge.name: "brref-webtossh{{ 't' if testing }}"
+            com.docker.network.bridge.name: "br-w2ssh-{{ bridge_id if testing else 'ref' }}"
     #This network connects the SSH entry server to the host.
     ssh-and-host:
         driver: bridge
         driver_opts:
-            com.docker.network.bridge.name: "brref-sshhost{{ 't' if testing }}"
+            com.docker.network.bridge.name: "br-shost-{{ bridge_id if testing else 'ref' }}"
     #Connect web to postgres
     web-and-db:
         driver: bridge
         internal: true
         driver_opts:
-            com.docker.network.bridge.name: "brref-webtodb{{ 't' if testing }}"
+            com.docker.network.bridge.name: "br-w2db-{{ bridge_id if testing else 'ref' }}"
 
     ssh-proxy-and-ssh:
         driver: bridge
         internal: true
         driver_opts:
-            com.docker.network.bridge.name: "brref-sshpro{{ 't' if testing }}"
+            com.docker.network.bridge.name: "br-spro-{{ bridge_id if testing else 'ref' }}"
 
     ssh-proxy-and-db:
         driver: bridge
         internal: true
         driver_opts:
-            com.docker.network.bridge.name: "brref-prodb{{ 't' if testing }}"
+            com.docker.network.bridge.name: "br-pdb-{{ bridge_id if testing else 'ref' }}"

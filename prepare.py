@@ -25,6 +25,7 @@ def generate_docker_compose():
 
     render_out = template.render(
         testing=False,
+        bridge_id="",  # Not used when testing=False, template uses 'ref' suffix
         data_path='./data',
         exercises_path='./exercises',
         cgroup_parent=cgroup_parent,
