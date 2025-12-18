@@ -34,10 +34,16 @@ RUN apt install -y \
     attr \
     pkg-config \
     libcairo2-dev \
-    gnuplot
+    gnuplot \
+    curl
 
-COPY requirements.txt /tmp/requirements.txt
-RUN python3 -m pip install --break-system-packages -r /tmp/requirements.txt && rm /tmp/requirements.txt
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+# Install Python dependencies using uv
+COPY pyproject.toml /tmp/pyproject.toml
+RUN cd /tmp && uv pip install --system --break-system-packages . && rm /tmp/pyproject.toml
 
 RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
     && chmod 555 /usr/bin/wait-for
@@ -140,6 +146,6 @@ RUN echo "unset environment LINES" >> .gdbinit && \
 # Import and install ref-utils
 COPY ref-utils /home/ref-utils
 RUN cd /home/ref-utils && \
-    python3 -m pip install --break-system-packages .
+    uv pip install --system --break-system-packages .
 
 RUN rm -rf /tmp/*

@@ -4,13 +4,17 @@ ARG DOCKER_GROUP_ID
 
 # Install dependencies
 WORKDIR /tmp/
-RUN apt-get update && apt-get install -y docker docker.io git python3 sudo dnsutils wget netcat-traditional rsync attr inotify-tools
+RUN apt-get update && apt-get install -y docker docker.io git python3 sudo dnsutils wget curl netcat-traditional rsync attr inotify-tools
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
 
 RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
     && chmod 555 /usr/bin/wait-for
 
-COPY requirements.txt /tmp/
-RUN pip install -r requirements.txt && rm requirements.txt
+COPY pyproject.toml /tmp/
+RUN uv pip install --system --break-system-packages . && rm pyproject.toml
 
 # This may fail if the group already has the specified id.
 RUN  groupmod -g $DOCKER_GROUP_ID docker || true

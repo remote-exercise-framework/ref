@@ -4,6 +4,10 @@ SHELL ["/bin/bash", "-c"]
 RUN apt update && apt install -y sudo gcc git autoconf zlib1g-dev \
     libssl-dev build-essential valgrind tinyproxy wget curl netcat-traditional
 
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
 # Install cargo
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
@@ -16,15 +20,15 @@ RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -
 RUN useradd -m -d /home/sshd -s /bin/bash sshd
 
 # This is the user that is used for login for all connections
-# that could successfully be authenticated. 
+# that could successfully be authenticated.
 #It looks like the sshserver needs a password to allow
 #login through SSH. So, we set a random one.
 RUN useradd -m -d /home/sshserver -s /bin/bash sshserver \
     && echo "sshserver:$(openssl rand -base64 32)" | chpasswd
 
 WORKDIR /tmp
-COPY requirements.txt /tmp/
-RUN pip install -r requirements.txt && rm requirements.txt
+COPY pyproject.toml /tmp/
+RUN uv pip install --system --break-system-packages . && rm pyproject.toml
 
 # Install the interfacing library that is used by sshd to communicate
 # via rest with the web server.
