@@ -119,3 +119,6 @@ class DebugConfig(ReleaseConfig):
 
     #SQLALCHEMY_ECHO = True
     #LOGIN_DISABLED = False
+
+
+# TestConfig is in config_test.py to avoid triggering env var lookups at import time

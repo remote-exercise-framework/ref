@@ -27,7 +27,20 @@ from pygments.lexers import PythonLexer, guess_lexer, guess_lexer_for_filename
 from redis import Redis
 
 from flask import g
-from config import DebugConfig, ReleaseConfig, env_var_to_bool_or_false
+
+# Check for standalone testing mode FIRST, before importing config.py
+# (config.py accesses env vars at module level which would fail in test mode)
+from config_test import is_standalone_testing, env_var_to_bool_or_false
+
+# Import appropriate config based on testing mode
+# TestConfig doesn't require env vars, while Debug/ReleaseConfig do
+if is_standalone_testing():
+    from config_test import TestConfig
+    _available_configs = {'TestConfig': TestConfig}
+else:
+    from config import DebugConfig, ReleaseConfig
+    _available_configs = {'DebugConfig': DebugConfig, 'ReleaseConfig': ReleaseConfig}
+
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_failsafe import failsafe as flask_failsafe
 from flask_login import LoginManager, current_user
@@ -326,10 +339,12 @@ def get_config(config):
         else:
             cfg = config
     else:
-        if env_var_to_bool_or_false('DEBUG'):
-            cfg = DebugConfig()
+        if is_standalone_testing():
+            cfg = _available_configs['TestConfig']()
+        elif env_var_to_bool_or_false('DEBUG'):
+            cfg = _available_configs['DebugConfig']()
         else:
-            cfg = ReleaseConfig()
+            cfg = _available_configs['ReleaseConfig']()
     return cfg
 
 def create_ssh_proxy(config=None):
