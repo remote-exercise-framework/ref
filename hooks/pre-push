@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 #
-# Pre-push hook that prevents dev and main from diverging.
-#
-# This ensures that main is always an ancestor of dev, so rebasing
-# dev onto main (or fast-forward merging) never requires a merge commit.
+# Pre-push hook with two checks:
+# 1. Prevents dev and main from diverging (main must be ancestor of dev)
+# 2. Ensures all submodule commits exist on their remotes
 #
 # Install with: ./hooks/install.sh
 #
@@ -11,6 +10,128 @@
 set -e
 
 REMOTE="$1"
+
+# =============================================================================
+# Check 1: Verify submodule commits exist on their remotes
+# =============================================================================
+
+# Skip submodule check if requested (useful for offline work or CI)
+if [ "${SKIP_SUBMODULE_CHECK:-}" = "1" ]; then
+    echo "Skipping submodule remote check (SKIP_SUBMODULE_CHECK=1)"
+fi
+
+check_submodule_commits() {
+    # Skip if requested
+    [ "${SKIP_SUBMODULE_CHECK:-}" = "1" ] && return 0
+    local failed=0
+
+    # Get list of submodules with their paths
+    while IFS= read -r line; do
+        # Skip empty lines
+        [ -z "$line" ] && continue
+
+        # Parse submodule status output: [+-U ]<sha> <path> (<describe>)
+        # Status indicators: ' ' (normal), '-' (not init), '+' (different commit), 'U' (conflicts)
+        # awk splits on whitespace, so $1 is the SHA (possibly with +/- prefix if not normal)
+        local sha path
+        sha=$(echo "$line" | awk '{print $1}' | sed 's/^[-+U]//')
+        path=$(echo "$line" | awk '{print $2}')
+
+        [ -z "$sha" ] || [ -z "$path" ] && continue
+
+        # Get the remote URL for this submodule
+        local remote_url
+        remote_url=$(git config --file .gitmodules "submodule.${path}.url" 2>/dev/null || echo "")
+
+        if [ -z "$remote_url" ]; then
+            echo "WARNING: Could not find remote URL for submodule '$path'"
+            continue
+        fi
+
+        # Check if submodule is initialized (directory exists and is a git repo)
+        if [ ! -d "$path/.git" ] && [ ! -f "$path/.git" ]; then
+            echo "WARNING: Submodule '$path' not initialized, skipping check"
+            continue
+        fi
+
+        # Check if the commit exists locally
+        if ! git -C "$path" cat-file -e "$sha" 2>/dev/null; then
+            echo "ERROR: Submodule '$path' commit $sha does not exist locally"
+            failed=1
+            continue
+        fi
+
+        # Check if commit exists on remote by trying to fetch it
+        # First, get the remote name used by the submodule (usually 'origin')
+        local submodule_remote
+        submodule_remote=$(git -C "$path" remote 2>/dev/null | head -n1)
+
+        if [ -z "$submodule_remote" ]; then
+            echo "WARNING: Submodule '$path' has no configured remote"
+            continue
+        fi
+
+        # Use ls-remote to check if the commit is advertised, or check if it's an ancestor
+        # of any remote branch/tag
+        local commit_on_remote=0
+        local remote_reachable=1
+
+        # Method 1: Check if commit is directly advertised (branches/tags pointing to it)
+        local ls_remote_output
+        if ls_remote_output=$(git ls-remote "$remote_url" 2>&1); then
+            if echo "$ls_remote_output" | grep -q "^$sha"; then
+                commit_on_remote=1
+            fi
+        else
+            remote_reachable=0
+        fi
+
+        # Method 2: Fetch and check if commit is reachable from any remote ref
+        if [ "$commit_on_remote" -eq 0 ] && [ "$remote_reachable" -eq 1 ]; then
+            # Fetch latest refs from remote (without updating local branches)
+            git -C "$path" fetch "$submodule_remote" --quiet 2>/dev/null || true
+
+            # Check if the commit is an ancestor of any remote branch
+            for remote_ref in $(git -C "$path" for-each-ref --format='%(refname)' refs/remotes/"$submodule_remote"/ 2>/dev/null); do
+                if git -C "$path" merge-base --is-ancestor "$sha" "$remote_ref" 2>/dev/null; then
+                    commit_on_remote=1
+                    break
+                fi
+            done
+        fi
+
+        # If remote was unreachable, warn but don't fail
+        if [ "$remote_reachable" -eq 0 ]; then
+            echo "WARNING: Could not reach remote for submodule '$path', skipping check"
+            continue
+        fi
+
+        if [ "$commit_on_remote" -eq 0 ]; then
+            echo ""
+            echo "ERROR: Submodule '$path' references commit $sha"
+            echo "       which does not exist on remote '$remote_url'"
+            echo ""
+            echo "       Please push the submodule first:"
+            echo "         cd $path && git push"
+            echo ""
+            failed=1
+        fi
+    done < <(git submodule status 2>/dev/null)
+
+    return $failed
+}
+
+# Run submodule check
+if ! check_submodule_commits; then
+    echo ""
+    echo "Push rejected: One or more submodules reference commits not on remote."
+    echo ""
+    exit 1
+fi
+
+# =============================================================================
+# Check 2: Prevent dev and main from diverging
+# =============================================================================
 
 # Read the push info from stdin
 while read -r local_ref local_sha remote_ref remote_sha; do

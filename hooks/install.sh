@@ -16,4 +16,4 @@ git config core.hooksPath hooks
 echo "Git hooks installed successfully."
 echo "Installed hooks:"
 echo "  - pre-commit: Runs linting checks before each commit"
-echo "  - pre-push: Prevents dev/main from diverging"
+echo "  - pre-push: Verifies submodule commits exist on remotes, prevents dev/main from diverging"
