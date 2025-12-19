@@ -145,13 +145,13 @@ from ref_utils import (
 TARGET_BIN = Path("/home/user/solution")
 
 
-@environment_test
+@environment_test()
 def test_environment() -> bool:
     """Test whether all required files are in place."""
     return assert_is_exec(TARGET_BIN)
 
 
-@submission_test
+@submission_test()
 def test_addition() -> bool:
     """Test addition functionality."""
     # Build the solution
