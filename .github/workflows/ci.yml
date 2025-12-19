@@ -15,8 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Initialize submodules (excluding ref-linux)
+        run: |
+          git submodule update --init ssh-wrapper/openssh-portable
+          git submodule update --init ref-docker-base/ref-utils
+          git submodule update --init webapp/ref/static/ace-builds
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -53,8 +57,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Initialize submodules (excluding ref-linux)
+        run: |
+          git submodule update --init ssh-wrapper/openssh-portable
+          git submodule update --init ref-docker-base/ref-utils
+          git submodule update --init webapp/ref/static/ace-builds
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -76,8 +84,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Initialize submodules (excluding ref-linux)
+        run: |
+          git submodule update --init ssh-wrapper/openssh-portable
+          git submodule update --init ref-docker-base/ref-utils
+          git submodule update --init webapp/ref/static/ace-builds
 
       - name: Install system dependencies
         run: |
@@ -126,6 +138,8 @@ jobs:
           mkdir -p tests/build_logs
           ./ctrl.sh build 2>&1 | tee tests/build_logs/docker-build.log
           exit ${PIPESTATUS[0]}
+        env:
+          REF_CI_RUN: "1"
 
       - name: Install test dependencies
         working-directory: tests
