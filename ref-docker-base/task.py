@@ -168,7 +168,8 @@ def cmd_submit(_):
 
     if len(test_output) > MAX_TEST_OUTPUT_LENGTH:
         print_err(f'[!] Test output exceeded maximum length of {MAX_TEST_OUTPUT_LENGTH} characters.')
-        print_err(f'[!] You need to trim the output of your solution script(s) to submit!')
+        print_err('[!] Please remove or reduce any unnecessary output (e.g., debug prints) so that')
+        print_err('[!] all output of your solution stays within the allowed limit, and try submitting again.')
         exit(0)
 
     print_ok("[+] Submitting now...", flush=True)
