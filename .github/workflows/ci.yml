@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+env:
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install linting tools
+        run: |
+          uv tool install ruff
+          uv tool install pyright
+          uv tool install mypy
+
+      - name: Install test dependencies (for pyright)
+        working-directory: tests
+        run: uv sync
+
+      - name: Run ruff check
+        run: ruff check .
+
+      - name: Run ruff format check
+        run: ruff format --check .
+
+      - name: Run pyright
+        working-directory: tests
+        run: uv run pyright
+
+      - name: Run mypy
+        working-directory: tests
+        run: uv run mypy .
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        working-directory: tests
+        run: uv sync
+
+      - name: Run unit tests
+        working-directory: tests
+        run: uv run pytest unit/ -v -m "not slow"
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies for ctrl.sh
+        run: pip install jinja2
+
+      - name: Create settings.env
+        run: |
+          DOCKER_GID=$(getent group docker | cut -d: -f3)
+          cat > settings.env << EOF
+          DEBUG=1
+          MAINTENANCE_ENABLED=0
+          ADMIN_PASSWORD=TestAdmin123!
+          DOCKER_GROUP_ID=${DOCKER_GID}
+          SSH_HOST_PORT=2222
+          HTTP_HOST_PORT=8000
+          SECRET_KEY=TestSecretKeyForCI12345
+          SSH_TO_WEB_KEY=TestSSHToWebKeyForCI
+          POSTGRES_PASSWORD=TestPostgresPassword123!
+          EOF
+          # Remove leading whitespace from each line
+          sed -i 's/^[[:space:]]*//' settings.env
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build Docker images
+        run: ./ctrl.sh build
+
+      - name: Install test dependencies
+        working-directory: tests
+        run: uv sync
+
+      - name: Run E2E tests
+        working-directory: tests
+        run: uv run pytest e2e/ -v --timeout=300
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: tests/coverage_reports/
+          retention-days: 7
+
+      - name: Upload failure logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: failure-logs
+          path: tests/failure_logs/
+          retention-days: 7
+
+      - name: Upload container logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: container-logs
+          path: tests/container_logs/
+          retention-days: 7
+
+      - name: Cleanup Docker resources
+        if: always()
+        run: |
+          docker ps -aq --filter "name=ref_test_" | xargs -r docker rm -f || true
+          docker network ls -q --filter "name=ref_test_" | xargs -r docker network rm || true
+          docker volume ls -q --filter "name=ref_test_" | xargs -r docker volume rm || true
