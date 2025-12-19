@@ -132,8 +132,8 @@ class TestLogin:
                     "submit": "Login",
                 },
             )
-            # Should not crash or expose data
-            assert response.status_code in [200, 400]
+            # Form re-displayed with error
+            assert response.status_code == 200
 
     def test_xss_in_username(self, raw_client_follow_redirects: httpx.Client) -> None:
         """XSS in username should be escaped."""
@@ -169,7 +169,7 @@ class TestLogin:
             },
         )
         # Should redirect to admin area
-        assert response.status_code in [302, 303, 307]
+        assert response.status_code == 302
         location = response.headers.get("location", "")
         assert "admin" in location.lower() or "exercise" in location.lower()
 
@@ -196,13 +196,13 @@ class TestLogout:
     def test_logout_unauthenticated(self, raw_client: httpx.Client) -> None:
         """Logout when not authenticated should redirect to login."""
         response = raw_client.get("/logout")
-        assert response.status_code in [302, 303, 307]
+        assert response.status_code == 302
         assert "login" in response.headers.get("location", "").lower()
 
     def test_logout_post_method(self, raw_client: httpx.Client) -> None:
         """POST to logout should also work."""
         response = raw_client.post("/logout")
-        assert response.status_code in [302, 303, 307]
+        assert response.status_code == 302
 
     def test_logout_authenticated(
         self, raw_client: httpx.Client, admin_password: str
@@ -217,15 +217,15 @@ class TestLogout:
                 "submit": "Login",
             },
         )
-        assert login_resp.status_code in [302, 303, 307]
+        assert login_resp.status_code == 302
 
         # Now logout
         logout_resp = raw_client.get("/logout")
-        assert logout_resp.status_code in [302, 303, 307]
+        assert logout_resp.status_code == 302
 
         # Try to access admin page - should redirect to login
         admin_resp = raw_client.get("/admin/exercise/view")
-        assert admin_resp.status_code in [302, 303, 307]
+        assert admin_resp.status_code == 302
         assert "login" in admin_resp.headers.get("location", "").lower()
 
 
@@ -270,6 +270,5 @@ class TestSessionSecurity:
                 "submit": "Login",
             },
         )
-        # Should still work (CSRF may be disabled in some configs)
-        # but document the behavior
-        assert response.status_code in [200, 400, 403]
+        # Form re-displayed (CSRF may be disabled in some configs)
+        assert response.status_code == 200

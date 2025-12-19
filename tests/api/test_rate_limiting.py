@@ -95,8 +95,7 @@ class TestInstanceApiRateLimiting:
             "/api/instance/reset",
             json="invalid_token",
         )
-        # Should get auth error (200 with error in body, or 400/500 for server error)
-        assert response.status_code in [200, 400, 500]
+        assert response.status_code == 400
 
     def test_instance_submit_rate_limit_documented(
         self, raw_client: httpx.Client
@@ -110,8 +109,7 @@ class TestInstanceApiRateLimiting:
             "/api/instance/submit",
             json="invalid_token",
         )
-        # 200 = error in body, 400 = bad request, 500 = server error
-        assert response.status_code in [200, 400, 500]
+        assert response.status_code == 400
 
     def test_instance_info_rate_limit_documented(
         self, raw_client: httpx.Client
@@ -125,8 +123,7 @@ class TestInstanceApiRateLimiting:
             "/api/instance/info",
             json="invalid_token",
         )
-        # 200 = error in body, 400 = bad request, 500 = server error
-        assert response.status_code in [200, 400, 500]
+        assert response.status_code == 400
 
 
 @pytest.mark.api
@@ -152,8 +149,7 @@ class TestRateLimitExemptEndpoints:
                 "/api/ssh-authenticated",
                 json={"name": "test", "pubkey": "test"},
             )
-            # Should get error response (200 = error in body, 400 = bad request)
-            assert response.status_code in [200, 400]
+            assert response.status_code == 400
 
     def test_provision_exempt(self, raw_client: httpx.Client) -> None:
         """
@@ -166,8 +162,7 @@ class TestRateLimitExemptEndpoints:
                 "/api/provision",
                 json={"exercise_name": "test", "pubkey": "test"},
             )
-            # 200 = error in body, 400 = bad request
-            assert response.status_code in [200, 400]
+            assert response.status_code == 400
 
     def test_getkeys_exempt(self, raw_client: httpx.Client) -> None:
         """
@@ -180,8 +175,7 @@ class TestRateLimitExemptEndpoints:
                 "/api/getkeys",
                 json={"username": "test"},
             )
-            # 200 = error in body, 400 = bad request
-            assert response.status_code in [200, 400]
+            assert response.status_code == 400
 
     def test_getuserinfo_exempt(self, raw_client: httpx.Client) -> None:
         """
@@ -192,8 +186,7 @@ class TestRateLimitExemptEndpoints:
                 "/api/getuserinfo",
                 json={"pubkey": "test"},
             )
-            # 200 = error in body, 400 = bad request
-            assert response.status_code in [200, 400]
+            assert response.status_code == 400
 
     def test_header_exempt(self, raw_client: httpx.Client) -> None:
         """
@@ -231,8 +224,8 @@ class TestBruteForceProtection:
                     "submit": "Login",
                 },
             )
-            # Should get form re-shown (200) or redirect (302)
-            assert response.status_code in [200, 302]
+            # Form re-shown with error
+            assert response.status_code == 200
 
     def test_restorekey_brute_force_documentation(
         self, raw_client: httpx.Client, unique_mat_num: str
@@ -253,8 +246,8 @@ class TestBruteForceProtection:
                     "submit": "Restore",
                 },
             )
-            # Should get form with error (200) or redirect (302)
-            assert response.status_code in [200, 302]
+            # Form re-shown with error
+            assert response.status_code == 200
 
 
 @pytest.mark.api

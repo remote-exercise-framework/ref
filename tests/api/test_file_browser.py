@@ -35,8 +35,8 @@ class TestFileBrowserLoadFile:
                 "hide_hidden_files": "true",
             },
         )
-        # Should redirect to login or return 401/403
-        assert response.status_code in [302, 401, 403]
+        # Should redirect to login
+        assert response.status_code == 302
 
     def test_missing_parameters(self, admin_session: httpx.Client) -> None:
         """Missing required parameters should return 400."""
@@ -104,6 +104,7 @@ class TestFileBrowserLoadFile:
             "....//....//....//etc/passwd",
             "./../../etc/passwd",
         ]
+        # FIXME(claude): Use a valid token, else you are not testing any of the vectors.
         for path in traversal_paths:
             response = admin_session.post(
                 "/admin/file-browser/load-file",
@@ -132,8 +133,7 @@ class TestFileBrowserLoadFile:
                     "hide_hidden_files": "true",
                 },
             )
-            # Should not crash
-            assert response.status_code in [400, 500]
+            assert response.status_code == 400
 
     def test_tampered_token(self, admin_session: httpx.Client) -> None:
         """Tampered token should be rejected."""
@@ -174,8 +174,7 @@ class TestFileBrowserLoadFile:
                     "hide_hidden_files": "true",
                 },
             )
-            # Should not crash or execute commands
-            assert response.status_code in [400, 500]
+            assert response.status_code == 400
 
 
 @pytest.mark.api
@@ -197,8 +196,8 @@ class TestFileBrowserSaveFile:
                 "token": "fake_token",
             },
         )
-        # Should redirect to login or return 401/403
-        assert response.status_code in [302, 401, 403]
+        # Should redirect to login
+        assert response.status_code == 302
 
     def test_save_disabled(self, admin_session: httpx.Client) -> None:
         """Save functionality should be disabled (returns 500)."""
@@ -238,11 +237,7 @@ class TestFileBrowserAccessControl:
             },
         )
         # Should be redirected to login (no access)
-        assert "login" in response.url.path.lower() or response.status_code in [
-            400,
-            401,
-            403,
-        ]
+        assert "login" in response.url.path.lower()
 
 
 @pytest.mark.api
@@ -286,8 +281,7 @@ class TestFileBrowserInputValidation:
                 "hide_hidden_files": "true",
             },
         )
-        # Should not crash
-        assert response.status_code in [400, 500]
+        assert response.status_code == 400
 
     def test_unicode_path(self, admin_session: httpx.Client) -> None:
         """Unicode characters in path should be handled safely."""
@@ -305,8 +299,7 @@ class TestFileBrowserInputValidation:
                     "hide_hidden_files": "true",
                 },
             )
-            # Should not crash
-            assert response.status_code in [400, 500]
+            assert response.status_code == 400
 
     def test_hide_hidden_files_values(self, admin_session: httpx.Client) -> None:
         """hide_hidden_files parameter should only accept valid values."""
@@ -327,5 +320,5 @@ class TestFileBrowserInputValidation:
                 },
             )
             if should_work:
-                # Should process (even if token is invalid)
-                assert response.status_code in [400, 200]
+                # 400 = invalid token (expected since we're testing param parsing)
+                assert response.status_code == 400

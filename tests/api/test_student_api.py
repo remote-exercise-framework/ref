@@ -387,8 +387,8 @@ class TestStudentRestoreKey:
                     "submit": "Restore",
                 },
             )
-            # Should not crash or expose data
-            assert response.status_code in [200, 400]
+            # Form re-displayed with error
+            assert response.status_code == 200
 
 
 @pytest.mark.api
@@ -408,8 +408,8 @@ class TestStudentDownloadPubkey:
     def test_empty_signature(self, raw_client: httpx.Client) -> None:
         """Empty signature parameter should be rejected."""
         response = raw_client.get("/student/download/pubkey/")
-        # Should return 404 (no route match) or 400
-        assert response.status_code in [400, 404, 308]
+        # 404 = route not matched (missing parameter)
+        assert response.status_code == 404
 
     def test_tampered_signature(self, raw_client: httpx.Client) -> None:
         """Tampered signature should be rejected."""
@@ -429,8 +429,7 @@ class TestStudentDownloadPubkey:
         ]
         for token in special_tokens:
             response = raw_client.get(f"/student/download/pubkey/{token}")
-            # Should not crash
-            assert response.status_code in [400, 404]
+            assert response.status_code == 400
 
 
 @pytest.mark.api
@@ -451,7 +450,8 @@ class TestStudentDownloadPrivkey:
     def test_empty_signature(self, raw_client: httpx.Client) -> None:
         """Empty signature parameter should be rejected."""
         response = raw_client.get("/student/download/privkey/")
-        assert response.status_code in [400, 404, 308]
+        # 404 = route not matched (missing parameter)
+        assert response.status_code == 404
 
     def test_tampered_signature(self, raw_client: httpx.Client) -> None:
         """Tampered signature should be rejected."""
@@ -470,17 +470,17 @@ class TestStudentDefaultRoutes:
     def test_root_redirects_to_getkey(self, raw_client: httpx.Client) -> None:
         """Root URL should redirect to getkey."""
         response = raw_client.get("/")
-        assert response.status_code in [302, 307, 308]
+        assert response.status_code == 302
         assert "getkey" in response.headers.get("location", "").lower()
 
     def test_student_redirects_to_getkey(self, raw_client: httpx.Client) -> None:
         """Student URL should redirect to getkey."""
         response = raw_client.get("/student")
-        assert response.status_code in [302, 307, 308]
+        assert response.status_code == 302
         assert "getkey" in response.headers.get("location", "").lower()
 
     def test_student_slash_redirects_to_getkey(self, raw_client: httpx.Client) -> None:
         """Student/ URL should redirect to getkey."""
         response = raw_client.get("/student/")
-        assert response.status_code in [302, 307, 308]
+        assert response.status_code == 302
         assert "getkey" in response.headers.get("location", "").lower()
