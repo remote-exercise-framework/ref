@@ -24,7 +24,7 @@ from ref.core import (ExerciseConfigError, ExerciseImageManager,
 from ref.core.logging import get_logger
 from ref.core.util import lock_db, redirect_to_next
 from ref.model import (ConfigParsingError, Exercise, ExerciseEntryService,
-                       Instance, SystemSettingsManager, User)
+                       Instance, SubmissionTestResult, SystemSettingsManager, User)
 from ref.model.enums import ExerciseBuildStatus
 from sqlalchemy.orm import joinedload, raiseload
 
@@ -239,7 +239,8 @@ def instance_manual_submit(instance_id):
     mgr = InstanceManager(instance)
     msg =  'This submission was created by an admin user.\n'
     msg += 'Please connect via SSH and run `task check` manually'
-    _new_instance = mgr.create_submission(1, msg)
+    test_result = SubmissionTestResult('manual', msg, True, None)
+    _new_instance = mgr.create_submission([test_result])
     current_app.db.session.commit()
 
     flash.info('Submission successfully created.')
