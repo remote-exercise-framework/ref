@@ -33,6 +33,8 @@ reportUnknownArgumentType = false
 reportUnknownVariableType = false
 reportPrivateUsage = false
 reportUnusedVariable = "warning"
+reportMissingImports = false
+reportUnknownLambdaType = false
 
 [tool.coverage.run]
 branch = true
@@ -69,3 +71,10 @@ directory = "coverage_reports/htmlcov"
 
 [tool.coverage.xml]
 output = "coverage_reports/coverage.xml"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_ignores = false
+ignore_missing_imports = true
+disable_error_code = ["import-untyped", "no-any-return"]

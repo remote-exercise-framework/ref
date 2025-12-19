@@ -364,7 +364,8 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         most_recent_instances = []
         instances_per_user = defaultdict(list)
         instances = Instance.query.filter(
-            Instance.exercise == self, Instance.submission != None  # noqa: E711
+            Instance.exercise == self,
+            Instance.submission != None,  # noqa: E711
         ).all()
 
         for instance in instances:

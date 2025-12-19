@@ -138,7 +138,9 @@ class TestIsDeadlockError:
             ):
                 yield mock_app
 
-    def test_returns_false_for_non_deadlock_error(self, mock_flask_app):
+    def test_returns_false_for_non_deadlock_error(
+        self, mock_flask_app: MagicMock
+    ) -> None:
         """Test that function returns False for non-deadlock errors."""
         # Create a simple mock error that is not a DeadlockDetected
         mock_error = MagicMock()
@@ -147,7 +149,9 @@ class TestIsDeadlockError:
         result = is_deadlock_error(mock_error)
         assert result is False
 
-    def test_returns_true_for_deadlock_detected_type(self, mock_flask_app):
+    def test_returns_true_for_deadlock_detected_type(
+        self, mock_flask_app: MagicMock
+    ) -> None:
         """Test that function detects DeadlockDetected in orig."""
         from psycopg2.errors import DeadlockDetected
 
