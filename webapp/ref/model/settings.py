@@ -1,4 +1,6 @@
 import datetime
+import secrets
+import string
 import uuid
 from enum import Enum
 
@@ -12,6 +14,12 @@ from ref import db
 from ref.model.enums import CourseOfStudies
 
 from .util import CommonDbOpsMixin, ModelToStringMixin
+
+
+def generate_installation_id() -> str:
+    """Generate a random 6-character alphanumeric ID for this REF installation."""
+    chars = string.ascii_lowercase + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(6))
 
 class SystemSetting(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ['id', 'name']
@@ -61,6 +69,9 @@ default_ssh_welcome_msg = """
                                     /___/"""
 
 class SystemSettingsManager():
+    # Unique ID for this REF installation, used to distinguish Docker resources
+    INSTALLATION_ID = Setting('INSTALLATION_ID', str, None)
+
     REGESTRATION_ENABLED = Setting('REGESTRATION_ENABLED', bool, True)
     MAINTENANCE_ENABLED = Setting('MAINTENANCE_ENABLED', bool, False)
     SUBMISSION_DISABLED = Setting('SUBMISSION_DISABLED', bool, False)

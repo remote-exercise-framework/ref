@@ -223,6 +223,28 @@ def setup_db_default_data(app: Flask):
             app.db.session.add(admin)
             app.db.session.commit()
 
+def setup_installation_id(app: Flask):
+    """
+    Initialize the installation ID and update Docker resource prefix.
+    The installation ID is a unique 6-character identifier for this REF instance,
+    used to distinguish Docker resources created by different installations.
+    """
+    from ref.model import SystemSettingsManager
+    from ref.model.settings import generate_installation_id
+
+    with app.app_context():
+        install_id = SystemSettingsManager.INSTALLATION_ID.value
+        if not install_id:
+            install_id = generate_installation_id()
+            SystemSettingsManager.INSTALLATION_ID.value = install_id
+            app.db.session.commit()
+            app.logger.info(f'Generated new installation ID: {install_id}')
+
+        # Update the Docker resource prefix to include the installation ID
+        app.config['DOCKER_RESSOURCE_PREFIX'] = f'ref-{install_id}-'
+        app.logger.info(f'Docker resource prefix: {app.config["DOCKER_RESSOURCE_PREFIX"]}')
+
+
 def setup_login(app: Flask):
     """
     Setup authentication for the app.
@@ -423,6 +445,7 @@ def create_app(config=None):
             exit(1)
 
     setup_db_default_data(app)
+    setup_installation_id(app)
 
     # Must happen after we have db access, since the credentails are store inthere.
     setup_telegram_logger(app)
