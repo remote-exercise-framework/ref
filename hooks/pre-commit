@@ -10,12 +10,19 @@ set -e
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-echo "Running pre-commit linting checks..."
+echo "Running pre-commit checks..."
 
 # Check if ruff is available
 if ! command -v ruff &> /dev/null; then
     echo "Error: ruff is not installed."
     echo "Install with: uv tool install ruff"
+    exit 1
+fi
+
+# Check if uv is available (needed for pyright and mypy)
+if ! command -v uv &> /dev/null; then
+    echo "Error: uv is not installed."
+    echo "See: https://docs.astral.sh/uv/getting-started/installation/"
     exit 1
 fi
 
@@ -37,4 +44,21 @@ if ! ruff format --check .; then
     exit 1
 fi
 
-echo "All linting checks passed!"
+# Run pyright from tests/ directory
+echo "Running pyright..."
+cd "$REPO_ROOT/tests"
+if ! uv run pyright; then
+    echo ""
+    echo "pyright type check failed. Fix the type errors above before committing."
+    exit 1
+fi
+
+# Run mypy from tests/ directory
+echo "Running mypy..."
+if ! uv run mypy .; then
+    echo ""
+    echo "mypy type check failed. Fix the type errors above before committing."
+    exit 1
+fi
+
+echo "All checks passed!"
