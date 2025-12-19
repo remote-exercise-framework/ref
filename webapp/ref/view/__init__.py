@@ -1,20 +1,37 @@
-from .api import api_get_header, api_getkeys, api_getuserinfo, api_provision, api_instance_info
-from .exercise import (admin_default_routes, exercise_browse, exercise_build,
-                       exercise_diff, exercise_do_import, exercise_view,
-                       exercise_view_all)
-from .file_browser import file_browser_load_file
-from .grading import (grading_view_all, grading_view_exercise,
-                      grading_view_submission)
-from .graph import graph
-from .group import group_view_all
-from .instances import (instance_delete, instance_stop, instances_by_user_id,
-                        instances_view_all, instances_view_by_exercise,
-                        instances_view_details)
-from .login import login
-from .student import (student_default_routes, student_delete, student_getkey,
-                      student_restorekey, student_view_all,
-                      student_view_single)
-from .submission import (submission_delete, submission_reset,
-                         submissions_by_instance, submissions_view_all)
-from .system import system_gc
-from .system_settings import view_system_settings
+from .api import api_get_header as api_get_header
+from .api import api_getkeys as api_getkeys
+from .api import api_getuserinfo as api_getuserinfo
+from .api import api_provision as api_provision
+from .api import api_instance_info as api_instance_info
+from .exercise import admin_default_routes as admin_default_routes
+from .exercise import exercise_browse as exercise_browse
+from .exercise import exercise_build as exercise_build
+from .exercise import exercise_diff as exercise_diff
+from .exercise import exercise_do_import as exercise_do_import
+from .exercise import exercise_view as exercise_view
+from .exercise import exercise_view_all as exercise_view_all
+from .file_browser import file_browser_load_file as file_browser_load_file
+from .grading import grading_view_all as grading_view_all
+from .grading import grading_view_exercise as grading_view_exercise
+from .grading import grading_view_submission as grading_view_submission
+from .graph import graph as graph
+from .group import group_view_all as group_view_all
+from .instances import instance_delete as instance_delete
+from .instances import instance_stop as instance_stop
+from .instances import instances_by_user_id as instances_by_user_id
+from .instances import instances_view_all as instances_view_all
+from .instances import instances_view_by_exercise as instances_view_by_exercise
+from .instances import instances_view_details as instances_view_details
+from .login import login as login
+from .student import student_default_routes as student_default_routes
+from .student import student_delete as student_delete
+from .student import student_getkey as student_getkey
+from .student import student_restorekey as student_restorekey
+from .student import student_view_all as student_view_all
+from .student import student_view_single as student_view_single
+from .submission import submission_delete as submission_delete
+from .submission import submission_reset as submission_reset
+from .submission import submissions_by_instance as submissions_by_instance
+from .submission import submissions_view_all as submissions_view_all
+from .system import system_gc as system_gc
+from .system_settings import view_system_settings as view_system_settings

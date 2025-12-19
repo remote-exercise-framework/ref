@@ -4,13 +4,13 @@
 Used to generate the docker-compose configs used by ref.
 """
 
-
 import jinja2
 import subprocess
 import shutil
 from pathlib import Path
 
-COMPOSE_TEMPLATE = 'docker-compose.template.yml'
+COMPOSE_TEMPLATE = "docker-compose.template.yml"
+
 
 def generate_docker_compose():
     template_loader = jinja2.FileSystemLoader(searchpath="./")
@@ -19,21 +19,22 @@ def generate_docker_compose():
 
     # TODO: Load settings.ini and use values to generate the docker file.
 
-    cgroup_base = 'ref'
-    cgroup_parent = f'{cgroup_base}-core.slice'
-    instances_cgroup_parent = f'{cgroup_base}-instances.slice'
+    cgroup_base = "ref"
+    cgroup_parent = f"{cgroup_base}-core.slice"
+    instances_cgroup_parent = f"{cgroup_base}-instances.slice"
 
     render_out = template.render(
         testing=False,
         bridge_id="",  # Not used when testing=False, template uses 'ref' suffix
-        data_path='./data',
-        exercises_path='./exercises',
+        data_path="./data",
+        exercises_path="./exercises",
         cgroup_parent=cgroup_parent,
         instances_cgroup_parent=instances_cgroup_parent,
         binfmt_support=False,
-        )
-    with open('docker-compose.yml', 'w') as f:
+    )
+    with open("docker-compose.yml", "w") as f:
         f.write(render_out)
+
 
 def generate_ssh_keys():
     """
@@ -46,16 +47,25 @@ def generate_ssh_keys():
     for key_path_suffix in [container_root_key_path, container_user_key_path]:
         ssh_wrapper_key_path = "ssh-wrapper" / key_path_suffix
         if not ssh_wrapper_key_path.exists():
-            assert ssh_wrapper_key_path.parent.exists(), f"{ssh_wrapper_key_path.parent} doe not exists"
-            subprocess.check_call(f"ssh-keygen -t ed25519 -N '' -f {ssh_wrapper_key_path.as_posix()}", shell=True)
+            assert ssh_wrapper_key_path.parent.exists(), (
+                f"{ssh_wrapper_key_path.parent} doe not exists"
+            )
+            subprocess.check_call(
+                f"ssh-keygen -t ed25519 -N '' -f {ssh_wrapper_key_path.as_posix()}",
+                shell=True,
+            )
             # Copy keys to the ref-docker-base
-            shutil.copytree(ssh_wrapper_key_path.parent, Path("ref-docker-base") / key_path_suffix.parent, dirs_exist_ok=True)
+            shutil.copytree(
+                ssh_wrapper_key_path.parent,
+                Path("ref-docker-base") / key_path_suffix.parent,
+                dirs_exist_ok=True,
+            )
+
 
 def main():
     generate_docker_compose()
     generate_ssh_keys()
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

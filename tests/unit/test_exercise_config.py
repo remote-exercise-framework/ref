@@ -46,13 +46,17 @@ class TestParseAttrRequired:
     def test_required_attr_missing(self):
         """Test that missing required attribute raises error."""
         cfg = {}
-        with pytest.raises(ExerciseConfigError, match='Missing required attribute "name"'):
+        with pytest.raises(
+            ExerciseConfigError, match='Missing required attribute "name"'
+        ):
             ExerciseManager._parse_attr(cfg, "name", str, required=True)
 
     def test_required_attr_none_value(self):
         """Test that None value for required attribute raises error."""
         cfg = {"name": None}
-        with pytest.raises(ExerciseConfigError, match='Missing required attribute "name"'):
+        with pytest.raises(
+            ExerciseConfigError, match='Missing required attribute "name"'
+        ):
             ExerciseManager._parse_attr(cfg, "name", str, required=True)
 
 
@@ -196,9 +200,7 @@ class TestParseAttrValidators:
         """Test attribute with passing validator."""
         cfg = {"count": 5}
         validators = [(lambda x: x > 0, "must be positive")]
-        result = ExerciseManager._parse_attr(
-            cfg, "count", int, validators=validators
-        )
+        result = ExerciseManager._parse_attr(cfg, "count", int, validators=validators)
         assert result == 5
 
     def test_single_validator_fails(self):
@@ -215,9 +217,7 @@ class TestParseAttrValidators:
             (lambda x: x > 0, "must be positive"),
             (lambda x: x < 100, "must be less than 100"),
         ]
-        result = ExerciseManager._parse_attr(
-            cfg, "value", int, validators=validators
-        )
+        result = ExerciseManager._parse_attr(cfg, "value", int, validators=validators)
         assert result == 50
 
     def test_multiple_validators_first_fails(self):
@@ -244,9 +244,7 @@ class TestParseAttrValidators:
         """Test validator on string attribute."""
         cfg = {"name": "test_exercise"}
         validators = [(lambda x: "_" in x, "must contain underscore")]
-        result = ExerciseManager._parse_attr(
-            cfg, "name", str, validators=validators
-        )
+        result = ExerciseManager._parse_attr(cfg, "name", str, validators=validators)
         assert result == "test_exercise"
 
     def test_validator_error_includes_attr_name(self):

@@ -11,7 +11,6 @@ from threading import Lock, Thread
 from flask import Flask, current_app
 from types import SimpleNamespace
 from select import select
-from collections import namedtuple
 
 from ref.core.logging import get_logger
 from ref.model import Instance
@@ -28,46 +27,43 @@ CHUNK_SIZE = 4096
 # How often should a worker print connection related stats?
 WORKER_STATS_INTERVAL = 120
 
+
 class MessageType(enum.Enum):
     PROXY_REQUEST = 0
     SUCCESS = 50
     FAILURE = 51
 
+
 class MessageHeader(ctypes.Structure):
     _pack_ = 1
-    _fields_ = [
-            ('msg_type', ctypes.c_byte),
-            ('len', ctypes.c_uint32.__ctype_be__)
-        ]
+    _fields_ = [("msg_type", ctypes.c_byte), ("len", ctypes.c_uint32.__ctype_be__)]
 
     def __str__(self):
-        return f'MessageHeader(msg_type: {self.msg_type}, len: {self.len})'
+        return f"MessageHeader(msg_type: {self.msg_type}, len: {self.len})"
+
 
 class SuccessMessage(ctypes.Structure):
     _pack_ = 1
-    _fields_ = [
-            ('msg_type', ctypes.c_byte),
-            ('len', ctypes.c_uint32.__ctype_be__)
-        ]
+    _fields_ = [("msg_type", ctypes.c_byte), ("len", ctypes.c_uint32.__ctype_be__)]
 
     def __init__(self):
         self.msg_type = MessageType.SUCCESS.value
         self.len = 0
 
+
 class ErrorMessage(ctypes.Structure):
     _pack_ = 1
-    _fields_ = [
-            ('msg_type', ctypes.c_byte),
-            ('len', ctypes.c_uint32.__ctype_be__)
-        ]
+    _fields_ = [("msg_type", ctypes.c_byte), ("len", ctypes.c_uint32.__ctype_be__)]
 
     def __init__(self):
         self.msg_type = MessageType.FAILURE.value
         self.len = 0
 
-class ProxyWorker:
 
-    def __init__(self, server: 'ProxyServer', socket: socket.socket, addr: Tuple[str, int]):
+class ProxyWorker:
+    def __init__(
+        self, server: "ProxyServer", socket: socket.socket, addr: Tuple[str, int]
+    ):
         self.server = server
         self.client_socket = socket
         self.addr = addr
@@ -93,7 +89,7 @@ class ProxyWorker:
                 try:
                     buf = self.client_socket.recv(expected_len - len(data))
                 except TimeoutError:
-                    log.debug('Client timed out...')
+                    log.debug("Client timed out...")
                     return None
 
                 if len(buf) > 0:
@@ -103,13 +99,17 @@ class ProxyWorker:
                     if len(data) == expected_len:
                         return data
                     else:
-                        log.debug(f'Got EOF after {len(data)} bytes, but expected {expected_len} bytes.')
+                        log.debug(
+                            f"Got EOF after {len(data)} bytes, but expected {expected_len} bytes."
+                        )
                         return None
 
-    def _handle_proxy_request(self, header: MessageHeader) -> Optional[Tuple[Instance, str, int]]:
+    def _handle_proxy_request(
+        self, header: MessageHeader
+    ) -> Optional[Tuple[Instance, str, int]]:
         # Receive the rest of the message.
         if header.len > MAX_MESSAGE_SIZE:
-            log.warning(f'Header len field value is to big!')
+            log.warning("Header len field value is to big!")
             return False
 
         # This is JSON, so now byte swapping required.
@@ -121,7 +121,7 @@ class ProxyWorker:
 
         try:
             request = json.loads(request, object_hook=lambda d: SimpleNamespace(**d))
-            log.debug(f'Got request: {request}')
+            log.debug(f"Got request: {request}")
 
             # Access all expected attributes, thus it is clear what caused the error
             # in case a call raises.
@@ -132,29 +132,39 @@ class ProxyWorker:
 
             # Recheck the signed type
             if msg_type != MessageType.PROXY_REQUEST.name:
-                log.warning(f'Outer and inner message type do not match!')
+                log.warning("Outer and inner message type do not match!")
                 return False
 
             return instance_id, dst_ip, dst_port
 
-        except:
-            log.warning(f'Received malformed message body', exc_info=True)
+        except Exception:
+            log.warning("Received malformed message body", exc_info=True)
             return False
 
-
-    def _connect_to_proxy(self, instance: Instance, dst_ip: str, dst_port: int) -> Optional[bool]:
-        log.debug(f'Trying to establish proxy connection to dst_ip={dst_ip}, dst_port={dst_port}')
-        socket_path = instance.entry_service.shared_folder + '/socks_proxy'
+    def _connect_to_proxy(
+        self, instance: Instance, dst_ip: str, dst_port: int
+    ) -> Optional[bool]:
+        log.debug(
+            f"Trying to establish proxy connection to dst_ip={dst_ip}, dst_port={dst_port}"
+        )
+        socket_path = instance.entry_service.shared_folder + "/socks_proxy"
 
         try:
             # We must use `create_connection` to establish the connection since its the
             # only function of the patched `pysocks` library that supports proxing through
             # a unix domain socket.
             # https://github.com/nbars/PySocks/tree/hack_unix_domain_socket_file_support
-            self.dst_socket = socks.create_connection((dst_ip, dst_port), timeout=30, proxy_type=socks.SOCKS5, proxy_addr=socket_path)
+            self.dst_socket = socks.create_connection(
+                (dst_ip, dst_port),
+                timeout=30,
+                proxy_type=socks.SOCKS5,
+                proxy_addr=socket_path,
+            )
             self.dst_socket.setblocking(False)
-        except:
-            log.debug(f'Failed to connect {dst_ip}:{dst_port}@{socket_path}', exc_info=True)
+        except Exception:
+            log.debug(
+                f"Failed to connect {dst_ip}:{dst_port}@{socket_path}", exc_info=True
+            )
             return None
 
         return True
@@ -165,11 +175,6 @@ class ProxyWorker:
 
         client_fd = self.client_socket.fileno()
         dst_fd = self.dst_socket.fileno()
-
-        fdname = {
-            client_fd: 'client',
-            dst_fd: 'dst_fd'
-        }
 
         @dataclass
         class ConnectionState:
@@ -213,21 +218,21 @@ class ProxyWorker:
                 dname = self.dst_socket.getpeername()
 
                 send = state.bytes_written / 1024
-                send_suff = 'KiB'
+                send_suff = "KiB"
                 recv = state.bytes_read / 1024
-                recv_suff = 'KiB'
+                recv_suff = "KiB"
 
                 if send >= 1024:
                     send = send / 1024
-                    send_suff = 'MiB'
+                    send_suff = "MiB"
                     recv = recv
-                    recv_suff = 'MiB'
+                    recv_suff = "MiB"
 
                 # TODO: Calculate this over a short period of time.
                 wakeups_per_s = state.wakeups / (time.monotonic() - state.start_ts)
 
-                msg = f'\n{cname} <--> {dname}\n  => Send: {send:.2f} {send_suff}\n  => Received: {recv:.2f} {recv_suff}'
-                msg += f'\n  => {wakeups_per_s:.2f} Weakeups/s'
+                msg = f"\n{cname} <--> {dname}\n  => Send: {send:.2f} {send_suff}\n  => Received: {recv:.2f} {recv_suff}"
+                msg += f"\n  => {wakeups_per_s:.2f} Weakeups/s"
                 log.info(msg)
 
                 self.last_stats_ts = time.monotonic()
@@ -250,10 +255,10 @@ class ProxyWorker:
                 read_set.remove(dst_state.fd)
 
             # Wait for some fd to get ready
-            timeout = current_app.config['SSH_PROXY_CONNECTION_TIMEOUT']
+            timeout = current_app.config["SSH_PROXY_CONNECTION_TIMEOUT"]
             ready_read, ready_write, _ = select(read_set, write_set, [], timeout)
             if not len(ready_read) and not len(ready_write):
-                log.debug(f'Timeout after {timeout} seconds.')
+                log.debug(f"Timeout after {timeout} seconds.")
                 break
 
             maybe_print_stats(client_state)
@@ -264,9 +269,9 @@ class ProxyWorker:
             if dst_state.fd in ready_read or dst_state.fd in ready_write:
                 dst_state.wakeups += 1
 
-            #ready_read_dbg = sorted([fdname[v] for v in ready_read])
-            #ready_write_dbg = sorted([fdname[v] for v in ready_write])
-            #log.debug(f'ready_read={ready_read_dbg}, ready_write={ready_write_dbg}')
+            # ready_read_dbg = sorted([fdname[v] for v in ready_read])
+            # ready_write_dbg = sorted([fdname[v] for v in ready_write])
+            # log.debug(f'ready_read={ready_read_dbg}, ready_write={ready_write_dbg}')
 
             # Check if we have anything to read.
             if client_state.fd in ready_read:
@@ -290,7 +295,6 @@ class ProxyWorker:
                 if not ret:
                     break
 
-
     def run(self, app: Flask):
         # TODO: Spawn thread and join?
         self.thread = Thread(target=self.__run1, args=[app])
@@ -300,32 +304,32 @@ class ProxyWorker:
         with app.app_context():
             try:
                 self.__run2()
-                log.debug(f'[{self.addr}] Terminating worker')
+                log.debug(f"[{self.addr}] Terminating worker")
             except ConnectionResetError:
-                log.info(f'Connection reset by peer: {self}')
-            except:
-                log.error(f'Unexpected error', exc_info=True)
+                log.info(f"Connection reset by peer: {self}")
+            except Exception:
+                log.error("Unexpected error", exc_info=True)
             finally:
                 try:
                     self._clean_up()
-                except:
-                    log.error(f'Unexpected error during cleanup: {self}', exc_info=True)
+                except Exception:
+                    log.error(f"Unexpected error during cleanup: {self}", exc_info=True)
 
     def __run2(self):
         # Receive the initial message
         self.client_socket.settimeout(30)
 
         # Read the header send by the client.
-        log.debug(f'Receiving header...')
+        log.debug("Receiving header...")
         header = self._recv_all(ctypes.sizeof(MessageHeader))
         if not header:
             return
 
         header = MessageHeader.from_buffer(header)
-        log.debug(f'Got header={header}')
+        log.debug(f"Got header={header}")
 
         if header.msg_type == MessageType.PROXY_REQUEST.value:
-            log.debug(f'Got {MessageType.PROXY_REQUEST} request.')
+            log.debug(f"Got {MessageType.PROXY_REQUEST} request.")
             success = self._handle_proxy_request(header)
             if not success:
                 # Hadling of the proxy request failed.
@@ -340,7 +344,7 @@ class ProxyWorker:
             # Check if we have an instance with the given ID.
             instance = Instance.get(instance_id)
             if not instance:
-                log.warning(f'Got request for non existing instance.')
+                log.warning("Got request for non existing instance.")
                 return
 
             current_app.db.session.rollback()
@@ -355,48 +359,45 @@ class ProxyWorker:
             self._proxy_forever()
 
         else:
-            log.warning(f'Unknown message {header.msg_type}')
+            log.warning(f"Unknown message {header.msg_type}")
             return
 
 
 class ProxyServer:
-
     def __init__(self, app: Flask):
         self.app = app
         self.lock = Lock()
-        self.workers: list['ProxyWorker'] = []
-        self.port = app.config['SSH_PROXY_LISTEN_PORT']
+        self.workers: list["ProxyWorker"] = []
+        self.port = app.config["SSH_PROXY_LISTEN_PORT"]
 
     def loop(self):
-        log.info(f'Starting SSH Proxy on port {self.port}.')
+        log.info(f"Starting SSH Proxy on port {self.port}.")
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # Bind to port 8001 on all interfaces.
-        sock.bind(('', self.port))
-        sock.listen(current_app.config['SSH_PROXY_BACKLOG_SIZE'])
+        sock.bind(("", self.port))
+        sock.listen(current_app.config["SSH_PROXY_BACKLOG_SIZE"])
 
         # Lets start to accept new connections
         while True:
             con, addr = sock.accept()
             # FIXME: Check if port forwarding is enabled.
 
-
             # FIXME: Remove worker if terminated
             # FIXME: Limit number of workers.
             with self.lock:
                 worker = ProxyWorker(self, con, addr)
                 self.workers.append(worker)
-                log.debug(f'Spawing new worker (total={len(self.workers)})')
+                log.debug(f"Spawing new worker (total={len(self.workers)})")
                 worker.run(self.app)
+
 
 def server_loop(app: Flask):
     with app.app_context():
         server = ProxyServer(app)
         server.loop()
-
-
 
     """
     Message types (FIXME: Signed):
@@ -419,6 +420,7 @@ def server_loop(app: Flask):
      -> If success == True -> this socket is from now on proxing all traffic to
      the desired target.
     """
+
 
 """
     socket_path = instance.entry_service.shared_folder + '/socks_proxy'
@@ -531,7 +533,7 @@ def _proxy_worker_loop(app, ipc_queue, socket_path, dst_ip, dst_port, client_fd)
                 break
 
 
-    except:
+    except Exception:
         with app.app_context():
             log.debug('Error', exc_info=True)
 

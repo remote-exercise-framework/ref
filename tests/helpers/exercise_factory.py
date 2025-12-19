@@ -73,7 +73,7 @@ def create_sample_exercise(
         yaml.dump(settings, f, default_flow_style=False)
 
     # Create solution.c template
-    solution_c = '''\
+    solution_c = """\
 /*
  * Test Exercise Solution
  *
@@ -100,13 +100,13 @@ int main(int argc, char *argv[]) {
     printf("Result: %d\\n", add(a, b));
     return 0;
 }
-'''
+"""
     solution_path = exercise_dir / "solution.c"
     with open(solution_path, "w") as f:
         f.write(solution_c)
 
     # Create Makefile
-    makefile = '''\
+    makefile = """\
 CC = gcc
 CFLAGS = -Wall -Wextra -g
 
@@ -119,7 +119,7 @@ clean:
 \trm -f solution
 
 .PHONY: all clean
-'''
+"""
     makefile_path = exercise_dir / "Makefile"
     with open(makefile_path, "w") as f:
         f.write(makefile)
@@ -191,7 +191,7 @@ def create_correct_solution() -> str:
     Returns:
         C source code that passes all tests
     """
-    return '''\
+    return """\
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
     printf("Result: %d\\n", add(a, b));
     return 0;
 }
-'''
+"""
 
 
 def create_incorrect_solution() -> str:
@@ -221,7 +221,7 @@ def create_incorrect_solution() -> str:
     Returns:
         C source code that fails the tests
     """
-    return '''\
+    return """\
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -241,4 +241,4 @@ int main(int argc, char *argv[]) {
     printf("Result: %d\\n", add(a, b));
     return 0;
 }
-'''
+"""

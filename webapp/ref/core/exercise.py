@@ -1,39 +1,23 @@
 import datetime
-import enum
 import os
-import random
 import re
 import shutil
 import subprocess
-import time
-import traceback
-import typing
-from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
-from threading import Thread
 
-import docker
-import itsdangerous
 import yaml
 from flask import current_app
-from sqlalchemy.orm import joinedload, raiseload
 
 from ref.core.logging import get_logger
 from ref.model import (
     Exercise,
     ExerciseEntryService,
     ExerciseService,
-    Instance,
-    InstanceEntryService,
-    InstanceService,
-    User,
     RessourceLimits,
 )
 from ref.model.enums import ExerciseBuildStatus
 
-from ref.core.util import datetime_to_naive_utc, datetime_transmute_into_local
-from .docker import DockerClient
+from ref.core.util import datetime_transmute_into_local
 from .image import ExerciseImageManager
 from .instance import InstanceManager
 
@@ -71,10 +55,10 @@ class ExerciseManager:
         Parse an attribute from an exercise config.
         """
         if required:
-            if attr_name not in yaml_dict or yaml_dict[attr_name] == None:
+            if attr_name not in yaml_dict or yaml_dict[attr_name] is None:
                 raise ExerciseConfigError(f'Missing required attribute "{attr_name}"')
         else:
-            if attr_name not in yaml_dict or yaml_dict[attr_name] == None:
+            if attr_name not in yaml_dict or yaml_dict[attr_name] is None:
                 if attr_name in yaml_dict:
                     del yaml_dict[attr_name]
                 return default
@@ -82,7 +66,7 @@ class ExerciseManager:
         if expected_type == datetime.time:
             try:
                 yaml_dict[attr_name] = datetime.time.fromisoformat(yaml_dict[attr_name])
-            except:
+            except (ValueError, TypeError):
                 pass
 
         if not isinstance(yaml_dict[attr_name], expected_type):
@@ -196,7 +180,7 @@ class ExerciseManager:
         # Check for unknown attrs (ignore 'services' and 'entry')
         unparsed_keys = list(set(cfg.keys()) - set(["entry", "services"]))
         if unparsed_keys:
-            raise ExerciseConfigError(f'Unknown attribute(s) {" ".join(unparsed_keys)}')
+            raise ExerciseConfigError(f"Unknown attribute(s) {' '.join(unparsed_keys)}")
 
     @staticmethod
     def _parse_entry_service(exercise: Exercise, cfg):
@@ -367,7 +351,7 @@ class ExerciseManager:
             unparsed_keys = list(limits_config.keys())
             if unparsed_keys:
                 raise ExerciseConfigError(
-                    f'Unknown attribute(s) in limits configuration {", ".join(unparsed_keys)}'
+                    f"Unknown attribute(s) in limits configuration {', '.join(unparsed_keys)}"
                 )
 
         flag_config = entry_cfg.get("flag")
@@ -398,7 +382,7 @@ class ExerciseManager:
         unparsed_keys = list(entry_cfg.keys())
         if unparsed_keys:
             raise ExerciseConfigError(
-                f'Unknown attribute(s) in entry service configuration {", ".join(unparsed_keys)}'
+                f"Unknown attribute(s) in entry service configuration {', '.join(unparsed_keys)}"
             )
 
     @staticmethod
@@ -501,7 +485,6 @@ class ExerciseManager:
             exercise: The exercises that should be checked for constraint violations.
         """
         predecessors = exercise.predecessors()
-        successors = exercise.successors()
 
         for e in predecessors:
             if (

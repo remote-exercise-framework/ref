@@ -136,10 +136,9 @@ jobs:
       - name: Build Docker images
         run: |
           mkdir -p tests/build_logs
+          export REF_CI_RUN=1
           ./ctrl.sh build 2>&1 | tee tests/build_logs/docker-build.log
           exit ${PIPESTATUS[0]}
-        env:
-          REF_CI_RUN: "1"
 
       - name: Install test dependencies
         working-directory: tests

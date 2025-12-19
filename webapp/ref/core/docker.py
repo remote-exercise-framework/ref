@@ -3,9 +3,9 @@ import string
 import re
 import subprocess
 import tarfile
-from io import BytesIO, StringIO
+from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Union
 
 import docker
 from docker import errors
@@ -16,8 +16,7 @@ from ref.core.logging import get_logger
 log = get_logger(__name__)
 
 
-class DockerClient():
-
+class DockerClient:
     def __init__(self):
         self._client = None
 
@@ -27,29 +26,30 @@ class DockerClient():
         Resolves the hostname of an container to its full name.
         E.g., ssh -> ref_sshserver_1
         """
-        log.debug(f'Getting FQN of host {hostname}')
-        cmd = f'dig +short {hostname}'
+        log.debug(f"Getting FQN of host {hostname}")
+        cmd = f"dig +short {hostname}"
         ip = None
         try:
             ip = subprocess.check_output(cmd, shell=True)
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             log.error(f'Failed to get IP of host "{hostname}"', exc_info=True)
             raise
 
         ip = ip.decode().rstrip()
-        log.debug(f'IP is {ip}')
+        log.debug(f"IP is {ip}")
 
         cmd = f'nslookup {ip} | grep -o "name = .*$" | cut -d "=" -f 2 | xargs | cut -d "." -f 1'
         full_hostname = None
         try:
             full_hostname = subprocess.check_output(cmd, shell=True)
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             log.error(
-                f'Failed to get hostname for IP {ip} of host {hostname}', exc_info=True)
+                f"Failed to get hostname for IP {ip} of host {hostname}", exc_info=True
+            )
             raise
 
         full_hostname = full_hostname.decode().rstrip()
-        log.debug(f'Full hostname is {full_hostname}')
+        log.debug(f"Full hostname is {full_hostname}")
 
         return full_hostname
 
@@ -71,15 +71,15 @@ class DockerClient():
         """
 
         try:
-            mounts = Path('/proc/self/mountinfo').read_text()
+            mounts = Path("/proc/self/mountinfo").read_text()
         except Exception as e:
-            raise Exception('Failed to get container ID') from e
+            raise Exception("Failed to get container ID") from e
 
         # Grep the ID from the /etc/hostname mount point.
         # 391 382 254:0 /var/lib/docker/containers/19ea1ca788b40ecf52ca33807d465697d730ae5d95994bef869fb9644bcb495b/hostname /etc/hostname rw,relatime - ext4 /dev/mapper/dec_root rw
         container_id = re.findall("/([a-f0-9]{64})/hostname /etc/hostname", mounts)
         if len(container_id) != 1:
-            raise Exception(f'Failed to find container ID. lines={mounts}')
+            raise Exception(f"Failed to find container ID. lines={mounts}")
 
         return container_id[0]
 
@@ -101,20 +101,19 @@ class DockerClient():
         own_id = DockerClient.get_own_container_id()
 
         mounts = self.container(own_id, raise_on_not_found=True)
-        mounts = mounts.attrs['Mounts']
+        mounts = mounts.attrs["Mounts"]
         target_mount = None
         for mount in mounts:
-            if path.startswith(mount['Destination']):
+            if path.startswith(mount["Destination"]):
                 target_mount = mount
                 break
 
         if not target_mount:
-            raise Exception(
-                f'Failed to resolve local path {path} to host path.')
+            raise Exception(f"Failed to resolve local path {path} to host path.")
 
-        path = path[len(target_mount['Destination']):]
+        path = path[len(target_mount["Destination"]) :]
 
-        return target_mount['Source'] + path
+        return target_mount["Source"] + path
 
     def images(self) -> List[docker.models.images.Image]:
         """
@@ -147,17 +146,16 @@ class DockerClient():
         Returns:
             On success, stdout captured during the copy process.
         """
-        mounts = {
-            local_dst_path: {'bind': '/ref-copy', 'mode': 'rw'}
-        }
+        mounts = {local_dst_path: {"bind": "/ref-copy", "mode": "rw"}}
 
-        cmd = ['/bin/bash', '-c', f'cp -avrT {container_src_path}/ /ref-copy/']
+        cmd = ["/bin/bash", "-c", f"cp -avrT {container_src_path}/ /ref-copy/"]
         log_msgs = ""
-        log_msgs += ' --- Copying data from image ---\n'
+        log_msgs += " --- Copying data from image ---\n"
         # ! Do not use auto_remove here, because it is broken in docker==5.0.3.
         # ! See https://github.com/docker/docker-py/pull/2282.
         log_msgs += self.client.containers.run(
-            image_name, cmd, stderr=True, volumes=mounts, remove=True).decode()
+            image_name, cmd, stderr=True, volumes=mounts, remove=True
+        ).decode()
 
         return log_msgs
 
@@ -169,7 +167,9 @@ class DockerClient():
         """
         return self.client.images.remove(name, force=force)
 
-    def containers(self, include_stopped=False, sparse=False, filters=None) -> List[docker.models.containers.Container]:
+    def containers(
+        self, include_stopped=False, sparse=False, filters=None
+    ) -> List[docker.models.containers.Container]:
         """
         Get a list of all running containers.
         Args:
@@ -179,7 +179,9 @@ class DockerClient():
         Raises:
             - docker.errors.APIError
         """
-        return self.client.containers.list(all=include_stopped, sparse=sparse, filters=filters)
+        return self.client.containers.list(
+            all=include_stopped, sparse=sparse, filters=filters
+        )
 
     def networks(self, filters=None) -> List[docker.models.networks.Network]:
         """
@@ -189,7 +191,9 @@ class DockerClient():
         """
         return self.client.networks.list(greedy=True, filters=filters)
 
-    def get_connected_container(self, network: Union[str, docker.models.networks.Network]) -> List[str]:
+    def get_connected_container(
+        self, network: Union[str, docker.models.networks.Network]
+    ) -> List[str]:
         """
         Returns a list of ids of all containers connected to the given network.
         If no containers are connected, an empty list is returned.
@@ -200,29 +204,38 @@ class DockerClient():
         if not network:
             return []
 
-        return network.attrs['Containers'].keys()
+        return network.attrs["Containers"].keys()
 
-    def get_connected_networks(self, container: Union[str, docker.models.containers.Container]) -> List[str]:
+    def get_connected_networks(
+        self, container: Union[str, docker.models.containers.Container]
+    ) -> List[str]:
         """
         Returns a list of ids of all networks that are connected to the given container.
         If the container is not connected to any network, an empty list is returned.
         """
         container = self.container(container, raise_on_not_found=True)
 
-        netwoks = container.attrs['NetworkSettings']['Networks'].values()
-        netwoks = [network['NetworkID'] for network in netwoks]
+        netwoks = container.attrs["NetworkSettings"]["Networks"].values()
+        netwoks = [network["NetworkID"] for network in netwoks]
 
         return netwoks
 
-    def __container_transitive_closure_get_containers(self, container, visited_containers, visited_networks=set()):
+    def __container_transitive_closure_get_containers(
+        self, container, visited_containers, visited_networks=set()
+    ):
         visited_containers.add(container)
         for n in self.get_connected_networks(container):
             for c in self.get_connected_container(n):
                 if c not in visited_containers:
                     self.__container_transitive_closure_get_containers(
-                        c, visited_containers)
+                        c, visited_containers
+                    )
 
-    def container_transitive_closure_get_containers(self, container: Union[str, docker.models.containers.Container], include_self=False):
+    def container_transitive_closure_get_containers(
+        self,
+        container: Union[str, docker.models.containers.Container],
+        include_self=False,
+    ):
         """
         Returns a set containing all containers ids of containers connected over any network
         to the given container. This also includes containers that are connected over in intermediate
@@ -235,14 +248,15 @@ class DockerClient():
         containers = set()
         containers.add(container.id)
 
-        self.__container_transitive_closure_get_containers(
-            container.id, containers)
+        self.__container_transitive_closure_get_containers(container.id, containers)
 
         if not include_self:
             containers.remove(container.id)
         return containers
 
-    def container(self, name_or_id: str, raise_on_not_found=False) -> docker.models.containers.Container:
+    def container(
+        self, name_or_id: str, raise_on_not_found=False
+    ) -> docker.models.containers.Container:
         """
         Get a container by its id or name. In case no container was
         found, None is returned.
@@ -252,7 +266,7 @@ class DockerClient():
         """
         if not name_or_id:
             if raise_on_not_found:
-                raise Exception('Not found')
+                raise Exception("Not found")
             return None
 
         if isinstance(name_or_id, docker.models.containers.Container):
@@ -265,7 +279,11 @@ class DockerClient():
                 raise
             return None
 
-    def container_get_ip(self, container: Union[str, docker.models.containers.Container], network: Union[str, docker.models.networks.Network]):
+    def container_get_ip(
+        self,
+        container: Union[str, docker.models.containers.Container],
+        network: Union[str, docker.models.networks.Network],
+    ):
         """
         Returns the IP address of the given container on the given network.
         If the container is not connected to the network, None is returned.
@@ -278,12 +296,18 @@ class DockerClient():
         network = self.network(network, raise_on_not_found=True)
 
         network.reload()
-        for k, v in network.attrs['Containers'].items():
+        for k, v in network.attrs["Containers"].items():
             if k == container.id:
-                return v['IPv4Address']
+                return v["IPv4Address"]
         return None
 
-    def container_add_file(self, container: Union[str, docker.models.containers.Container], path: str, file_bytes: bytes, mode=0o700):
+    def container_add_file(
+        self,
+        container: Union[str, docker.models.containers.Container],
+        path: str,
+        file_bytes: bytes,
+        mode=0o700,
+    ):
         """
         Add a file into a running container.
         The new file is owned by root.
@@ -292,7 +316,7 @@ class DockerClient():
             docker.errors.NetFound
         """
         assert container
-        current_app.logger.info(f'Adding file {path} to container {container}')
+        current_app.logger.info(f"Adding file {path} to container {container}")
 
         container = self.container(container, raise_on_not_found=True)
 
@@ -312,26 +336,29 @@ class DockerClient():
 
         container.put_archive(path.parent.as_posix(), tar_bytes.getvalue())
 
-    def create_container(self,
-                         image_name,
-                         name=None,
-                         auto_remove=False,
-                         network_mode='none',
-                         volumes=None,
-                         cap_add=[],
-                         security_opt=[],
-                         cpu_period=None,
-                         cpu_quota=None,
-                         mem_limit=None,
-                         read_only=False,
-                         hostname=None,
-                         **kwargs):
+    def create_container(
+        self,
+        image_name,
+        name=None,
+        auto_remove=False,
+        network_mode="none",
+        volumes=None,
+        cap_add=[],
+        security_opt=[],
+        cpu_period=None,
+        cpu_quota=None,
+        mem_limit=None,
+        read_only=False,
+        hostname=None,
+        **kwargs,
+    ):
         if not name:
-            name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}' + \
-                ''.join(random.choices(string.ascii_uppercase, k=10))
+            name = f"{current_app.config['DOCKER_RESSOURCE_PREFIX']}" + "".join(
+                random.choices(string.ascii_uppercase, k=10)
+            )
 
         if hostname:
-            kwargs['hostname'] = hostname
+            kwargs["hostname"] = hostname
 
         return self.client.containers.run(
             image_name,
@@ -348,20 +375,19 @@ class DockerClient():
             mem_limit=mem_limit,
             read_only=read_only,
             stdin_open=True,
-            **kwargs
+            **kwargs,
         )
 
     def stop_container(self, container, timeout=5, remove=False):
         container = self.container(container, raise_on_not_found=True)
         container.stop(timeout=timeout)
         if remove:
-            #Make sure it was not started with autremove
+            # Make sure it was not started with autremove
             container = self.container(container.id, raise_on_not_found=False)
             if container:
                 container.remove(force=True)
 
-
-    def create_network(self, name=None, driver='bridge', internal=False):
+    def create_network(self, name=None, driver="bridge", internal=False):
         """
         Networks do not need a unique name. If name is not set, a random name
         is chosen.
@@ -369,8 +395,9 @@ class DockerClient():
             docker.errors.APIError
         """
         if not name:
-            name = f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}' + \
-                ''.join(random.choices(string.ascii_uppercase, k=10))
+            name = f"{current_app.config['DOCKER_RESSOURCE_PREFIX']}" + "".join(
+                random.choices(string.ascii_uppercase, k=10)
+            )
         return self.client.networks.create(name, driver=driver, internal=internal)
 
     def network(self, network_id, raise_on_not_found=False):
@@ -396,7 +423,7 @@ class DockerClient():
         network = self.network(network)
         if not network:
             return
-        log.info(f'Removing network {network.id}')
+        log.info(f"Removing network {network.id}")
 
         failed = False
         containers = self.get_connected_container(network)
@@ -407,7 +434,8 @@ class DockerClient():
             else:
                 failed = True
                 log.warning(
-                    f'Network {network.id} contains dead container {cid}, unable to remove network')
+                    f"Network {network.id} contains dead container {cid}, unable to remove network"
+                )
 
         # Removal will only succeed if the network has no attached containers.
         # In case a non-existing container is attached we can not disconnect it, but are

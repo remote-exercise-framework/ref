@@ -134,6 +134,7 @@ class TestInconsistencyOnErrorEdgeCases:
 
     def test_context_with_return_value(self):
         """Test that context doesn't interfere with return values."""
+
         def func_with_context():
             with inconsistency_on_error():
                 return 42

@@ -3,9 +3,11 @@ import sys
 
 
 class InconsistentStateError(Exception):
-
     def __init__(self, *args, msg=None, **kwargs):
-        msg = msg or 'The system is in an inconsistent state that it can not recover from automatically.'
+        msg = (
+            msg
+            or "The system is in an inconsistent state that it can not recover from automatically."
+        )
         super().__init__(*args, **kwargs)
 
 
@@ -18,7 +20,7 @@ def inconsistency_on_error(msg=None):
     if cleanup also fails.
     """
 
-    #If we are used inside an exception handler, then exc_obj is the current exception.
+    # If we are used inside an exception handler, then exc_obj is the current exception.
     exc_type, exc_obj, exc_tb = sys.exc_info()
     del exc_type
     del exc_tb

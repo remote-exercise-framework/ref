@@ -353,9 +353,7 @@ POSTGRES_PASSWORD={self.config.postgres_password}
 
             # Add web port mapping
             if "web" in compose_dict.get("services", {}):
-                compose_dict["services"]["web"]["ports"] = [
-                    f"{self._http_port}:8000"
-                ]
+                compose_dict["services"]["web"]["ports"] = [f"{self._http_port}:8000"]
 
             # Add sshserver port mapping
             if "sshserver" in compose_dict.get("services", {}):
@@ -441,9 +439,12 @@ POSTGRES_PASSWORD={self.config.postgres_password}
 
         cmd = [
             *compose_cmd,
-            "-p", self.project_name,
-            "-f", str(self._compose_file),
-            "--env-file", str(settings_file),
+            "-p",
+            self.project_name,
+            "-f",
+            str(self._compose_file),
+            "--env-file",
+            str(settings_file),
             *args,
         ]
 
@@ -451,11 +452,17 @@ POSTGRES_PASSWORD={self.config.postgres_password}
         run_env = os.environ.copy()
         run_env["REAL_HOSTNAME"] = socket.gethostname()
         run_env["DEBUG"] = "true" if self.config.debug else "false"
-        run_env["MAINTENANCE_ENABLED"] = "true" if self.config.maintenance_enabled else "false"
-        run_env["DISABLE_TELEGRAM"] = "true" if self.config.disable_telegram else "false"
+        run_env["MAINTENANCE_ENABLED"] = (
+            "true" if self.config.maintenance_enabled else "false"
+        )
+        run_env["DISABLE_TELEGRAM"] = (
+            "true" if self.config.disable_telegram else "false"
+        )
         run_env["DEBUG_TOOLBAR"] = "true" if self.config.debug_toolbar else "false"
         run_env["HOT_RELOADING"] = "true" if self.config.hot_reloading else "false"
-        run_env["DISABLE_RESPONSE_CACHING"] = "true" if self.config.disable_response_caching else "false"
+        run_env["DISABLE_RESPONSE_CACHING"] = (
+            "true" if self.config.disable_response_caching else "false"
+        )
 
         if env:
             run_env.update(env)
@@ -523,8 +530,12 @@ POSTGRES_PASSWORD={self.config.postgres_password}
         while time.time() - start_time < timeout:
             try:
                 result = self._run_compose(
-                    "exec", "-T", "db",
-                    "pg_isready", "-U", "ref",
+                    "exec",
+                    "-T",
+                    "db",
+                    "pg_isready",
+                    "-U",
+                    "ref",
                     capture_output=True,
                     check=False,
                 )
@@ -538,8 +549,12 @@ POSTGRES_PASSWORD={self.config.postgres_password}
     def _run_db_migrations(self) -> None:
         """Run database migrations using a temporary web container."""
         self._run_compose(
-            "run", "--rm", "-T", "web",
-            "bash", "-c",
+            "run",
+            "--rm",
+            "-T",
+            "web",
+            "bash",
+            "-c",
             "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db upgrade",
             check=True,
         )
@@ -627,7 +642,9 @@ POSTGRES_PASSWORD={self.config.postgres_password}
         Returns:
             CompletedProcess with output.
         """
-        return self._run_compose("exec", "-T", service, "bash", "-c", command, capture_output=True)
+        return self._run_compose(
+            "exec", "-T", service, "bash", "-c", command, capture_output=True
+        )
 
     def run_flask_cmd(self, command: str) -> subprocess.CompletedProcess[str]:
         """
@@ -640,7 +657,11 @@ POSTGRES_PASSWORD={self.config.postgres_password}
             CompletedProcess with output.
         """
         return self._run_compose(
-            "run", "--rm", "web", "bash", "-c",
+            "run",
+            "--rm",
+            "web",
+            "bash",
+            "-c",
             f"FLASK_APP=ref python3 -m flask {command}",
             capture_output=True,
         )
@@ -648,7 +669,11 @@ POSTGRES_PASSWORD={self.config.postgres_password}
     def db_upgrade(self) -> None:
         """Run database migrations."""
         self._run_compose(
-            "run", "--rm", "web", "bash", "-c",
+            "run",
+            "--rm",
+            "web",
+            "bash",
+            "-c",
             "DB_MIGRATE=1 FLASK_APP=ref python3 -m flask db upgrade",
         )
 
@@ -895,7 +920,8 @@ def cleanup_docker_resources_by_prefix(prefix: str) -> None:
             check=True,
         )
         containers = [
-            name for name in result.stdout.strip().split("\n")
+            name
+            for name in result.stdout.strip().split("\n")
             if name and prefix in name
         ]
         if containers:
@@ -916,7 +942,8 @@ def cleanup_docker_resources_by_prefix(prefix: str) -> None:
             check=True,
         )
         networks = [
-            name for name in result.stdout.strip().split("\n")
+            name
+            for name in result.stdout.strip().split("\n")
             if name and prefix in name
         ]
         if networks:
@@ -937,7 +964,8 @@ def cleanup_docker_resources_by_prefix(prefix: str) -> None:
             check=True,
         )
         volumes = [
-            name for name in result.stdout.strip().split("\n")
+            name
+            for name in result.stdout.strip().split("\n")
             if name and prefix in name
         ]
         if volumes:
@@ -958,7 +986,8 @@ def cleanup_docker_resources_by_prefix(prefix: str) -> None:
             check=True,
         )
         images = [
-            name for name in result.stdout.strip().split("\n")
+            name
+            for name in result.stdout.strip().split("\n")
             if name and prefix in name
         ]
         if images:

@@ -1,26 +1,13 @@
 from __future__ import annotations
 
-import base64
 import datetime
-import enum
-import hashlib
-import pickle
-import threading
-import time
 import typing
 from collections import defaultdict
-from io import BytesIO
-from pathlib import Path
-from typing import Collection, List
+from typing import List
 
-import docker
-import yaml
 from flask import current_app
-from rq.job import Job
-from sqlalchemy import Column, Integer, PickleType, and_, create_engine, or_
-from sqlalchemy.orm import joinedload, raiseload
+from sqlalchemy import PickleType, and_
 
-from flask_bcrypt import check_password_hash, generate_password_hash
 from ref import db
 
 from .enums import ExerciseBuildStatus
@@ -29,16 +16,23 @@ from .util import CommonDbOpsMixin, ModelToStringMixin
 
 
 class ConfigParsingError(Exception):
-
     def __init__(self, msg: str, path: str = None):
         if path:
-            msg = f'{msg} ({path})'
+            msg = f"{msg} ({path})"
         super().__init__(msg)
 
-class RessourceLimits(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
-    __to_str_fields__ = ['id', 'cpu_cnt_max', 'cpu_shares', 'pids_max', 'memory_in_mb', 'memory_swap_in_mb', 'memory_kernel_in_mb']
-    __tablename__ = 'exercise_ressource_limits'
+class RessourceLimits(CommonDbOpsMixin, ModelToStringMixin, db.Model):
+    __to_str_fields__ = [
+        "id",
+        "cpu_cnt_max",
+        "cpu_shares",
+        "pids_max",
+        "memory_in_mb",
+        "memory_swap_in_mb",
+        "memory_kernel_in_mb",
+    ]
+    __tablename__ = "exercise_ressource_limits"
     id = db.Column(db.Integer, primary_key=True)
 
     cpu_cnt_max: float = db.Column(db.Float(), nullable=True, default=None)
@@ -50,22 +44,28 @@ class RessourceLimits(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     memory_swap_in_mb: int = db.Column(db.Integer(), nullable=True, default=None)
     memory_kernel_in_mb: int = db.Column(db.Integer(), nullable=True, default=None)
 
+
 class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
     Each Exercise must have exactly one ExerciseEntryService that represtens the service
     that serves as entry point for it.
     """
-    __to_str_fields__ = ['id', 'exercise_id']
-    __tablename__ = 'exercise_entry_service'
+
+    __to_str_fields__ = ["id", "exercise_id"]
+    __tablename__ = "exercise_entry_service"
     __allow_unmapped__ = True
 
     id = db.Column(db.Integer, primary_key=True)
 
-    #The exercise this entry service belongs to
-    exercise_id: int = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'), nullable=False)
-    exercise: 'Exercise' = db.relationship("Exercise", foreign_keys=[exercise_id], back_populates="entry_service")
+    # The exercise this entry service belongs to
+    exercise_id: int = db.Column(
+        db.Integer, db.ForeignKey("exercise.id", ondelete="RESTRICT"), nullable=False
+    )
+    exercise: "Exercise" = db.relationship(
+        "Exercise", foreign_keys=[exercise_id], back_populates="entry_service"
+    )
 
-    #Path inside the container that is persistet
+    # Path inside the container that is persistet
     persistance_container_path: str = db.Column(db.Text(), nullable=True)
 
     files: List[str] = db.Column(PickleType(), nullable=True)
@@ -73,7 +73,9 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     # List of commands that are executed when building the service's Docker image.
     build_cmd: List[str] = db.Column(db.PickleType(), nullable=True)
 
-    no_randomize_files: typing.Optional[List[str]] = db.Column(db.PickleType(), nullable=True)
+    no_randomize_files: typing.Optional[List[str]] = db.Column(
+        db.PickleType(), nullable=True
+    )
 
     disable_aslr: bool = db.Column(db.Boolean(), nullable=False)
 
@@ -84,15 +86,21 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     allow_internet: bool = db.Column(db.Boolean(), nullable=False, default=False)
 
-    #options for the flag that is placed inside the container
+    # options for the flag that is placed inside the container
     flag_path: str = db.Column(db.Text(), nullable=True)
     flag_value: str = db.Column(db.Text(), nullable=True)
     flag_user: str = db.Column(db.Text(), nullable=True)
     flag_group: str = db.Column(db.Text(), nullable=True)
     flag_permission: str = db.Column(db.Text(), nullable=True)
 
-    ressource_limit_id: int = db.Column(db.Integer, db.ForeignKey('exercise_ressource_limits.id', ondelete='RESTRICT'), nullable=True)
-    ressource_limit: RessourceLimits = db.relationship("RessourceLimits", foreign_keys=[ressource_limit_id])
+    ressource_limit_id: int = db.Column(
+        db.Integer,
+        db.ForeignKey("exercise_ressource_limits.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    ressource_limit: RessourceLimits = db.relationship(
+        "RessourceLimits", foreign_keys=[ressource_limit_id]
+    )
 
     @property
     def persistance_lower(self) -> str:
@@ -100,14 +108,14 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         Path to the local directory that contains the data located at persistance_container_path
         in the exercise image.
         """
-        return self.exercise.persistence_path + f'/entry-server/lower'
+        return self.exercise.persistence_path + "/entry-server/lower"
 
     @property
     def image_name(self) -> str:
         """
         Name of the docker image that was build based on this configuration.
         """
-        return f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.exercise.short_name}-entry:v{self.exercise.version}'
+        return f"{current_app.config['DOCKER_RESSOURCE_PREFIX']}{self.exercise.short_name}-entry:v{self.exercise.version}"
 
 
 class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
@@ -116,17 +124,22 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     the ExerciseEntryService. A usecase for an ExerciseService might be
     the implementation of a networked service that must be hacked by a user.
     """
-    __to_str_fields__ = ['id', 'exercise_id']
-    __tablename__ = 'exercise_service'
+
+    __to_str_fields__ = ["id", "exercise_id"]
+    __tablename__ = "exercise_service"
     __allow_unmapped__ = True
 
     id: int = db.Column(db.Integer, primary_key=True)
 
     name: str = db.Column(db.Text())
 
-    #Backref is exercise
-    exercise_id: int = db.Column(db.Integer, db.ForeignKey('exercise.id', ondelete='RESTRICT'), nullable=False)
-    exercise: 'Exercise' = db.relationship("Exercise", foreign_keys=[exercise_id], back_populates="services")
+    # Backref is exercise
+    exercise_id: int = db.Column(
+        db.Integer, db.ForeignKey("exercise.id", ondelete="RESTRICT"), nullable=False
+    )
+    exercise: "Exercise" = db.relationship(
+        "Exercise", foreign_keys=[exercise_id], back_populates="services"
+    )
 
     files: List[str] = db.Column(PickleType(), nullable=True)
     build_cmd: List[str] = db.Column(db.PickleType(), nullable=True)
@@ -138,7 +151,12 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     allow_internet: bool = db.Column(db.Boolean(), nullable=True, default=False)
 
-    instances: List[Instance] = db.relationship("InstanceService", back_populates="exercise_service", lazy=True, passive_deletes='all')
+    instances: List[Instance] = db.relationship(
+        "InstanceService",
+        back_populates="exercise_service",
+        lazy=True,
+        passive_deletes="all",
+    )
 
     # health_check_cmd: List[str] = db.Column(db.PickleType(), nullable=False)
 
@@ -153,7 +171,8 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         Name of the docker image that was build based on this configuration.
         """
-        return f'{current_app.config["DOCKER_RESSOURCE_PREFIX"]}{self.exercise.short_name}-{self.name}:v{self.exercise.version}'
+        return f"{current_app.config['DOCKER_RESSOURCE_PREFIX']}{self.exercise.short_name}-{self.name}:v{self.exercise.version}"
+
 
 class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     """
@@ -162,60 +181,72 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     In order to make a exercise available to a student, an ExerciseInstance must be
     created.
     """
-    __to_str_fields__ = ['id', 'short_name', 'version', 'category', 'build_job_status']
-    __tablename__ = 'exercise'
-    __allow_unmapped__ = True
 
+    __to_str_fields__ = ["id", "short_name", "version", "category", "build_job_status"]
+    __tablename__ = "exercise"
+    __allow_unmapped__ = True
 
     id: int = db.Column(db.Integer, primary_key=True)
 
-    #The services that defines the entrypoint of this exercise
-    entry_service: ExerciseEntryService = db.relationship("ExerciseEntryService", uselist=False, back_populates="exercise",  passive_deletes='all')
+    # The services that defines the entrypoint of this exercise
+    entry_service: ExerciseEntryService = db.relationship(
+        "ExerciseEntryService",
+        uselist=False,
+        back_populates="exercise",
+        passive_deletes="all",
+    )
 
-    #Additional services that are mapped into the network for this exercise.
-    services: List[ExerciseService] = db.relationship('ExerciseService', back_populates='exercise', lazy=True, passive_deletes='all')
+    # Additional services that are mapped into the network for this exercise.
+    services: List[ExerciseService] = db.relationship(
+        "ExerciseService", back_populates="exercise", lazy=True, passive_deletes="all"
+    )
 
-    #Folder the template was initially imported from
+    # Folder the template was initially imported from
     template_import_path: str = db.Column(db.Text(), nullable=False, unique=False)
 
-    #Folder where a copy of the template is stored for persisting it after import
+    # Folder where a copy of the template is stored for persisting it after import
     template_path: str = db.Column(db.Text(), nullable=False, unique=True)
 
-    #Path to the folder that contains all persisted data of this exercise.
+    # Path to the folder that contains all persisted data of this exercise.
     persistence_path: str = db.Column(db.Text(), nullable=False, unique=True)
 
-    #Name that identifies the exercise
+    # Name that identifies the exercise
     short_name: str = db.Column(db.Text(), nullable=False, unique=False)
 
-    #Version of the exercise used for updating mechanism.
+    # Version of the exercise used for updating mechanism.
     version: int = db.Column(db.Integer(), nullable=False)
 
-    #Used to group the exercises
+    # Used to group the exercises
     category: str = db.Column(db.Text(), nullable=True, unique=False)
 
-
-    #Instances must be submitted before this point in time.
+    # Instances must be submitted before this point in time.
     submission_deadline_end: datetime.datetime = db.Column(db.DateTime(), nullable=True)
 
-    submission_deadline_start: datetime.datetime = db.Column(db.DateTime(), nullable=True)
+    submission_deadline_start: datetime.datetime = db.Column(
+        db.DateTime(), nullable=True
+    )
 
     submission_test_enabled: datetime.datetime = db.Column(db.Boolean(), nullable=False)
 
-    #Max point a user can get for this exercise. Might be None.
+    # Max point a user can get for this exercise. Might be None.
     max_grading_points: int = db.Column(db.Integer, nullable=True)
 
-    #Is this Exercise version deployed by default in case an instance is requested?
-    #At most one exercise with same short_name can have this flag.
+    # Is this Exercise version deployed by default in case an instance is requested?
+    # At most one exercise with same short_name can have this flag.
     is_default: bool = db.Column(db.Boolean(), nullable=False)
 
-    #Log of the last build run
+    # Log of the last build run
     build_job_result: str = db.Column(db.Text(), nullable=True)
 
-    #Build status of the docker images that belong to the exercise
-    build_job_status: ExerciseBuildStatus = db.Column(db.Enum(ExerciseBuildStatus), nullable=False)
+    # Build status of the docker images that belong to the exercise
+    build_job_status: ExerciseBuildStatus = db.Column(
+        db.Enum(ExerciseBuildStatus), nullable=False
+    )
 
-    #All running instances of this exercise
-    instances: List[Instance] = db.relationship('Instance', back_populates='exercise', lazy=True,  passive_deletes='all')
+    # All running instances of this exercise
+    instances: List[Instance] = db.relationship(
+        "Instance", back_populates="exercise", lazy=True, passive_deletes="all"
+    )
 
     def get_users_instance(self, user) -> List[Instance]:
         for instance in self.instances:
@@ -224,12 +255,16 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return None
 
     def predecessors(self) -> List[Exercise]:
-        exercises = Exercise.query.filter(
-            and_(
-                Exercise.short_name == self.short_name,
-                Exercise.version < self.version
+        exercises = (
+            Exercise.query.filter(
+                and_(
+                    Exercise.short_name == self.short_name,
+                    Exercise.version < self.version,
                 )
-            ).order_by(Exercise.version.desc()).all()
+            )
+            .order_by(Exercise.version.desc())
+            .all()
+        )
         return exercises
 
     def is_update(self) -> bool:
@@ -251,12 +286,16 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return exercise is not None
 
     def successors(self) -> List[Exercise]:
-        exercises = Exercise.query.filter(
-            and_(
-                Exercise.short_name == self.short_name,
-                Exercise.version > self.version
+        exercises = (
+            Exercise.query.filter(
+                and_(
+                    Exercise.short_name == self.short_name,
+                    Exercise.version > self.version,
                 )
-            ).order_by(Exercise.version).all()
+            )
+            .order_by(Exercise.version)
+            .all()
+        )
         return exercises
 
     def successor(self) -> Exercise:
@@ -285,35 +324,35 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         Returns and locks the default exercise for the given short_name.
         """
-        q = Exercise.query.filter(Exercise.short_name == short_name).filter(Exercise.is_default == True)
+        q = Exercise.query.filter(Exercise.short_name == short_name).filter(
+            Exercise.is_default == True  # noqa: E712
+        )
         return q.one_or_none()
 
     @staticmethod
     def get_exercise(short_name, version, for_update=False) -> Exercise:
         exercise = Exercise.query.filter(
-            and_(
-                Exercise.short_name == short_name,
-                Exercise.version == version
-                )
+            and_(Exercise.short_name == short_name, Exercise.version == version)
         )
         return exercise.one_or_none()
 
     @staticmethod
     def get_exercises(short_name) -> List[Exercise]:
-        exercises = Exercise.query.filter(
-            Exercise.short_name == short_name
-        )
+        exercises = Exercise.query.filter(Exercise.short_name == short_name)
         return exercises.all()
 
     def deadine_passed(self) -> bool:
-        assert self.has_deadline(), 'Exercise does not have a deadline'
+        assert self.has_deadline(), "Exercise does not have a deadline"
         return datetime.datetime.now() > self.submission_deadline_end
 
     def has_deadline(self) -> bool:
         return self.submission_deadline_end is not None
 
     def has_started(self) -> bool:
-        return self.submission_deadline_start is None or datetime.datetime.now() > self.submission_deadline_start
+        return (
+            self.submission_deadline_start is None
+            or datetime.datetime.now() > self.submission_deadline_start
+        )
 
     def submission_heads(self) -> List[Submission]:
         """
@@ -324,7 +363,9 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         most_recent_instances = []
         instances_per_user = defaultdict(list)
-        instances = Instance.query.filter(Instance.exercise == self, Instance.submission != None).all()
+        instances = Instance.query.filter(
+            Instance.exercise == self, Instance.submission != None  # noqa: E711
+        ).all()
 
         for instance in instances:
             instances_per_user[instance.user] += [instance]

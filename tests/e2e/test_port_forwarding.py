@@ -111,7 +111,9 @@ class TestPortForwardingSetup:
         success = admin_client.import_exercise(exercise_path)
         assert success, "Failed to import exercise"
 
-        exercise = admin_client.get_exercise_by_name(port_forwarding_state.exercise_name)
+        exercise = admin_client.get_exercise_by_name(
+            port_forwarding_state.exercise_name
+        )
         assert exercise is not None
         exercise_id = exercise.get("id")
         assert exercise_id is not None, "Exercise ID not found"
@@ -131,7 +133,9 @@ class TestPortForwardingSetup:
     ):
         """Enable the exercise."""
         assert port_forwarding_state.exercise_id is not None
-        success = admin_client.toggle_exercise_default(port_forwarding_state.exercise_id)
+        success = admin_client.toggle_exercise_default(
+            port_forwarding_state.exercise_id
+        )
         assert success, "Failed to enable exercise"
 
     @pytest.mark.e2e
@@ -199,7 +203,7 @@ def _create_ssh_client(
 
 
 # Python script for an echo server that runs inside the container
-ECHO_SERVER_SCRIPT = '''
+ECHO_SERVER_SCRIPT = """
 import socket
 import sys
 
@@ -223,10 +227,10 @@ except socket.timeout:
     pass
 finally:
     s.close()
-'''
+"""
 
 # Python script for an HTTP server that runs inside the container
-HTTP_SERVER_SCRIPT = '''
+HTTP_SERVER_SCRIPT = """
 import socket
 import sys
 
@@ -263,7 +267,7 @@ except socket.timeout:
     pass
 finally:
     s.close()
-'''
+"""
 
 
 class TestTCPForwarding:
@@ -306,7 +310,7 @@ class TestTCPForwarding:
             sftp.close()
 
             # Start the echo server in the background using nohup
-            _, stdout, stderr = client.exec_command(
+            _, stdout, _stderr = client.exec_command(
                 f"nohup python3 /tmp/echo_server.py {test_port} > /tmp/echo_server.log 2>&1 &"
             )
             stdout.channel.recv_exit_status()
@@ -317,7 +321,9 @@ class TestTCPForwarding:
             pid = stdout.read().decode().strip()
             if not pid:
                 # Get log for debugging
-                _, log_stdout, _ = client.exec_command("cat /tmp/echo_server.log 2>/dev/null || echo 'no log'")
+                _, log_stdout, _ = client.exec_command(
+                    "cat /tmp/echo_server.log 2>/dev/null || echo 'no log'"
+                )
                 log_content = log_stdout.read().decode()
                 assert False, f"Echo server failed to start. Log: {log_content}"
 
@@ -384,7 +390,7 @@ class TestTCPForwarding:
             sftp.close()
 
             # Start the HTTP server in the background using nohup
-            _, stdout, stderr = client.exec_command(
+            _, stdout, _stderr = client.exec_command(
                 f"nohup python3 /tmp/http_server.py {test_port} > /tmp/http_server.log 2>&1 &"
             )
             stdout.channel.recv_exit_status()
@@ -395,7 +401,9 @@ class TestTCPForwarding:
             pid = stdout.read().decode().strip()
             if not pid:
                 # Get log for debugging
-                _, log_stdout, _ = client.exec_command("cat /tmp/http_server.log 2>/dev/null || echo 'no log'")
+                _, log_stdout, _ = client.exec_command(
+                    "cat /tmp/http_server.log 2>/dev/null || echo 'no log'"
+                )
                 log_content = log_stdout.read().decode()
                 assert False, f"HTTP server failed to start. Log: {log_content}"
 
@@ -412,10 +420,7 @@ class TestTCPForwarding:
 
             # Send HTTP GET request
             http_request = (
-                b"GET / HTTP/1.1\r\n"
-                b"Host: localhost\r\n"
-                b"Connection: close\r\n"
-                b"\r\n"
+                b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
             )
             channel.sendall(http_request)
 

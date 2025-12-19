@@ -140,7 +140,7 @@ class TestREFWebClientStudentRegistration:
         )
         assert isinstance(result, tuple)
         assert len(result) == 3
-        success, private_key, public_key = result
+        success, _private_key, _public_key = result
         assert isinstance(success, bool)
 
     def test_register_student_duplicate_fails(self, client: REFWebClient):
@@ -221,7 +221,7 @@ class TestREFWebClientRestoreKey:
         password = "TestPassword123!"
 
         # First register a student
-        success, orig_private_key, orig_public_key = client.register_student(
+        success, orig_private_key, _orig_public_key = client.register_student(
             mat_num=mat_num,
             firstname="Unit",
             surname="Test",
@@ -230,7 +230,7 @@ class TestREFWebClientRestoreKey:
         assert success, "Registration should succeed"
 
         # Restore with correct password
-        restore_success, restored_private_key, restored_public_key = (
+        restore_success, restored_private_key, _restored_public_key = (
             client.restore_student_key(mat_num=mat_num, password=password)
         )
         assert restore_success, "Restore with correct password should succeed"

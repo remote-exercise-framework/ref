@@ -8,9 +8,9 @@ from pathlib import Path
 
 import docker
 from flask import Flask, current_app
-from sqlalchemy.orm import joinedload, raiseload
+from sqlalchemy.orm import joinedload
 
-from ref.core import InconsistentStateError, inconsistency_on_error
+from ref.core import inconsistency_on_error
 from ref.core.logging import get_logger
 
 from .docker import DockerClient
@@ -18,11 +18,13 @@ from .exercise import Exercise, ExerciseBuildStatus, ExerciseService
 
 log = get_logger(__name__)
 
+
 class ImageBuildError(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
 
-class ExerciseImageManager():
+
+class ExerciseImageManager:
     """
     This class is used to manage an image that belong to an exercise.
     """
@@ -37,7 +39,7 @@ class ExerciseImageManager():
         Raises:
             *: If communication with the docker deamon fails.
         """
-        #Check entry service docker image
+        # Check entry service docker image
         image_name = self.exercise.entry_service.image_name
         image = self.dc.image(image_name)
         if not image:
@@ -50,7 +52,14 @@ class ExerciseImageManager():
         return True
 
     @staticmethod
-    def __build_template(app: Flask, files: List[str], build_cmd: List[str], disable_aslr: bool, custom_build_cmd: List[str] = [], default_cmd: List[str] = ['/usr/sbin/sshd', '-D', '-e']) -> str:
+    def __build_template(
+        app: Flask,
+        files: List[str],
+        build_cmd: List[str],
+        disable_aslr: bool,
+        custom_build_cmd: List[str] = [],
+        default_cmd: List[str] = ["/usr/sbin/sshd", "-D", "-e"],
+    ) -> str:
         """
         FIXME: Replace this with jinja.
         Generates a Dockerfile in memory and returns it as a string.
@@ -67,33 +76,33 @@ class ExerciseImageManager():
         assert isinstance(default_cmd, list)
 
         with app.app_context():
-            base = app.config['BASE_IMAGE_NAME']
-        template = f'FROM {base}\n'
+            base = app.config["BASE_IMAGE_NAME"]
+        template = f"FROM {base}\n"
 
-        #Copy files into image
+        # Copy files into image
         if files:
             for f in files:
-                template += f'COPY {f} /home/user/{f}\n'
+                template += f"COPY {f} /home/user/{f}\n"
 
-        #Run custom commands
+        # Run custom commands
         if build_cmd:
             for line in build_cmd:
-                template += f'RUN {line}\n'
+                template += f"RUN {line}\n"
 
         for c in custom_build_cmd:
-            template += f'{c}\n'
+            template += f"{c}\n"
 
         if disable_aslr:
             template += 'CMD ["/usr/bin/setarch", "x86_64", "-R"'
             for w in default_cmd:
                 template += f', "{w}"'
         else:
-            template += f'CMD ['
+            template += "CMD ["
             for w in default_cmd:
                 template += f'"{w}", '
-            template = template.rstrip(', ')
+            template = template.rstrip(", ")
 
-        template += ']'
+        template += "]"
 
         return template
 
@@ -112,7 +121,7 @@ class ExerciseImageManager():
         return cmd
 
     @staticmethod
-    def __docker_build(build_ctx_path: str, tag: str, dockerfile='Dockerfile') -> str:
+    def __docker_build(build_ctx_path: str, tag: str, dockerfile="Dockerfile") -> str:
         """
         Builds a docker image using the dockerfile named 'Dockerfile'
         that is located in the folder 'build_ctx_path' points to.
@@ -129,7 +138,9 @@ class ExerciseImageManager():
         try:
             client = docker.from_env()
             images = client.images
-            image, json_log = images.build(path=build_ctx_path, tag=tag, dockerfile=dockerfile)
+            image, json_log = images.build(
+                path=build_ctx_path, tag=tag, dockerfile=dockerfile
+            )
             json_log = list(json_log)
         except Exception as e:
             dc = DockerClient()
@@ -137,9 +148,9 @@ class ExerciseImageManager():
                 dc.rmi(tag)
             raise e
         else:
-            for l in json_log:
-                if 'stream' in l:
-                    log += l['stream']
+            for entry in json_log:
+                if "stream" in entry:
+                    log += entry["stream"]
             return log
 
     @staticmethod
@@ -152,84 +163,95 @@ class ExerciseImageManager():
         dc = DockerClient()
 
         with app.app_context():
-            app.logger.info(f'Building entry service of exercise {exercise}')
+            app.logger.info(f"Building entry service of exercise {exercise}")
 
-        build_log = ' --- Building entry service --- \n'
+        build_log = " --- Building entry service --- \n"
         image_name = exercise.entry_service.image_name
 
-        #Generate cmds to add flag to image
+        # Generate cmds to add flag to image
         cmds = ExerciseImageManager.__build_flag_docker_cmd(exercise.entry_service)
 
-        #Copy submission test suit into image (if any)
+        # Copy submission test suit into image (if any)
         if exercise.submission_test_enabled:
-            assert os.path.isfile(f'{exercise.template_path}/submission_tests')
+            assert os.path.isfile(f"{exercise.template_path}/submission_tests")
             cmds += [
-                'COPY submission_tests /usr/local/bin/submission_tests',
-                'RUN chown root:root /usr/local/bin/submission_tests && chmod 700 /usr/local/bin/submission_tests'
-                ]
+                "COPY submission_tests /usr/local/bin/submission_tests",
+                "RUN chown root:root /usr/local/bin/submission_tests && chmod 700 /usr/local/bin/submission_tests",
+            ]
 
         dockerfile = ExerciseImageManager.__build_template(
             app,
             exercise.entry_service.files,
             exercise.entry_service.build_cmd,
             exercise.entry_service.disable_aslr,
-            custom_build_cmd=cmds
+            custom_build_cmd=cmds,
         )
 
         build_ctx = exercise.template_path
         try:
-            with open(f'{build_ctx}/Dockerfile-entry', 'w') as f:
+            with open(f"{build_ctx}/Dockerfile-entry", "w") as f:
                 f.write(dockerfile)
-            build_log += ExerciseImageManager.__docker_build(build_ctx, image_name, dockerfile='Dockerfile-entry')
+            build_log += ExerciseImageManager.__docker_build(
+                build_ctx, image_name, dockerfile="Dockerfile-entry"
+            )
         except Exception as e:
             raise e
 
         with app.app_context():
-            app.logger.info(f'Build of {exercise} finished. Now copying persisted folder.')
+            app.logger.info(
+                f"Build of {exercise} finished. Now copying persisted folder."
+            )
 
-        #Make a copy of the data that needs to be persisted
+        # Make a copy of the data that needs to be persisted
         if exercise.entry_service.persistance_container_path:
             try:
                 build_log += dc.copy_from_image(
                     image_name,
                     exercise.entry_service.persistance_container_path,
-                    dc.local_path_to_host(exercise.entry_service.persistance_lower)
-                    )
+                    dc.local_path_to_host(exercise.entry_service.persistance_lower),
+                )
             except Exception as e:
-                #Cleanup
+                # Cleanup
                 image = dc.image(image_name)
                 if image:
                     dc.rmi(image_name)
-                raise Exception('Failed to copy data') from e
+                raise Exception("Failed to copy data") from e
 
-            build_log += ExerciseImageManager.handle_no_randomize_files(exercise, dc, build_log, image_name)
-
+            build_log += ExerciseImageManager.handle_no_randomize_files(
+                exercise, dc, build_log, image_name
+            )
 
         with app.app_context():
-            app.logger.info('Entry service build finished.')
+            app.logger.info("Entry service build finished.")
 
         return build_log
 
     @staticmethod
-    def handle_no_randomize_files(exercise: Exercise, dc, build_log: str, image_name: str) -> str:
-        build_log = ''
+    def handle_no_randomize_files(
+        exercise: Exercise, dc, build_log: str, image_name: str
+    ) -> str:
+        build_log = ""
         if not exercise.entry_service.no_randomize_files:
             return build_log
 
         for entry in exercise.entry_service.no_randomize_files:
-            build_log += f'[+] Disabling ASLR for {entry}\n'
+            build_log += f"[+] Disabling ASLR for {entry}\n"
             path = Path(exercise.entry_service.persistance_lower) / entry
             if not path.exists():
                 dc.rmi(image_name)
-                raise ImageBuildError(f'[!] Failed to find file "{entry}" in "{exercise.entry_service.persistance_container_path}. Make sure to use path relative from home."\n')
+                raise ImageBuildError(
+                    f'[!] Failed to find file "{entry}" in "{exercise.entry_service.persistance_container_path}. Make sure to use path relative from home."\n'
+                )
 
-            cmd = f'sudo setfattr -n security.no_randomize -v true {path}'
-            build_log += f'Running {cmd}\n'
+            cmd = f"sudo setfattr -n security.no_randomize -v true {path}"
+            build_log += f"Running {cmd}\n"
             try:
-                subprocess.check_call(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                subprocess.check_call(
+                    cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
             except Exception as e:
                 dc.rmi(image_name)
-                raise Exception(f'Failed to disable ASLR for {entry}') from e
+                raise Exception(f"Failed to disable ASLR for {entry}") from e
         return build_log
 
     @staticmethod
@@ -242,20 +264,28 @@ class ExerciseImageManager():
             The build log on success
         """
         services = []
-        log: str = ''
+        log: str = ""
 
-        #Load objects completely from the database, since we can not lazy load them later
-        #joinedload causes eager loading of all attributes of the exercise
-        #raiseload raises an exception if there are still lazy attributes
-        exercise = Exercise.query.filter(Exercise.id == exercise.id).options(joinedload('*')).first()
+        # Load objects completely from the database, since we can not lazy load them later
+        # joinedload causes eager loading of all attributes of the exercise
+        # raiseload raises an exception if there are still lazy attributes
+        exercise = (
+            Exercise.query.filter(Exercise.id == exercise.id)
+            .options(joinedload("*"))
+            .first()
+        )
         for service in exercise.services:
-            services.append(ExerciseService.query.filter(ExerciseService.id == service.id).options(joinedload('*')).first())
+            services.append(
+                ExerciseService.query.filter(ExerciseService.id == service.id)
+                .options(joinedload("*"))
+                .first()
+            )
 
         if not services:
             return "No peripheral services to build"
 
         for service in services:
-            log = f' --- Building peripheral service {service.name} --- \n'
+            log = f" --- Building peripheral service {service.name} --- \n"
             image_name = service.image_name
 
             flag_cmds = ExerciseImageManager.__build_flag_docker_cmd(service)
@@ -266,14 +296,16 @@ class ExerciseImageManager():
                 service.build_cmd,
                 service.disable_aslr,
                 custom_build_cmd=flag_cmds,
-                default_cmd=service.cmd
+                default_cmd=service.cmd,
             )
             build_ctx = exercise.template_path
             try:
-                dockerfile_name = f'Dockerfile-{service.name}'
-                with open(f'{build_ctx}/{dockerfile_name}', 'w') as f:
+                dockerfile_name = f"Dockerfile-{service.name}"
+                with open(f"{build_ctx}/{dockerfile_name}", "w") as f:
                     f.write(dockerfile)
-                log += ExerciseImageManager.__docker_build(build_ctx, image_name, dockerfile=dockerfile_name)
+                log += ExerciseImageManager.__docker_build(
+                    build_ctx, image_name, dockerfile=dockerfile_name
+                )
             except Exception as e:
                 raise e
 
@@ -310,23 +342,29 @@ class ExerciseImageManager():
         failed = False
         log_buffer: str = ""
         try:
-            #Build entry service
+            # Build entry service
             with app.app_context():
-                log_buffer += ExerciseImageManager.__run_build_entry_service(app, exercise)
-                log_buffer += ExerciseImageManager.__run_build_peripheral_services(app, exercise)
+                log_buffer += ExerciseImageManager.__run_build_entry_service(
+                    app, exercise
+                )
+                log_buffer += ExerciseImageManager.__run_build_peripheral_services(
+                    app, exercise
+                )
         except Exception as e:
             with app.app_context():
                 if isinstance(e, docker.errors.BuildError):
-                    for l in list(e.build_log):
-                        if 'stream' in l:
-                            log_buffer += l['stream']
+                    for entry in list(e.build_log):
+                        if "stream" in entry:
+                            log_buffer += entry["stream"]
                 elif isinstance(e, docker.errors.ContainerError):
                     if e.stderr:
                         log_buffer = e.stderr.decode()
                 elif isinstance(e, ImageBuildError):
-                    log_buffer = f'Error while building image:\n{e}'
+                    log_buffer = f"Error while building image:\n{e}"
                 else:
-                    app.logger.error(f'{log_buffer}\nUnexpected error during build', exc_info=True)
+                    app.logger.error(
+                        f"{log_buffer}\nUnexpected error during build", exc_info=True
+                    )
                 log_buffer += traceback.format_exc()
                 failed = True
 
@@ -338,19 +376,18 @@ class ExerciseImageManager():
                 with app.app_context():
                     ExerciseImageManager.__purge_entry_service_image(exercise)
                     ExerciseImageManager.__purge_peripheral_services_images(exercise)
-            except:
-                #No one we can report the error to, so just log it.
+            except Exception:
+                # No one we can report the error to, so just log it.
                 with app.app_context():
-                    app.logger.error('Cleanup failed', exc_info=True)
+                    app.logger.error("Cleanup failed", exc_info=True)
         else:
             with app.app_context():
                 exercise.build_job_status = ExerciseBuildStatus.FINISHED
 
         with app.app_context():
-            app.logger.info('Commiting build result to DB')
+            app.logger.info("Commiting build result to DB")
             app.db.session.add(exercise)
             app.db.session.commit()
-
 
     def build(self) -> None:
         """
@@ -365,8 +402,11 @@ class ExerciseImageManager():
         # from the current database session.
         exercise = self.exercise.refresh(eager=True)
 
-        log.info(f'Starting build of exercise {exercise}')
-        t = Thread(target=ExerciseImageManager.__run_build, args=(current_app._get_current_object(), exercise))
+        log.info(f"Starting build of exercise {exercise}")
+        t = Thread(
+            target=ExerciseImageManager.__run_build,
+            args=(current_app._get_current_object(), exercise),
+        )
         t.start()
 
     def delete_images(self, force=False):
@@ -377,10 +417,12 @@ class ExerciseImageManager():
         Raises:
             inconsistency_on_error: If deletion fails.
         """
-        with inconsistency_on_error(f'Failed to delete images of {self.exercise}'):
-            #Delete docker images
+        with inconsistency_on_error(f"Failed to delete images of {self.exercise}"):
+            # Delete docker images
             ExerciseImageManager.__purge_entry_service_image(self.exercise, force=force)
-            ExerciseImageManager.__purge_peripheral_services_images(self.exercise, force=force)
+            ExerciseImageManager.__purge_peripheral_services_images(
+                self.exercise, force=force
+            )
             self.exercise.build_job_status = ExerciseBuildStatus.NOT_BUILD
 
     def remove(self):
@@ -393,16 +435,20 @@ class ExerciseImageManager():
             InconsistentStateError: In case some components of the exercise could not be removed.
         """
 
-        log.info(f'Deleting images of {self.exercise} ')
+        log.info(f"Deleting images of {self.exercise} ")
 
-        with inconsistency_on_error(f'Failed to delete all components of exercise {self.exercise}'):
-            #Delete docker images
+        with inconsistency_on_error(
+            f"Failed to delete all components of exercise {self.exercise}"
+        ):
+            # Delete docker images
             self.delete_images()
 
-            #Remove template
+            # Remove template
             if os.path.isdir(self.exercise.template_path):
                 shutil.rmtree(self.exercise.template_path)
 
-            #Remove overlay
+            # Remove overlay
             if os.path.isdir(self.exercise.persistence_path):
-                subprocess.check_call(f'sudo rm -rf {self.exercise.persistence_path}', shell=True)
+                subprocess.check_call(
+                    f"sudo rm -rf {self.exercise.persistence_path}", shell=True
+                )

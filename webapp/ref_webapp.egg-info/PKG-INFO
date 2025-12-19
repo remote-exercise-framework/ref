@@ -1,0 +1,47 @@
+Metadata-Version: 2.4
+Name: ref-webapp
+Version: 0.1.0
+Summary: Web application dependencies for REF
+Home-page: 
+Author: nils bars
+Author-email: 
+Requires-Python: >=3.10
+Requires-Dist: ansi2html==1.9.2
+Requires-Dist: argh==0.31.3
+Requires-Dist: arrow==1.3.0
+Requires-Dist: async-timeout==5.0.1
+Requires-Dist: backports.tarfile==1.2.0
+Requires-Dist: cffi==1.17.1
+Requires-Dist: coloredlogs==15.0.1
+Requires-Dist: docker==7.1.0
+Requires-Dist: flask-bcrypt==1.0.1
+Requires-Dist: flask-debugtoolbar==0.16.0
+Requires-Dist: flask-failsafe==0.2
+Requires-Dist: flask-limiter==3.10.1
+Requires-Dist: flask-login==0.6.3
+Requires-Dist: flask-migrate==4.1.0
+Requires-Dist: flask-moment==1.0.6
+Requires-Dist: fuzzywuzzy==0.18.0
+Requires-Dist: PySocks@ git+https://github.com/nbars/PySocks.git@hack_unix_domain_socket_file_support
+Requires-Dist: gunicorn==23.0.0
+Requires-Dist: hypothesis==6.124.7
+Requires-Dist: importlib-metadata==8.6.1
+Requires-Dist: jaraco.collections==5.1.0
+Requires-Dist: pip-chill==1.0.3
+Requires-Dist: platformdirs==4.2.2
+Requires-Dist: psycopg2-binary==2.9.10
+Requires-Dist: py==1.11.0
+Requires-Dist: pycryptodome==3.21.0
+Requires-Dist: pyparsing==3.2.1
+Requires-Dist: python-levenshtein==0.26.1
+Requires-Dist: python-telegram-handler==2.2.1
+Requires-Dist: pytz==2024.2
+Requires-Dist: pyyaml==6.0.2
+Requires-Dist: rq==2.1.0
+Requires-Dist: toml==0.10.2
+Requires-Dist: tomli==2.2.1
+Requires-Dist: uwsgi==2.0.28
+Requires-Dist: wcwidth==0.2.13
+Requires-Dist: websocket-client==1.8.0
+Requires-Dist: wtforms==3.2.1
+Dynamic: author

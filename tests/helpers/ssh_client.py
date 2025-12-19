@@ -436,7 +436,9 @@ class REFSSHClient:
 
         # Check for success indicators in output
         # The reset command outputs "Resetting instance now" before disconnecting
-        success = "Resetting instance now" in output or "closed by remote host" in output
+        success = (
+            "Resetting instance now" in output or "closed by remote host" in output
+        )
 
         if reconnect:
             # Wait for the new container to be ready and reconnect

@@ -21,13 +21,16 @@ def get_logger(name: str = __name__):
         A LocalProxy that lazily resolves to either Flask's app logger
         or a standard Python logger.
     """
+
     def _get():
         try:
             from flask import current_app
+
             if current_app:
                 return current_app.logger
         except RuntimeError:
             # Outside Flask application context
             pass
         return logging.getLogger(name)
+
     return LocalProxy(_get)

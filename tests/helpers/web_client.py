@@ -74,7 +74,9 @@ class REFWebClient:
         response = self.client.post("/login", data=data)
 
         # Check if we're redirected to admin page (successful login)
-        self._logged_in = "/admin/exercise/view" in str(response.url) or "/admin/grading" in str(response.url)
+        self._logged_in = "/admin/exercise/view" in str(
+            response.url
+        ) or "/admin/grading" in str(response.url)
         return self._logged_in
 
     def logout(self) -> bool:
@@ -119,22 +121,30 @@ class REFWebClient:
                     row = link.find_parent("tr")
                     if row:
                         cells = row.find_all("td")
-                        name = cells[0].get_text(strip=True) if cells else f"exercise_{exercise_id}"
-                        imported.append({
-                            "id": exercise_id,
-                            "name": name,
-                            "row": row,
-                        })
+                        name = (
+                            cells[0].get_text(strip=True)
+                            if cells
+                            else f"exercise_{exercise_id}"
+                        )
+                        imported.append(
+                            {
+                                "id": exercise_id,
+                                "name": name,
+                                "row": row,
+                            }
+                        )
 
             # Import links for importable exercises
             if "/admin/exercise/import/" in href:
                 match = re.search(r"/admin/exercise/import/(.+)", href)
                 if match:
                     path = urllib.parse.unquote_plus(match.group(1))
-                    importable.append({
-                        "path": path,
-                        "link": href,
-                    })
+                    importable.append(
+                        {
+                            "path": path,
+                            "link": href,
+                        }
+                    )
 
         return imported, importable
 
@@ -202,8 +212,6 @@ class REFWebClient:
                 # Check if this row contains a link to our exercise
                 row_html = str(row)
                 if f"/admin/exercise/view/{exercise_id}" in row_html:
-                    # Get all td cells in the row
-                    cells = row.find_all("td")
                     # Status is typically in one of the cells
                     row_text = row.get_text()
                     # Check for build status (ExerciseBuildStatus enum values)
@@ -252,6 +260,7 @@ class REFWebClient:
         # Extract the exercise name from the host path and map to container path
         # Exercises are mounted at /exercises inside the container
         from pathlib import Path
+
         exercise_name = Path(exercise_path).name
         container_path = f"/exercises/{exercise_name}"
         # Double encoding is required to match webapp's url_for behavior:
@@ -259,7 +268,7 @@ class REFWebClient:
         # 2. quote encodes the % for URL path safety (e.g., %2F becomes %252F)
         # Flask will decode once during routing, then the view decodes again with unquote_plus
         encoded_path = urllib.parse.quote_plus(container_path)
-        url_safe_path = urllib.parse.quote(encoded_path, safe='')
+        url_safe_path = urllib.parse.quote(encoded_path, safe="")
         url = f"/admin/exercise/import/{url_safe_path}"
         response = self.client.get(url)
         # Check for success: either 200 OK or redirect to admin (after successful import)
@@ -360,7 +369,9 @@ class REFWebClient:
         soup = BeautifulSoup(response.text, "lxml")
 
         # Check for error messages
-        error_elements = soup.find_all(class_="error") + soup.find_all(class_="alert-danger")
+        error_elements = soup.find_all(class_="error") + soup.find_all(
+            class_="alert-danger"
+        )
         for error in error_elements:
             error_text = error.get_text().lower()
             if "already registered" in error_text:
@@ -373,7 +384,10 @@ class REFWebClient:
         # Look for key in various elements
         for elem in soup.find_all(["textarea", "pre", "code"]):
             text = elem.get_text(strip=True)
-            if "-----BEGIN RSA PRIVATE KEY-----" in text or "-----BEGIN PRIVATE KEY-----" in text:
+            if (
+                "-----BEGIN RSA PRIVATE KEY-----" in text
+                or "-----BEGIN PRIVATE KEY-----" in text
+            ):
                 private_key = text
             elif text.startswith("ssh-rsa "):
                 public_key = text
@@ -422,10 +436,14 @@ class REFWebClient:
         Returns:
             True if creation was successful
         """
-        success, _, _ = self.register_student(mat_num, firstname, surname, password, pubkey)
+        success, _, _ = self.register_student(
+            mat_num, firstname, surname, password, pubkey
+        )
         return success
 
-    def restore_student_key(self, mat_num: str, password: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    def restore_student_key(
+        self, mat_num: str, password: str
+    ) -> Tuple[bool, Optional[str], Optional[str]]:
         """
         Restore a student's SSH keys using their credentials.
 
@@ -492,7 +510,9 @@ class REFWebClient:
                     # Find user ID from any links
                     user_id = None
                     for link in row.find_all("a", href=True):
-                        match = re.search(r"/admin/student/view/(\d+)", str(link.get("href", "")))
+                        match = re.search(
+                            r"/admin/student/view/(\d+)", str(link.get("href", ""))
+                        )
                         if match:
                             user_id = int(match.group(1))
                             break
@@ -524,7 +544,10 @@ class REFWebClient:
         # Look for private key in the page
         for elem in soup.find_all(["textarea", "pre", "code"]):
             text = elem.get_text(strip=True)
-            if "-----BEGIN RSA PRIVATE KEY-----" in text or "-----BEGIN PRIVATE KEY-----" in text:
+            if (
+                "-----BEGIN RSA PRIVATE KEY-----" in text
+                or "-----BEGIN PRIVATE KEY-----" in text
+            ):
                 return text
 
         return None
@@ -557,7 +580,9 @@ class REFWebClient:
     # Submission and Grading
     # -------------------------------------------------------------------------
 
-    def get_submissions(self, exercise_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_submissions(
+        self, exercise_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """
         Get list of submissions.
 

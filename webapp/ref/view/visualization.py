@@ -1,42 +1,23 @@
 import datetime
-import os
-import shutil
-import tempfile
-import typing
 from collections import namedtuple, defaultdict
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Set
 
-import docker
-import docker.models
-import docker.models.containers
-import redis
-import rq
-import yaml
-from flask import (Blueprint, Flask, abort, current_app, redirect,
-                   render_template, request, url_for)
+from flask import render_template
 
 from dataclasses import dataclass
 
-from flask_login import login_required
 from ref.core.util import utc_datetime_to_local_tz
-from ref import db, refbp
-from ref.core import (DockerClient, ExerciseConfigError, ExerciseImageManager,
-                      ExerciseManager, admin_required, flash)
-from ref.model import ConfigParsingError, Exercise, User, Submission
-from ref.model.enums import ExerciseBuildStatus
-from wtforms import Form, IntegerField, SubmitField, validators
+from ref import refbp
+from ref.core import DockerClient, admin_required
+from ref.model import Exercise, Submission
 from gviz_api import DataTable
 
 import typing as t
 
-lerr = lambda msg: current_app.logger.error(msg)
-linfo = lambda msg: current_app.logger.info(msg)
-lwarn = lambda msg: current_app.logger.warning(msg)
 
 @dataclass
-class Node():
+class Node:
     id: str
     name: str
     type: str
@@ -45,16 +26,17 @@ class Node():
 
 
 @dataclass
-class Link():
+class Link:
     name: t.Optional[str]
     source: str
     target: str
 
+
 def _container_top(container):
-    #Create nodes and links for processes running in each container
+    # Create nodes and links for processes running in each container
     try:
-        processes = container.top()['Processes']
-    except:
+        processes = container.top()["Processes"]
+    except Exception:
         # When we query the container, it may already have vanished.
         # Any error happening here is not fatal, so we just ignore it.
         return [], []
@@ -62,77 +44,86 @@ def _container_top(container):
     nodes = []
     links = []
     for p in processes:
-        #Indices for p ['UID', 'PID', 'PPID', 'C', 'STIME', 'TTY', 'TIME', 'CMD']
-        n = Node(container.id + '_' + p[1], p[7] + f' ({p[1]})', 'process', 0.5)
-        l = Link(None, n.id, container.id)
-        nodes.append(n)
-        links.append(l)
+        # Indices for p ['UID', 'PID', 'PPID', 'C', 'STIME', 'TTY', 'TIME', 'CMD']
+        node = Node(container.id + "_" + p[1], p[7] + f" ({p[1]})", "process", 0.5)
+        link = Link(None, node.id, container.id)
+        nodes.append(node)
+        links.append(link)
 
     return nodes, links
 
-@refbp.route('/admin/visualization/containers_and_networks_graph')
+
+@refbp.route("/admin/visualization/containers_and_networks_graph")
 @admin_required
 def visualization_containers_and_networks_graph():
     nodes = []
     links = []
     valid_ids = set()
 
-    external_node = Node('external', 'external', 'external', 3)
+    external_node = Node("external", "external", "external", 3)
     nodes.append(external_node)
 
     dc = DockerClient()
 
-    #Create node for each container
+    # Create node for each container
     containers = dc.containers()
 
     executor = ThreadPoolExecutor(max_workers=16)
     top_futures = []
 
     for c in containers:
-        n = Node(c.id, c.name, 'container')
+        n = Node(c.id, c.name, "container")
         valid_ids.add(c.id)
         nodes.append(n)
 
-        #Create links and nodes for all processes running in the container
+        # Create links and nodes for all processes running in the container
         top_futures.append(executor.submit(_container_top, c))
 
-    #Create node for each network
+    # Create node for each network
     networks = dc.networks()
     for network in networks:
-        if network.name in ['host', 'none']:
+        if network.name in ["host", "none"]:
             continue
-        n = Node(network.id, network.name, 'network', 3)
+        n = Node(network.id, network.name, "network", 3)
         valid_ids.add(network.id)
         nodes.append(n)
 
-    #Create links between containers and networks.
+    # Create links between containers and networks.
     for network in networks:
-        for container_id in network.attrs['Containers']:
+        for container_id in network.attrs["Containers"]:
             if network.id in valid_ids and container_id in valid_ids:
-                l = Link(None, network.id, container_id)
-                links.append(l)
+                link = Link(None, network.id, container_id)
+                links.append(link)
             elif network.id in valid_ids:
-                #Container does not exists anymore
-                n = Node(container_id, container_id + ' (dead)', 'container_dead', color='red')
-                l = Link(None, container_id, network.id)
-                nodes.append(n)
-                links.append(l)
-        if network.id in valid_ids and not network.attrs['Internal']:
-            l = Link(None, network.id, external_node.id)
-            links.append(l)
+                # Container does not exists anymore
+                node = Node(
+                    container_id,
+                    container_id + " (dead)",
+                    "container_dead",
+                    color="red",
+                )
+                link = Link(None, container_id, network.id)
+                nodes.append(node)
+                links.append(link)
+        if network.id in valid_ids and not network.attrs["Internal"]:
+            link = Link(None, network.id, external_node.id)
+            links.append(link)
 
-    #Add the nodes for the running processes
+    # Add the nodes for the running processes
     for future in top_futures:
-        n, l = future.result()
-        nodes += n
-        links += l
+        proc_nodes, proc_links = future.result()
+        nodes += proc_nodes
+        links += proc_links
 
     executor.shutdown()
 
-    return render_template('visualization_containers_and_networks_graph.html', nodes=nodes, links=links)
+    return render_template(
+        "visualization_containers_and_networks_graph.html", nodes=nodes, links=links
+    )
+
 
 def _min_max_mean_per_assignment():
-    assignment_to_exercises_names: Dict[str, Set(str)]  = defaultdict(set)
+    assignment_to_exercises_names: Dict[str, Set(str)] = defaultdict(set)
 
     exercises = Exercise.all()
     for e in exercises:
@@ -142,46 +133,68 @@ def _min_max_mean_per_assignment():
     exercise_name_to_submissions_cnt: Dict[str, int] = defaultdict(int)
     for e in exercises:
         if e.has_deadline():
-            exercise_name_to_submissions_cnt[e.short_name] += len(e.submission_heads_global())
+            exercise_name_to_submissions_cnt[e.short_name] += len(
+                e.submission_heads_global()
+            )
 
-    Row = namedtuple('Row', ['assignment', 'min', 'start', 'end', 'max', 'tooltip'])
+    Row = namedtuple("Row", ["assignment", "min", "start", "end", "max", "tooltip"])
     data = []
 
-    for assignment_name, exercises_names in sorted(assignment_to_exercises_names.items(), key=lambda e: e[0]):
+    for assignment_name, exercises_names in sorted(
+        assignment_to_exercises_names.items(), key=lambda e: e[0]
+    ):
         min_submissions_cnt = None
         max_submissions_cnt = None
-        #List of the total number of submissions for each exercise of the current assignment_name
+        # List of the total number of submissions for each exercise of the current assignment_name
         submissions_per_exercise: List[int] = []
         tooltip = "#Submissions\n"
 
         for e in exercises_names:
             exercise_submission_cnt = exercise_name_to_submissions_cnt[e]
-            tooltip += f'{e}: {exercise_submission_cnt}\n'
+            tooltip += f"{e}: {exercise_submission_cnt}\n"
             submissions_per_exercise += [exercise_name_to_submissions_cnt[e]]
-            if min_submissions_cnt is None or exercise_submission_cnt < min_submissions_cnt:
+            if (
+                min_submissions_cnt is None
+                or exercise_submission_cnt < min_submissions_cnt
+            ):
                 min_submissions_cnt = exercise_submission_cnt
-            if max_submissions_cnt is None or exercise_submission_cnt > max_submissions_cnt:
+            if (
+                max_submissions_cnt is None
+                or exercise_submission_cnt > max_submissions_cnt
+            ):
                 max_submissions_cnt = exercise_submission_cnt
 
         avg = sum(submissions_per_exercise) / len(submissions_per_exercise)
-        tooltip += '\n'
-        tooltip += f'Avg: {avg:.02f}\n'
-        tooltip += f'Min: {min_submissions_cnt}\n'
-        tooltip += f'Max: {max_submissions_cnt}'
+        tooltip += "\n"
+        tooltip += f"Avg: {avg:.02f}\n"
+        tooltip += f"Min: {min_submissions_cnt}\n"
+        tooltip += f"Max: {max_submissions_cnt}"
 
-        r = Row(assignment_name, min_submissions_cnt, avg, avg, max_submissions_cnt, tooltip)
+        r = Row(
+            assignment_name, min_submissions_cnt, avg, avg, max_submissions_cnt, tooltip
+        )
         data.append(r)
 
-    min_max_mean_per_assignment = DataTable([
-        ('Assignment', 'string'), #Assignment name
-        ('min', 'number'), #Lowest number of submission of all exercises that belong to the submission
-        ('start', 'number'), #avg
-        ('end', 'number'), #avg
-        ('max', 'number'), #Highest number of submissions
-        ('tooltip', 'string', 'tooltip', {'role': 'tooltip'}), #Tooltip displayed on hover
-        ], data)
+    min_max_mean_per_assignment = DataTable(
+        [
+            ("Assignment", "string"),  # Assignment name
+            (
+                "min",
+                "number",
+            ),  # Lowest number of submission of all exercises that belong to the submission
+            ("start", "number"),  # avg
+            ("end", "number"),  # avg
+            ("max", "number"),  # Highest number of submissions
+            (
+                "tooltip",
+                "string",
+                "tooltip",
+                {"role": "tooltip"},
+            ),  # Tooltip displayed on hover
+        ],
+        data,
+    )
     return min_max_mean_per_assignment
-
 
     # for s in submissions:
     #     ts: datetime.datetime = utc_datetime_to_local_tz(s.submission_ts)
@@ -215,8 +228,11 @@ def _submission_per_day_hour():
 
         skip = False
         for submission in assignment_to_hour_to_submissions[assignment][ts.hour]:
-            #Ignore multiple submissions of the same exercise and same user for a single hour
-            if submission.origin_instance.user == s.origin_instance.user and submission.origin_instance.exercise == s.origin_instance.exercise:
+            # Ignore multiple submissions of the same exercise and same user for a single hour
+            if (
+                submission.origin_instance.user == s.origin_instance.user
+                and submission.origin_instance.exercise == s.origin_instance.exercise
+            ):
                 skip = True
                 break
 
@@ -226,7 +242,9 @@ def _submission_per_day_hour():
     data = []
     for curr_hour in range(0, 24):
         row = [curr_hour]
-        for assignment, hours_to_submissions in sorted(assignment_to_hour_to_submissions.items(), key=lambda e: e[0]):
+        for assignment, hours_to_submissions in sorted(
+            assignment_to_hour_to_submissions.items(), key=lambda e: e[0]
+        ):
             found = False
             for hour, submissions in hours_to_submissions.items():
                 if hour == curr_hour:
@@ -242,10 +260,15 @@ def _submission_per_day_hour():
     0, 1, ..., 26
     1, 77, ..., 11
     """
-    day_hour_to_submission_cnt = DataTable([
-        ('Hour', 'number'), # The hour of the day (0-23) column
-        *[(e, 'number') for e in sorted(assignment_to_hour_to_submissions)] # Per assignment column
-    ], data)
+    day_hour_to_submission_cnt = DataTable(
+        [
+            ("Hour", "number"),  # The hour of the day (0-23) column
+            *[
+                (e, "number") for e in sorted(assignment_to_hour_to_submissions)
+            ],  # Per assignment column
+        ],
+        data,
+    )
 
     return day_hour_to_submission_cnt
 
@@ -260,8 +283,11 @@ def _submission_per_day_of_week():
 
         skip = False
         for submission in assignment_to_hour_to_submissions[assignment][ts.weekday()]:
-            #Ignore multiple submissions of the same exercise and same user for a single hour
-            if submission.origin_instance.user == s.origin_instance.user and submission.origin_instance.exercise == s.origin_instance.exercise:
+            # Ignore multiple submissions of the same exercise and same user for a single hour
+            if (
+                submission.origin_instance.user == s.origin_instance.user
+                and submission.origin_instance.exercise == s.origin_instance.exercise
+            ):
                 skip = True
                 break
 
@@ -271,7 +297,9 @@ def _submission_per_day_of_week():
     data = []
     for curr_hour in range(0, 7):
         row = [curr_hour]
-        for assignment, hours_to_submissions in sorted(assignment_to_hour_to_submissions.items(), key=lambda e: e[0]):
+        for assignment, hours_to_submissions in sorted(
+            assignment_to_hour_to_submissions.items(), key=lambda e: e[0]
+        ):
             found = False
             for hour, submissions in hours_to_submissions.items():
                 if hour == curr_hour:
@@ -287,22 +315,28 @@ def _submission_per_day_of_week():
     0, 1, ..., 26
     1, 77, ..., 11
     """
-    day_hour_to_submission_cnt = DataTable([
-        ('Day of the Week', 'number'), # The hour of the day (0-23) column
-        *[(e, 'number') for e in sorted(assignment_to_hour_to_submissions)] # Per assignment column
-    ], data)
+    day_hour_to_submission_cnt = DataTable(
+        [
+            ("Day of the Week", "number"),  # The hour of the day (0-23) column
+            *[
+                (e, "number") for e in sorted(assignment_to_hour_to_submissions)
+            ],  # Per assignment column
+        ],
+        data,
+    )
 
     return day_hour_to_submission_cnt
 
 
-@refbp.route('/admin/visualization/graphs')
+@refbp.route("/admin/visualization/graphs")
 @admin_required
 def visualization_graphs():
     min_max_mean_per_assignment = _min_max_mean_per_assignment()
     day_hour_to_submission_cnt = _submission_per_day_hour()
 
-    return render_template('visualization_graphs.html',
+    return render_template(
+        "visualization_graphs.html",
         min_max_mean_per_assignment=min_max_mean_per_assignment.ToJSon(),
         day_hour_to_submission_cnt=day_hour_to_submission_cnt.ToJSon(),
-        week_data=_submission_per_day_of_week().ToJSon()
-        )
+        week_data=_submission_per_day_of_week().ToJSon(),
+    )

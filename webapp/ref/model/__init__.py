@@ -1,7 +1,18 @@
-from .exercise import (ConfigParsingError, Exercise, ExerciseEntryService,
-                       ExerciseService, RessourceLimits)
-from .instance import (Grading, Instance, InstanceEntryService,
-                       InstanceService, Submission, SubmissionTestResult, SubmissionExtendedTestResult)
-from .settings import SystemSetting, SystemSettingsManager
-from .user import User, UserGroup
-from .enums import ExerciseBuildStatus, UserAuthorizationGroups
+from .exercise import ConfigParsingError as ConfigParsingError
+from .exercise import Exercise as Exercise
+from .exercise import ExerciseEntryService as ExerciseEntryService
+from .exercise import ExerciseService as ExerciseService
+from .exercise import RessourceLimits as RessourceLimits
+from .instance import Grading as Grading
+from .instance import Instance as Instance
+from .instance import InstanceEntryService as InstanceEntryService
+from .instance import InstanceService as InstanceService
+from .instance import Submission as Submission
+from .instance import SubmissionTestResult as SubmissionTestResult
+from .instance import SubmissionExtendedTestResult as SubmissionExtendedTestResult
+from .settings import SystemSetting as SystemSetting
+from .settings import SystemSettingsManager as SystemSettingsManager
+from .user import User as User
+from .user import UserGroup as UserGroup
+from .enums import ExerciseBuildStatus as ExerciseBuildStatus
+from .enums import UserAuthorizationGroups as UserAuthorizationGroups

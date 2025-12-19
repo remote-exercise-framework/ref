@@ -60,7 +60,9 @@ def student1_client(
         return isolation_state.student1_client
 
     # This fixture is used after test_02_register_students runs
-    assert isolation_state.student1_private_key is not None, "Student 1 not registered yet"
+    assert isolation_state.student1_private_key is not None, (
+        "Student 1 not registered yet"
+    )
     assert isolation_state.exercise_name is not None, "Exercise not created yet"
 
     client = REFSSHClient(ssh_host, ssh_port)
@@ -80,7 +82,9 @@ def student2_client(
         return isolation_state.student2_client
 
     # This fixture is used after test_02_register_students runs
-    assert isolation_state.student2_private_key is not None, "Student 2 not registered yet"
+    assert isolation_state.student2_private_key is not None, (
+        "Student 2 not registered yet"
+    )
     assert isolation_state.exercise_name is not None, "Exercise not created yet"
 
     client = REFSSHClient(ssh_host, ssh_port)
@@ -106,6 +110,7 @@ class TestUserIsolationSetup:
 
         if exercise_dir.exists():
             import shutil
+
             shutil.rmtree(exercise_dir)
 
         create_sample_exercise(
@@ -142,7 +147,9 @@ class TestUserIsolationSetup:
         success = admin_client.build_exercise(isolation_state.exercise_id)
         assert success, "Failed to start build"
 
-        build_success = admin_client.wait_for_build(isolation_state.exercise_id, timeout=300.0)
+        build_success = admin_client.wait_for_build(
+            isolation_state.exercise_id, timeout=300.0
+        )
         assert build_success, "Build failed"
 
         success = admin_client.toggle_exercise_default(isolation_state.exercise_id)
@@ -245,7 +252,9 @@ class TestUserIsolation:
         secret_file = "/home/user/student1_secret.txt"
 
         student1_client.write_file(secret_file, unique_content)
-        assert student1_client.file_exists(secret_file), "File should exist for student 1"
+        assert student1_client.file_exists(secret_file), (
+            "File should exist for student 1"
+        )
 
         # Verify file is NOT visible to student 2
         assert not student2_client.file_exists(secret_file), (
@@ -290,7 +299,9 @@ class TestUserIsolation:
 
         # Verify grading page is accessible
         response = admin_client.client.get("/admin/grading/")
-        assert response.status_code == 200, "Admin should be able to access grading page"
+        assert response.status_code == 200, (
+            "Admin should be able to access grading page"
+        )
 
         # Note: Full independent grading test would require parsing the submission
         # list and grading each separately. The test verifies the grading interface
@@ -322,11 +333,15 @@ class TestContainerSecurity:
 
         # Try to access a path that would only exist on host
         # The container should not have access to /host or similar escape paths
-        exit_code, _, _ = student1_client.execute("ls /host 2>/dev/null || echo 'not found'")
+        exit_code, _, _ = student1_client.execute(
+            "ls /host 2>/dev/null || echo 'not found'"
+        )
         # This should either fail or return empty - no host filesystem access
 
         # Verify we're in a container by checking for container markers
-        exit_code, stdout, _ = student1_client.execute("cat /proc/1/cgroup 2>/dev/null || echo 'no cgroup'")
+        exit_code, stdout, _ = student1_client.execute(
+            "cat /proc/1/cgroup 2>/dev/null || echo 'no cgroup'"
+        )
         # In a container, this typically shows docker/container identifiers
 
     @pytest.mark.e2e
@@ -364,7 +379,9 @@ class TestContainerSecurity:
         Test that container network is properly isolated.
         """
         # Check network interfaces - container should have limited interfaces
-        _exit_code, _stdout, _ = student1_client.execute("ip addr 2>/dev/null || ifconfig 2>/dev/null || echo 'no network info'")
+        _exit_code, _stdout, _ = student1_client.execute(
+            "ip addr 2>/dev/null || ifconfig 2>/dev/null || echo 'no network info'"
+        )
         # In a properly configured container, this should show limited network access
 
         # Try to access common internal services (should fail or be blocked)

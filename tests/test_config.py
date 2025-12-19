@@ -32,6 +32,7 @@ def generate_test_prefix() -> str:
     The PID is embedded to allow detecting orphaned resources from dead processes.
     """
     import os
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     pid = os.getpid()
     unique_id = uuid.uuid4().hex[:6]
@@ -178,7 +179,9 @@ class REFResourceManager:
 
     def __post_init__(self):
         """Initialize the instance manager."""
-        self._instance_manager = REFInstanceManager(base_prefix=self.config.resource_prefix)
+        self._instance_manager = REFInstanceManager(
+            base_prefix=self.config.resource_prefix
+        )
 
     def cleanup_all(self, force: bool = True) -> dict[str, str]:
         """
@@ -246,10 +249,12 @@ def list_test_resources() -> dict[str, list[dict[str, str]]]:
         for line in result.stdout.strip().split("\n"):
             if line and "ref_test_" in line:
                 parts = line.split("\t")
-                results["containers"].append({
-                    "name": parts[0],
-                    "status": parts[1] if len(parts) > 1 else "unknown",
-                })
+                results["containers"].append(
+                    {
+                        "name": parts[0],
+                        "status": parts[1] if len(parts) > 1 else "unknown",
+                    }
+                )
     except subprocess.CalledProcessError:
         pass
 
@@ -297,8 +302,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="REF Test Resource Manager")
     parser.add_argument("--list", action="store_true", help="List test resources")
-    parser.add_argument("--cleanup", metavar="PREFIX", help="Clean up resources by prefix")
-    parser.add_argument("--cleanup-all", action="store_true", help="Clean up all ref_test_ resources")
+    parser.add_argument(
+        "--cleanup", metavar="PREFIX", help="Clean up resources by prefix"
+    )
+    parser.add_argument(
+        "--cleanup-all", action="store_true", help="Clean up all ref_test_ resources"
+    )
 
     args = parser.parse_args()
 

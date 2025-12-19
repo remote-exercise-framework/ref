@@ -7,11 +7,11 @@ mkdir -p data
 
 function txt {
     case "$1" in
-        bold) tput bold 2>/dev/null ;;
-        reset) tput sgr0 2>/dev/null ;;
-        red) tput setaf 1 2>/dev/null ;;
-        green) tput setaf 2 2>/dev/null ;;
-        yellow) tput setaf 3 2>/dev/null ;;
+        bold) tput bold 2>/dev/null || true ;;
+        reset) tput sgr0 2>/dev/null || true ;;
+        red) tput setaf 1 2>/dev/null || true ;;
+        green) tput setaf 2 2>/dev/null || true ;;
+        yellow) tput setaf 3 2>/dev/null || true ;;
     esac
 }
 

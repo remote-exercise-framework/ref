@@ -69,9 +69,7 @@ class TestExerciseLifecycle:
     """
 
     @pytest.mark.e2e
-    def test_01_admin_can_login(
-        self, web_client: REFWebClient, admin_password: str
-    ):
+    def test_01_admin_can_login(self, web_client: REFWebClient, admin_password: str):
         """Verify admin can login."""
         # First logout if already logged in
         web_client.logout()
@@ -111,9 +109,9 @@ class TestExerciseLifecycle:
         assert (exercise_dir / "settings.yml").exists(), "settings.yml not created"
         assert (exercise_dir / "solution.c").exists(), "solution.c not created"
         assert (exercise_dir / "Makefile").exists(), "Makefile not created"
-        assert (
-            exercise_dir / "submission_tests"
-        ).exists(), "submission_tests not created"
+        assert (exercise_dir / "submission_tests").exists(), (
+            "submission_tests not created"
+        )
 
     @pytest.mark.e2e
     def test_03_import_exercise(
@@ -130,7 +128,9 @@ class TestExerciseLifecycle:
 
         # Verify exercise was imported by checking exercise list
         exercise = admin_client.get_exercise_by_name(lifecycle_state.exercise_name)
-        assert exercise is not None, f"Exercise {lifecycle_state.exercise_name} not found after import"
+        assert exercise is not None, (
+            f"Exercise {lifecycle_state.exercise_name} not found after import"
+        )
         lifecycle_state.exercise_id = exercise.get("id")
         assert lifecycle_state.exercise_id is not None, "Exercise ID not found"
 
@@ -204,9 +204,9 @@ class TestSSHConnection:
     @pytest.mark.e2e
     def test_ssh_server_reachable(self, ssh_host: str, ssh_port: int):
         """Verify SSH server is reachable."""
-        assert wait_for_ssh_ready(
-            ssh_host, ssh_port, timeout=10
-        ), f"SSH server not reachable at {ssh_host}:{ssh_port}"
+        assert wait_for_ssh_ready(ssh_host, ssh_port, timeout=10), (
+            f"SSH server not reachable at {ssh_host}:{ssh_port}"
+        )
 
     @pytest.mark.e2e
     def test_student_can_connect(
@@ -215,7 +215,9 @@ class TestSSHConnection:
         lifecycle_state: TestExerciseLifecycleState,
     ):
         """Test that a student can connect to their exercise container."""
-        assert lifecycle_state.student_private_key is not None, "Student private key not available"
+        assert lifecycle_state.student_private_key is not None, (
+            "Student private key not available"
+        )
         assert lifecycle_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -235,7 +237,9 @@ class TestSSHConnection:
         lifecycle_state: TestExerciseLifecycleState,
     ):
         """Test that student can list files in the container."""
-        assert lifecycle_state.student_private_key is not None, "Student private key not available"
+        assert lifecycle_state.student_private_key is not None, (
+            "Student private key not available"
+        )
         assert lifecycle_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -254,7 +258,9 @@ class TestSSHConnection:
         lifecycle_state: TestExerciseLifecycleState,
     ):
         """Test that student can create files in the container."""
-        assert lifecycle_state.student_private_key is not None, "Student private key not available"
+        assert lifecycle_state.student_private_key is not None, (
+            "Student private key not available"
+        )
         assert lifecycle_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -283,7 +289,9 @@ class TestSubmissionWorkflow:
         lifecycle_state: TestExerciseLifecycleState,
     ):
         """Upload a correct solution to the container."""
-        assert lifecycle_state.student_private_key is not None, "Student private key not available"
+        assert lifecycle_state.student_private_key is not None, (
+            "Student private key not available"
+        )
         assert lifecycle_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -305,7 +313,9 @@ class TestSubmissionWorkflow:
         lifecycle_state: TestExerciseLifecycleState,
     ):
         """Test that 'task check' passes with correct solution."""
-        assert lifecycle_state.student_private_key is not None, "Student private key not available"
+        assert lifecycle_state.student_private_key is not None, (
+            "Student private key not available"
+        )
         assert lifecycle_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -324,7 +334,9 @@ class TestSubmissionWorkflow:
         lifecycle_state: TestExerciseLifecycleState,
     ):
         """Test that 'task submit' creates a submission."""
-        assert lifecycle_state.student_private_key is not None, "Student private key not available"
+        assert lifecycle_state.student_private_key is not None, (
+            "Student private key not available"
+        )
         assert lifecycle_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -348,7 +360,9 @@ class TestIncorrectSolution:
         lifecycle_state: TestExerciseLifecycleState,
     ):
         """Test that 'task check' fails with an incorrect solution."""
-        assert lifecycle_state.student_private_key is not None, "Student private key not available"
+        assert lifecycle_state.student_private_key is not None, (
+            "Student private key not available"
+        )
         assert lifecycle_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -386,7 +400,9 @@ class TestTaskReset:
         lifecycle_state: TestExerciseLifecycleState,
     ):
         """Test that 'task reset' restores initial state."""
-        assert lifecycle_state.student_private_key is not None, "Student private key not available"
+        assert lifecycle_state.student_private_key is not None, (
+            "Student private key not available"
+        )
         assert lifecycle_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -403,9 +419,9 @@ class TestTaskReset:
         assert success, f"task reset failed: {output}"
 
         # Verify custom file was removed
-        assert not client.file_exists(
-            "/home/user/custom_file.txt"
-        ), "Custom file should be removed after reset"
+        assert not client.file_exists("/home/user/custom_file.txt"), (
+            "Custom file should be removed after reset"
+        )
 
 
 # Standalone tests that can run with minimal setup
@@ -420,9 +436,9 @@ class TestBasicFunctionality:
         import httpx
 
         response = httpx.get(f"{web_url}/login", timeout=10)
-        assert (
-            response.status_code == 200
-        ), f"Web interface not accessible: {response.status_code}"
+        assert response.status_code == 200, (
+            f"Web interface not accessible: {response.status_code}"
+        )
         assert "login" in response.text.lower() or "Login" in response.text
 
     @pytest.mark.e2e
@@ -453,9 +469,7 @@ class TestBasicFunctionality:
                 },
             )
             # Should stay on login page with error
-            assert (
-                "login" in response.url.path.lower() or response.status_code == 200
-            )
+            assert "login" in response.url.path.lower() or response.status_code == 200
         finally:
             client.close()
 
@@ -476,9 +490,10 @@ class TestBasicFunctionality:
                 },
             )
             # Should redirect to exercise view
-            assert "/admin/exercise/view" in str(response.url) or "exercise" in response.text.lower(), (
-                f"Login did not redirect to admin page: {response.url}"
-            )
+            assert (
+                "/admin/exercise/view" in str(response.url)
+                or "exercise" in response.text.lower()
+            ), f"Login did not redirect to admin page: {response.url}"
         finally:
             client.close()
 

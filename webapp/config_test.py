@@ -13,15 +13,15 @@ def env_var_to_bool_or_false(env_key):
     if val is False:
         return val
     assert isinstance(val, str)
-    return val == '1' or val.lower() == 'true'
+    return val == "1" or val.lower() == "true"
 
 
 def is_standalone_testing():
     """Check if we're running in standalone test mode."""
-    return env_var_to_bool_or_false('REF_STANDALONE_TESTING')
+    return env_var_to_bool_or_false("REF_STANDALONE_TESTING")
 
 
-class Config():
+class Config:
     """
     A configuration that can be loaded via the .from_object() method provided by the Flask
     config object.
@@ -53,50 +53,50 @@ class TestConfig(Config):
     """
 
     # Properties that MUST raise errors (require real infrastructure)
-    POSTGRES_USER = _TestConfigNotAvailable('POSTGRES_USER')
-    POSTGRES_DB = _TestConfigNotAvailable('POSTGRES_DB')
-    POSTGRES_PASSWORD = _TestConfigNotAvailable('POSTGRES_PASSWORD')
-    SQLALCHEMY_DATABASE_URI = _TestConfigNotAvailable('SQLALCHEMY_DATABASE_URI')
-    ADMIN_PASSWORD = _TestConfigNotAvailable('ADMIN_PASSWORD')
-    SSH_HOST_PORT = _TestConfigNotAvailable('SSH_HOST_PORT')
-    SSHSERVER_CONTAINER_NAME = _TestConfigNotAvailable('SSHSERVER_CONTAINER_NAME')
+    POSTGRES_USER = _TestConfigNotAvailable("POSTGRES_USER")
+    POSTGRES_DB = _TestConfigNotAvailable("POSTGRES_DB")
+    POSTGRES_PASSWORD = _TestConfigNotAvailable("POSTGRES_PASSWORD")
+    SQLALCHEMY_DATABASE_URI = _TestConfigNotAvailable("SQLALCHEMY_DATABASE_URI")
+    ADMIN_PASSWORD = _TestConfigNotAvailable("ADMIN_PASSWORD")
+    SSH_HOST_PORT = _TestConfigNotAvailable("SSH_HOST_PORT")
+    SSHSERVER_CONTAINER_NAME = _TestConfigNotAvailable("SSHSERVER_CONTAINER_NAME")
 
     # Properties that can be safely mocked
-    BASEDIR = '/tmp/ref-test'
-    DATADIR = '/tmp/ref-test/data'
-    DBDIR = '/tmp/ref-test/data/db'
+    BASEDIR = "/tmp/ref-test"
+    DATADIR = "/tmp/ref-test/data"
+    DBDIR = "/tmp/ref-test/data/db"
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    EXERCISES_PATH = '/tmp/ref-test/exercises'
-    IMPORTED_EXERCISES_PATH = '/tmp/ref-test/data/imported_exercises'
-    PERSISTANCE_PATH = '/tmp/ref-test/data/persistance'
-    SQLALCHEMY_MIGRATE_REPO = 'migrations'
+    EXERCISES_PATH = "/tmp/ref-test/exercises"
+    IMPORTED_EXERCISES_PATH = "/tmp/ref-test/data/imported_exercises"
+    PERSISTANCE_PATH = "/tmp/ref-test/data/persistance"
+    SQLALCHEMY_MIGRATE_REPO = "migrations"
 
     LOGIN_DISABLED = True  # Disable login checks in tests
 
-    SECRET_KEY = 'test-secret-key-not-for-production'
-    SSH_TO_WEB_KEY = 'test-ssh-to-web-key-not-for-production'
+    SECRET_KEY = "test-secret-key-not-for-production"
+    SSH_TO_WEB_KEY = "test-ssh-to-web-key-not-for-production"
 
     # Docker image settings (tests shouldn't actually use Docker)
-    BASE_IMAGE_NAME = 'test-base-image:latest'
-    DOCKER_RESSOURCE_PREFIX = 'ref-test-'
+    BASE_IMAGE_NAME = "test-base-image:latest"
+    DOCKER_RESSOURCE_PREFIX = "ref-test-"
 
     # Container limits (dummy values for tests)
     INSTANCE_CONTAINER_CPUS = 0.5
     INSTANCE_CONTAINER_CPU_SHARES = 1024
-    INSTANCE_CONTAINER_MEM_LIMIT = '256m'
-    INSTANCE_CONTAINER_MEM_PLUS_SWAP_LIMIT = '256m'
-    INSTANCE_CONTAINER_MEM_KERNEL_LIMIT = '256m'
+    INSTANCE_CONTAINER_MEM_LIMIT = "256m"
+    INSTANCE_CONTAINER_MEM_PLUS_SWAP_LIMIT = "256m"
+    INSTANCE_CONTAINER_MEM_KERNEL_LIMIT = "256m"
     INSTANCE_CONTAINER_PIDS_LIMIT = 512
 
     INSTANCE_CAP_WHITELIST = [
-        'SYS_CHROOT',
-        'SETUID',
-        'SETGID',
-        'CHOWN',
-        'CAP_DAC_OVERRIDE',
-        'AUDIT_WRITE',
+        "SYS_CHROOT",
+        "SETUID",
+        "SETGID",
+        "CHOWN",
+        "CAP_DAC_OVERRIDE",
+        "AUDIT_WRITE",
     ]
 
     INSTANCES_CGROUP_PARENT = None

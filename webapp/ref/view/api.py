@@ -1,48 +1,29 @@
 from dataclasses import dataclass
-import datetime
-import hashlib
 import json
-import os
 import re
-import shutil
-import subprocess
-import tempfile
-import typing
-from collections import namedtuple
-from pathlib import Path
 
 import arrow
-import docker
-import redis
-import rq
-import yaml
-import threading
-from queue import Queue
-import socket
-import socks
 
 import typing as ty
-import select
 
-from flask import (Blueprint, Flask, Request, abort, current_app, jsonify,
-                   make_response, redirect, render_template, request, url_for)
+from flask import Flask, Request, abort, current_app, jsonify, request
 from itsdangerous import Serializer, TimedSerializer
-from werkzeug.local import Local
-from wtforms import Form, IntegerField, SubmitField, validators
 
 from ref import db, limiter, refbp
 from ref.core import AnsiColorUtil as ansi
-from ref.core import (ExerciseImageManager, ExerciseManager,
-                      InconsistentStateError, InstanceManager,
-                      utc_datetime_to_local_tz, datetime_to_string, flash, DockerClient)
+from ref.core import (
+    ExerciseImageManager,
+    InconsistentStateError,
+    InstanceManager,
+    utc_datetime_to_local_tz,
+    datetime_to_string,
+)
 from ref.core.logging import get_logger
-from ref.core.util import lock_db
-from ref.model import (ConfigParsingError, Exercise, Instance, SystemSetting,
-                       SystemSettingsManager, User)
-from ref.model.enums import ExerciseBuildStatus
+from ref.model import Exercise, Instance, SystemSettingsManager, User
 from ref.model.instance import SubmissionTestResult
 
 log = get_logger(__name__)
+
 
 class ApiRequestError(Exception):
     """
@@ -71,8 +52,9 @@ def error_response(msg, code=400):
         msg: A object that is converted into JSON and used as 'error' attribute
              in the response.
     """
-    msg = jsonify({'error': msg})
+    msg = jsonify({"error": msg})
     return msg, code
+
 
 def ok_response(msg):
     """
@@ -83,7 +65,10 @@ def ok_response(msg):
     msg = jsonify(msg)
     return msg, 200
 
-def start_and_return_instance(instance: Instance, requesting_user: User, requests_root_access: bool):
+
+def start_and_return_instance(
+    instance: Instance, requesting_user: User, requests_root_access: bool
+):
     """
     Returns the ip and default command (that should be executed on connect) of the given instance.
     In case the instance is not running, it is started.
@@ -94,81 +79,88 @@ def start_and_return_instance(instance: Instance, requesting_user: User, request
         requesting_user: The user who requested the start of the instance (NOTE: Use this for permission checks).
         requests_root_access: Whether `requesting_user` wants root access for the given `instance`.
     """
-    log.info(f'Start of instance {instance} was requested.')
+    log.info(f"Start of instance {instance} was requested.")
 
-    #Check if the instances exercise image is build
+    # Check if the instances exercise image is build
     if not ExerciseImageManager(instance.exercise).is_build():
-        log.error(f'User {instance.user} has an instance ({instance}) of an exercise that is not built. Possibly someone deleted the docker image?')
-        raise ApiRequestError(error_response('Inconsistent build state! Please notify the system administrator immediately'))
+        log.error(
+            f"User {instance.user} has an instance ({instance}) of an exercise that is not built. Possibly someone deleted the docker image?"
+        )
+        raise ApiRequestError(
+            error_response(
+                "Inconsistent build state! Please notify the system administrator immediately"
+            )
+        )
 
     instance_manager = InstanceManager(instance)
     if not instance_manager.is_running():
-        log.info(f'Instance ({instance}) is not running. Starting..')
+        log.info(f"Instance ({instance}) is not running. Starting..")
         instance_manager.start()
 
     try:
         ip = instance_manager.get_entry_ip()
-    except:
-        log.error('Failed to get IP of instance. Stopping instance..', exc_info=True)
+    except Exception:
+        log.error("Failed to get IP of instance. Stopping instance..", exc_info=True)
         instance_manager.stop()
         raise
 
     exercise: Exercise = instance.exercise
 
-    #Message that is printed before the user is dropped into the container shell.
-    welcome_message = ''
+    # Message that is printed before the user is dropped into the container shell.
+    welcome_message = ""
 
     if not instance.is_submission():
         latest_submission = instance.get_latest_submission()
         if not exercise.has_deadline():
             pass
         elif not latest_submission:
-            welcome_message += (
-                '    Last submitted: (No submission found)\n'
-            )
+            welcome_message += "    Last submitted: (No submission found)\n"
         else:
             ts = utc_datetime_to_local_tz(latest_submission.submission_ts)
             since_in_str = arrow.get(ts).humanize()
-            ts = ts.strftime('%A, %B %dth @ %H:%M')
-            welcome_message += (
-                f'    Last submitted: {ts} ({since_in_str})\n'
-            )
+            ts = ts.strftime("%A, %B %dth @ %H:%M")
+            welcome_message += f"    Last submitted: {ts} ({since_in_str})\n"
     else:
         ts = utc_datetime_to_local_tz(instance.submission.submission_ts)
         since_in_str = arrow.get(ts).humanize()
-        ts = ts.strftime('%A, %B %dth @ %H:%M')
+        ts = ts.strftime("%A, %B %dth @ %H:%M")
         user_name = instance.user.full_name
-        welcome_message += f'    This is a submission from {ts} ({since_in_str})\n'
-        welcome_message += f'    User     : {user_name}\n'
-        welcome_message += f'    Exercise : {exercise.short_name}\n'
-        welcome_message += f'    Version  : {exercise.version}\n'
+        welcome_message += f"    This is a submission from {ts} ({since_in_str})\n"
+        welcome_message += f"    User     : {user_name}\n"
+        welcome_message += f"    Exercise : {exercise.short_name}\n"
+        welcome_message += f"    Version  : {exercise.version}\n"
         if instance.is_modified():
-            welcome_message += ansi.red('    This submission was modified!\n    Use `task reset` to restore the initially submitted state.\n')
+            welcome_message += ansi.red(
+                "    This submission was modified!\n    Use `task reset` to restore the initially submitted state.\n"
+            )
 
     if exercise.has_deadline():
         ts = utc_datetime_to_local_tz(exercise.submission_deadline_end)
         since_in_str = arrow.get(ts).humanize()
-        deadline = ts.strftime('%A, %B %dth @ %H:%M')
+        deadline = ts.strftime("%A, %B %dth @ %H:%M")
         if exercise.deadine_passed():
-            msg = f'    Deadline: Passed on {deadline} ({since_in_str})\n'
+            msg = f"    Deadline: Passed on {deadline} ({since_in_str})\n"
             welcome_message += ansi.red(msg)
         else:
-            welcome_message += f'    Deadline: {deadline} ({since_in_str})\n'
+            welcome_message += f"    Deadline: {deadline} ({since_in_str})\n"
 
-    #trim trailing newline
+    # trim trailing newline
     welcome_message = welcome_message.rstrip()
 
     resp = {
-        'ip': ip,
-        'cmd': instance.exercise.entry_service.cmd,
-        'welcome_message': welcome_message,
-        'as_root': requests_root_access and requesting_user.is_admin
+        "ip": ip,
+        "cmd": instance.exercise.entry_service.cmd,
+        "welcome_message": welcome_message,
+        "as_root": requests_root_access and requesting_user.is_admin,
     }
-    log.info(f'Instance was started! resp={resp}')
+    log.info(f"Instance was started! resp={resp}")
 
     return ok_response(resp)
 
-def handle_instance_introspection_request(query, pubkey, requests_root_access: bool) ->  tuple[Flask.response_class, Instance]:
+
+def handle_instance_introspection_request(
+    query, pubkey, requests_root_access: bool
+) -> tuple[Flask.response_class, Instance]:
     """
     Handeles deploy request that are targeting a specific instances.
     This feature allows, e.g., admin users to connect to an arbitrary
@@ -177,58 +169,63 @@ def handle_instance_introspection_request(query, pubkey, requests_root_access: b
     Raises:
         ApiRequestError: If the request could not be served.
     """
-    #The ID of the requested instance
+    # The ID of the requested instance
     instance_id = re.findall(r"^instance-([0-9]+)", query)
     try:
         instance_id = int(instance_id[0])
-    except:
-        log.warning(f'Invalid instance ID {instance_id}')
-        raise ApiRequestError(error_response('Invalid instance ID.'))
+    except Exception:
+        log.warning(f"Invalid instance ID {instance_id}")
+        raise ApiRequestError(error_response("Invalid instance ID."))
 
     # TODO: We should pass the user instead of the pubkey arg.
     instance: Instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
-    user: User = User.query.filter(User.pub_key==pubkey).one_or_none()
+    user: User = User.query.filter(User.pub_key == pubkey).one_or_none()
 
     if not user:
-        log.warning('User not found.')
-        raise ApiRequestError(error_response('Unknown user.'))
+        log.warning("User not found.")
+        raise ApiRequestError(error_response("Unknown user."))
 
     if not SystemSettingsManager.INSTANCE_SSH_INTROSPECTION.value:
-        m = 'Instance SSH introspection is disabled!'
+        m = "Instance SSH introspection is disabled!"
         log.warning(m)
-        raise ApiRequestError(error_response('Introspection is disabled.'))
+        raise ApiRequestError(error_response("Introspection is disabled."))
 
     if not user.is_admin and not user.is_grading_assistant:
-        log.warning('Only administrators and grading assistants are allowed to request access to specific instances.')
-        raise ApiRequestError(error_response('Insufficient permissions'))
+        log.warning(
+            "Only administrators and grading assistants are allowed to request access to specific instances."
+        )
+        raise ApiRequestError(error_response("Insufficient permissions"))
 
     if not instance:
-        log.warning(f'Invalid instance_id={instance_id}')
-        raise ApiRequestError(error_response('Invalid instance ID'))
+        log.warning(f"Invalid instance_id={instance_id}")
+        raise ApiRequestError(error_response("Invalid instance ID"))
 
     if user.is_grading_assistant:
         if not instance.is_submission():
             # Do not allow grading assistants to access non submissions.
-            raise ApiRequestError(error_response('Insufficient permissions.'))
+            raise ApiRequestError(error_response("Insufficient permissions."))
         exercise = instance.exercise
         hide_ongoing = SystemSettingsManager.SUBMISSION_HIDE_ONGOING.value
         if exercise.has_deadline() and not exercise.deadine_passed() and hide_ongoing:
-            raise ApiRequestError(error_response('Deadline has not passed yet, permission denied.'))
+            raise ApiRequestError(
+                error_response("Deadline has not passed yet, permission denied.")
+            )
 
     return start_and_return_instance(instance, user, requests_root_access), instance
 
 
 def parse_instance_request_query(query: str):
     """
-        Args:
-            query: A query string that specifies the type of the instance that
-            was requested. Currently we support these formats:
-                - [a-z|_|-|0-9]+ => A instance of the exercise with the given name.
-                - [a-z|_|-|0-9]+@[1-9][0-9]* => A instance of the exercise with
-                the given name and version ([name]@[version]).
-                - instance-[0-9] => Request access to the instance with the given ID.
+    Args:
+        query: A query string that specifies the type of the instance that
+        was requested. Currently we support these formats:
+            - [a-z|_|-|0-9]+ => A instance of the exercise with the given name.
+            - [a-z|_|-|0-9]+@[1-9][0-9]* => A instance of the exercise with
+            the given name and version ([name]@[version]).
+            - instance-[0-9] => Request access to the instance with the given ID.
     """
     pass
+
 
 def process_instance_request(query: str, pubkey: str) -> (any, Instance):
     """
@@ -244,79 +241,112 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
 
     name = query
 
-    #Get the user account
-    user: User = User.query.filter(User.pub_key==pubkey).one_or_none()
+    # Get the user account
+    user: User = User.query.filter(User.pub_key == pubkey).one_or_none()
     if not user:
-        log.warning('Unable to find user with provided publickey')
-        raise ApiRequestError(error_response('Unknown public key'))
+        log.warning("Unable to find user with provided publickey")
+        raise ApiRequestError(error_response("Unknown public key"))
 
-    #If we are in maintenance, reject connections from normal users.
+    # If we are in maintenance, reject connections from normal users.
     if (SystemSettingsManager.MAINTENANCE_ENABLED.value) and not user.is_admin:
-        log.info('Rejecting connection since maintenance mode is enabled and user is not an administrator')
-        raise ApiRequestError(error_response('\n-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------\n'))
+        log.info(
+            "Rejecting connection since maintenance mode is enabled and user is not an administrator"
+        )
+        raise ApiRequestError(
+            error_response(
+                "\n-------------------\nSorry, maintenance mode is enabled.\nPlease try again later.\n-------------------\n"
+            )
+        )
 
     requests_root_access = False
-    if name.startswith('root@'):
-        name = name.removeprefix('root@')
+    if name.startswith("root@"):
+        name = name.removeprefix("root@")
         requests_root_access = True
 
     # FIXME: Make this also work for instance-* requests.
-    if requests_root_access and not SystemSettingsManager.ALLOW_ROOT_LOGINS_FOR_ADMINS.value:
-        log.info(f'Rejecting root access, since its is disable!')
-        raise ApiRequestError(error_response('Requested task not found'))
+    if (
+        requests_root_access
+        and not SystemSettingsManager.ALLOW_ROOT_LOGINS_FOR_ADMINS.value
+    ):
+        log.info("Rejecting root access, since its is disable!")
+        raise ApiRequestError(error_response("Requested task not found"))
 
-    #Check whether a admin requested access to a specififc instance
-    if name.startswith('instance-'):
+    # Check whether a admin requested access to a specififc instance
+    if name.startswith("instance-"):
         try:
-            response, instance = handle_instance_introspection_request(name, pubkey, requests_root_access)
+            response, instance = handle_instance_introspection_request(
+                name, pubkey, requests_root_access
+            )
             db.session.commit()
             return response, instance
-        except:
+        except Exception:
             raise
 
     exercise_version = None
-    if '@' in name:
+    if "@" in name:
         if not SystemSettingsManager.INSTANCE_NON_DEFAULT_PROVISIONING.value:
-            raise ApiRequestError(error_response('Settings: Non-default provisioning is not allowed'))
+            raise ApiRequestError(
+                error_response("Settings: Non-default provisioning is not allowed")
+            )
         if not user.is_admin:
-            raise ApiRequestError(error_response('Insufficient permissions: Non-default provisioning is only allowed for admins'))
-        name = name.split('@')
+            raise ApiRequestError(
+                error_response(
+                    "Insufficient permissions: Non-default provisioning is only allowed for admins"
+                )
+            )
+        name = name.split("@")
         exercise_version = name[1]
         name = name[0]
 
-    user: User = User.query.filter(User.pub_key==pubkey).one_or_none()
+    user: User = User.query.filter(User.pub_key == pubkey).one_or_none()
     if not user:
-        log.warning('Unable to find user with provided publickey')
-        raise ApiRequestError(error_response('Unknown public key'))
+        log.warning("Unable to find user with provided publickey")
+        raise ApiRequestError(error_response("Unknown public key"))
 
     if exercise_version is not None:
-        requested_exercise = Exercise.get_exercise(name, exercise_version, for_update=True)
+        requested_exercise = Exercise.get_exercise(
+            name, exercise_version, for_update=True
+        )
     else:
         requested_exercise = Exercise.get_default_exercise(name, for_update=True)
-    log.info(f'Requested exercise is {requested_exercise}')
+    log.info(f"Requested exercise is {requested_exercise}")
     if not requested_exercise:
-        raise ApiRequestError(error_response('Requested task not found'))
+        raise ApiRequestError(error_response("Requested task not found"))
 
-    user_instances = list(filter(lambda e: e.exercise.short_name == requested_exercise.short_name, user.exercise_instances))
-    #Filter submissions
+    user_instances = list(
+        filter(
+            lambda e: e.exercise.short_name == requested_exercise.short_name,
+            user.exercise_instances,
+        )
+    )
+    # Filter submissions
     user_instances = list(filter(lambda e: not e.submission, user_instances))
 
-    #If we requested a version, remove all instances that do not match
+    # If we requested a version, remove all instances that do not match
     if exercise_version is not None:
-        user_instances = list(filter(lambda e: e.exercise.version == exercise_version, user_instances))
+        user_instances = list(
+            filter(lambda e: e.exercise.version == exercise_version, user_instances)
+        )
 
-    #Highest version comes first
-    user_instances = sorted(user_instances, key=lambda e: e.exercise.version, reverse=True)
+    # Highest version comes first
+    user_instances = sorted(
+        user_instances, key=lambda e: e.exercise.version, reverse=True
+    )
     user_instance = None
 
     if user_instances:
-        log.info(f'User has instance {user_instances} of requested exercise')
+        log.info(f"User has instance {user_instances} of requested exercise")
         user_instance = user_instances[0]
-        #Make sure we are not dealing with a submission here!
+        # Make sure we are not dealing with a submission here!
         assert not user_instance.submission
-        if exercise_version is None and user_instance.exercise.version < requested_exercise.version:
+        if (
+            exercise_version is None
+            and user_instance.exercise.version < requested_exercise.version
+        ):
             old_instance = user_instance
-            log.info(f'Found an upgradeable instance. Upgrading {old_instance} to new version {requested_exercise}')
+            log.info(
+                f"Found an upgradeable instance. Upgrading {old_instance} to new version {requested_exercise}"
+            )
             mgr = InstanceManager(old_instance)
             user_instance = mgr.update_instance(requested_exercise)
             mgr.bequeath_submissions_to(user_instance)
@@ -325,11 +355,13 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
                 db.session.begin_nested()
                 mgr.remove()
             except Exception as e:
-                #Remove failed, do not commit the changes to the DB.
+                # Remove failed, do not commit the changes to the DB.
                 db.session.rollback()
-                #Commit the new instance to the DB.
+                # Commit the new instance to the DB.
                 db.session.commit()
-                raise InconsistentStateError('Failed to remove old instance after upgrading.') from e
+                raise InconsistentStateError(
+                    "Failed to remove old instance after upgrading."
+                ) from e
             else:
                 db.session.commit()
     else:
@@ -340,7 +372,8 @@ def process_instance_request(query: str, pubkey: str) -> (any, Instance):
     db.session.commit()
     return response, user_instance
 
-@refbp.route('/api/ssh-authenticated', methods=('GET', 'POST'))
+
+@refbp.route("/api/ssh-authenticated", methods=("GET", "POST"))
 @limiter.exempt
 def api_ssh_authenticated():
     """
@@ -358,11 +391,11 @@ def api_ssh_authenticated():
     """
     content = request.get_json(force=True, silent=True)
     if not content:
-        log.warning('Received provision request without JSON body')
-        return error_response('Request is missing JSON body')
+        log.warning("Received provision request without JSON body")
+        return error_response("Request is missing JSON body")
 
     # FIXME: Check authenticity !!!
-    #Check for valid signature and valid request type
+    # Check for valid signature and valid request type
     # s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
     # try:
     #     content = s.loads(content)
@@ -371,36 +404,36 @@ def api_ssh_authenticated():
     #     return error_response('Invalid request')
 
     if not isinstance(content, dict):
-        log.warning(f'Unexpected data type {type(content)}')
-        return error_response('Invalid request')
+        log.warning(f"Unexpected data type {type(content)}")
+        return error_response("Invalid request")
 
-    #Parse request args
+    # Parse request args
 
-    #The public key the user used to authenticate
-    pubkey = content.get('pubkey', None)
+    # The public key the user used to authenticate
+    pubkey = content.get("pubkey", None)
     if not pubkey:
-        log.warning('Missing pubkey')
-        return error_response('Invalid request')
+        log.warning("Missing pubkey")
+        return error_response("Invalid request")
 
     pubkey = pubkey.strip()
-    pubkey = ' '.join(pubkey.split(' ')[1:])
+    pubkey = " ".join(pubkey.split(" ")[1:])
 
-    #The user name used for authentication
-    name = content.get('name', None)
+    # The user name used for authentication
+    name = content.get("name", None)
     if not name:
-        log.warning('Missing name')
-        return error_response('Invalid request')
+        log.warning("Missing name")
+        return error_response("Invalid request")
 
-    #name is user provided, make sure it is valid UTF8.
-    #If its not, sqlalchemy will raise an unicode error.
+    # name is user provided, make sure it is valid UTF8.
+    # If its not, sqlalchemy will raise an unicode error.
     try:
         name.encode()
     except Exception as e:
-        log.error(f'Invalid exercise name {str(e)}')
-        return error_response('Requested task not found')
+        log.error(f"Invalid exercise name {str(e)}")
+        return error_response("Requested task not found")
 
     # Now it is safe to use name.
-    log.info(f'Got request from pubkey={pubkey:32}, name={name}')
+    log.info(f"Got request from pubkey={pubkey:32}, name={name}")
 
     # Request a new instance using the provided arguments.
     try:
@@ -413,17 +446,21 @@ def api_ssh_authenticated():
 
     # NOTE: Since we committed in request_instance(), we do not hold the lock anymore.
     ret = {
-        'instance_id': instance.id,
-        'is_admin': int(instance.user.is_admin),
-        'is_grading_assistent': int(instance.user.is_grading_assistant),
-        'tcp_forwarding_allowed': int(instance.user.is_admin or SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value)
+        "instance_id": instance.id,
+        "is_admin": int(instance.user.is_admin),
+        "is_grading_assistent": int(instance.user.is_grading_assistant),
+        "tcp_forwarding_allowed": int(
+            instance.user.is_admin
+            or SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value
+        ),
     }
 
-    log.info(f'ret={ret}')
+    log.info(f"ret={ret}")
 
     return ok_response(ret)
 
-@refbp.route('/api/provision', methods=('GET', 'POST'))
+
+@refbp.route("/api/provision", methods=("GET", "POST"))
 @limiter.exempt
 def api_provision():
     """
@@ -441,45 +478,45 @@ def api_provision():
     """
     content = request.get_json(force=True, silent=True)
     if not content:
-        log.warning('Received provision request without JSON body')
-        return error_response('Request is missing JSON body')
+        log.warning("Received provision request without JSON body")
+        return error_response("Request is missing JSON body")
 
-    #Check for valid signature and valid request type
-    s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
+    # Check for valid signature and valid request type
+    s = Serializer(current_app.config["SSH_TO_WEB_KEY"])
     try:
         content = s.loads(content)
     except Exception as e:
-        log.warning(f'Invalid request {e}')
-        return error_response('Invalid request')
+        log.warning(f"Invalid request {e}")
+        return error_response("Invalid request")
 
     if not isinstance(content, dict):
-        log.warning(f'Unexpected data type {type(content)}')
-        return error_response('Invalid request')
+        log.warning(f"Unexpected data type {type(content)}")
+        return error_response("Invalid request")
 
-    #Parse request args
+    # Parse request args
 
-    #The public key the user used to authenticate
-    pubkey = content.get('pubkey', None)
+    # The public key the user used to authenticate
+    pubkey = content.get("pubkey", None)
     if not pubkey:
-        log.warning('Missing pubkey')
-        return error_response('Invalid request')
+        log.warning("Missing pubkey")
+        return error_response("Invalid request")
 
-    #The user name used for authentication
-    exercise_name = content.get('exercise_name', None)
+    # The user name used for authentication
+    exercise_name = content.get("exercise_name", None)
     if not exercise_name:
-        log.warning('Missing exercise_name')
-        return error_response('Invalid request')
+        log.warning("Missing exercise_name")
+        return error_response("Invalid request")
 
-    #exercise_name is user provided, make sure it is valid UTF8.
-    #If its not, sqlalchemy will raise an unicode error.
+    # exercise_name is user provided, make sure it is valid UTF8.
+    # If its not, sqlalchemy will raise an unicode error.
     try:
         exercise_name.encode()
     except Exception as e:
-        log.error(f'Invalid exercise name {str(e)}')
-        return error_response('Requested task not found')
+        log.error(f"Invalid exercise name {str(e)}")
+        return error_response("Requested task not found")
 
     # Now it is safe to use exercise_name.
-    log.info(f'Got request from pubkey={pubkey:32}, exercise_name={exercise_name}')
+    log.info(f"Got request from pubkey={pubkey:32}, exercise_name={exercise_name}")
 
     try:
         response, _ = process_instance_request(exercise_name, pubkey)
@@ -488,7 +525,8 @@ def api_provision():
 
     return response
 
-@refbp.route('/api/getkeys', methods=('GET', 'POST'))
+
+@refbp.route("/api/getkeys", methods=("GET", "POST"))
 @limiter.exempt
 def api_getkeys():
     """
@@ -496,38 +534,36 @@ def api_getkeys():
     """
     content = request.get_json(force=True, silent=True)
     if not content:
-        return error_response('Missing JSON body in request')
+        return error_response("Missing JSON body in request")
 
-    #Check for valid signature and unpack
-    s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
+    # Check for valid signature and unpack
+    s = Serializer(current_app.config["SSH_TO_WEB_KEY"])
     try:
         content = s.loads(content)
     except Exception as e:
-        log.warning(f'Invalid request {e}')
-        return error_response('Invalid request')
+        log.warning(f"Invalid request {e}")
+        return error_response("Invalid request")
 
     if not isinstance(content, dict):
-        log.warning(f'Unexpected data type {type(content)}')
-        return error_response('Invalid request')
+        log.warning(f"Unexpected data type {type(content)}")
+        return error_response("Invalid request")
 
-    username = content.get('username')
+    username = content.get("username")
     if not username:
-        log.warning('Missing username attribute')
-        return error_response('Invalid request')
+        log.warning("Missing username attribute")
+        return error_response("Invalid request")
 
     students = User.all()
     keys = []
     for s in students:
         keys.append(s.pub_key)
 
-    resp = {
-        'keys': keys
-    }
-    log.info(f'Returning {len(keys)} public-keys in total.')
+    resp = {"keys": keys}
+    log.info(f"Returning {len(keys)} public-keys in total.")
     return ok_response(resp)
 
 
-@refbp.route('/api/getuserinfo', methods=('GET', 'POST'))
+@refbp.route("/api/getuserinfo", methods=("GET", "POST"))
 @limiter.exempt
 def api_getuserinfo():
     """
@@ -535,41 +571,39 @@ def api_getuserinfo():
     """
     content = request.get_json(force=True, silent=True)
     if not content:
-        log.warning('Missing JSON body')
-        return error_response('Missing JSON body in request')
+        log.warning("Missing JSON body")
+        return error_response("Missing JSON body in request")
 
-    #Check for valid signature and unpack
-    s = Serializer(current_app.config['SSH_TO_WEB_KEY'])
+    # Check for valid signature and unpack
+    s = Serializer(current_app.config["SSH_TO_WEB_KEY"])
     try:
         content = s.loads(content)
     except Exception as e:
-        log.warning(f'Invalid request {e}')
-        return error_response('Invalid request')
+        log.warning(f"Invalid request {e}")
+        return error_response("Invalid request")
 
     if not isinstance(content, dict):
-        log.warning(f'Unexpected data type {type(content)}')
-        return error_response('Invalid request')
+        log.warning(f"Unexpected data type {type(content)}")
+        return error_response("Invalid request")
 
-    pubkey = content.get('pubkey')
+    pubkey = content.get("pubkey")
     if not pubkey:
-        log.warning('Got request without pubkey attribute')
-        return error_response('Invalid request')
+        log.warning("Got request without pubkey attribute")
+        return error_response("Invalid request")
 
-    log.info(f'Got request for pubkey={pubkey[:32]}')
+    log.info(f"Got request for pubkey={pubkey[:32]}")
     user = db.get(User, pub_key=pubkey)
 
     if user:
-        log.info(f'Found matching user: {user}')
-        resp = {
-            'name': user.first_name + " " + user.surname,
-            'mat_num': user.mat_num
-        }
+        log.info(f"Found matching user: {user}")
+        resp = {"name": user.first_name + " " + user.surname, "mat_num": user.mat_num}
         return ok_response(resp)
     else:
-        log.info('User not found')
+        log.info("User not found")
         return error_response("Failed to find user associated to given pubkey")
 
-@refbp.route('/api/header', methods=('GET', 'POST'))
+
+@refbp.route("/api/header", methods=("GET", "POST"))
 @limiter.exempt
 def api_get_header():
     """
@@ -579,7 +613,7 @@ def api_get_header():
     msg_of_the_day = SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY.value
     if msg_of_the_day:
         msg_of_the_day = ansi.green(msg_of_the_day)
-        resp += f'\n{msg_of_the_day}'
+        resp += f"\n{msg_of_the_day}"
     return ok_response(resp)
 
 class SignatureUnwrappingError(Exception):
@@ -602,53 +636,53 @@ def _unwrap_signed_container_request(request: Request, max_age_s: int = 60) -> t
     """
     content = request.get_json(force=True, silent=True)
     if not content:
-        log.warning('Got request without JSON body')
-        raise SignatureUnwrappingError('Request is missing JSON body')
+        log.warning("Got request without JSON body")
+        raise SignatureUnwrappingError("Request is missing JSON body")
 
     if not isinstance(content, str):
-        log.warning(f'Invalid type {type(content)}')
-        raise SignatureUnwrappingError('Invalid request')
+        log.warning(f"Invalid type {type(content)}")
+        raise SignatureUnwrappingError("Invalid request")
 
-    s = TimedSerializer(b"", salt='from-container-to-web')
+    s = TimedSerializer(b"", salt="from-container-to-web")
     try:
         _, unsafe_content = s.loads_unsafe(content)
-    except:
-        log.warning(f'Failed to decode payload', exc_info=True)
-        raise SignatureUnwrappingError('Error during decoding')
+    except Exception:
+        log.warning("Failed to decode payload", exc_info=True)
+        raise SignatureUnwrappingError("Error during decoding")
 
-    #This instance ID (['instance_id']) is just used to calculate the signature (['data']),
-    #thus we do not have to iterate over all instance. After checking the signature,
-    #this id must be compared to signed one (['data']['instance_id']).
-    instance_id = unsafe_content.get('instance_id')
+    # This instance ID (['instance_id']) is just used to calculate the signature (['data']),
+    # thus we do not have to iterate over all instance. After checking the signature,
+    # this id must be compared to signed one (['data']['instance_id']).
+    instance_id = unsafe_content.get("instance_id")
     if instance_id is None:
-        log.warning('Missing instance_id')
-        raise SignatureUnwrappingError('Missing instance_id')
+        log.warning("Missing instance_id")
+        raise SignatureUnwrappingError("Missing instance_id")
 
     try:
         instance_id = int(instance_id)
-    except:
-        log.warning(f'Failed to convert {instance_id} to int', exc_info=True)
-        raise SignatureUnwrappingError('Invalid instance ID')
+    except Exception:
+        log.warning(f"Failed to convert {instance_id} to int", exc_info=True)
+        raise SignatureUnwrappingError("Invalid instance ID")
 
     instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
     if not instance:
-        log.warning(f'Failed to find instance with ID {instance_id}')
+        log.warning(f"Failed to find instance with ID {instance_id}")
         raise SignatureUnwrappingError("Unable to find given instance")
 
     instance_key = instance.get_key()
 
-    s = TimedSerializer(instance_key, salt='from-container-to-web')
+    s = TimedSerializer(instance_key, salt="from-container-to-web")
     try:
         signed_content = s.loads(content, max_age=max_age_s)
-    except SignatureUnwrappingError as e:
-        log.warning(f'Invalid request', exc_info=True)
-        raise SignatureUnwrappingError('Invalid request')
+    except Exception:
+        log.warning("Invalid request", exc_info=True)
+        raise SignatureUnwrappingError("Invalid request")
 
     return signed_content
 
 
-@refbp.route('/api/instance/reset', methods=('GET', 'POST'))
-@limiter.limit('3 per minute; 24 per day')
+@refbp.route("/api/instance/reset", methods=("GET", "POST"))
+@limiter.limit("3 per minute; 24 per day")
 def api_instance_reset():
     """
     Reset the instance with the given instance ID.
@@ -662,34 +696,34 @@ def api_instance_reset():
     except SignatureUnwrappingError as e:
         return error_response(e.user_error_message)
 
-    instance_id = content.get('instance_id')
+    instance_id = content.get("instance_id")
     try:
         instance_id = int(instance_id)
     except ValueError:
-        log.warning(f'Invalid instance id {instance_id}', exc_info=True)
-        return error_response('Invalid instance ID')
+        log.warning(f"Invalid instance id {instance_id}", exc_info=True)
+        return error_response("Invalid instance ID")
 
-    log.info(f'Received reset request for instance_id={instance_id}')
+    log.info(f"Received reset request for instance_id={instance_id}")
 
     instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
     if not instance:
-        log.warning(f'Invalid instance id {instance_id}')
-        return error_response('Invalid request')
+        log.warning(f"Invalid instance id {instance_id}")
+        return error_response("Invalid request")
 
     user = User.query.filter(User.id == instance.user.id).one_or_none()
     if not user:
-        log.warning(f'Invalid user ID {instance.user.id}')
-        return error_response('Invalid request')
+        log.warning(f"Invalid user ID {instance.user.id}")
+        return error_response("Invalid request")
 
     mgr = InstanceManager(instance)
     mgr.reset()
     current_app.db.session.commit()
 
-    return ok_response('OK')
+    return ok_response("OK")
 
 
-@refbp.route('/api/instance/submit', methods=('GET', 'POST'))
-@limiter.limit('3 per minute; 24 per day')
+@refbp.route("/api/instance/submit", methods=("GET", "POST"))
+@limiter.limit("3 per minute; 24 per day")
 def api_instance_submit():
     """
     Creates a submission of the instance with the given instance ID.
@@ -709,62 +743,70 @@ def api_instance_submit():
     except SignatureUnwrappingError as e:
         return error_response(e.user_error_message)
 
-    instance_id = content['instance_id']
+    instance_id = content["instance_id"]
     try:
         instance_id = int(instance_id)
     except ValueError:
-        log.warning(f'Invalid instance id {instance_id}', exc_info=True)
+        log.warning(f"Invalid instance id {instance_id}", exc_info=True)
         abort(400)
 
-    log.info(f'Got submit request for instance_id={instance_id}')
+    log.info(f"Got submit request for instance_id={instance_id}")
     print(json.dumps(content, indent=4))
 
     # ! Keep in sync with ref-docker-base/task.py
     @dataclass
-    class TestResult():
+    class TestResult:
         task_name: str
         success: bool
         score: ty.Optional[float]
 
     test_results: ty.List[TestResult] = []
     try:
-        test_results_list: ty.List[ty.Dict[ty.Any, ty.Any]] = content['test_results']
+        test_results_list: ty.List[ty.Dict[ty.Any, ty.Any]] = content["test_results"]
         for r in test_results_list:
             test_results.append(TestResult(**r))
 
         # Postgres does not like \x00 bytes in strings,
         # hence we replace them by a printable error mark.
-        user_controlled_test_output = content["output"].replace("\x00", "\uFFFD")
-    except:
-        log.warning('Invalid request', exc_info=True)
+        user_controlled_test_output = content["output"].replace("\x00", "\ufffd")
+    except Exception:
+        log.warning("Invalid request", exc_info=True)
         abort(400)
 
     instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
     if not instance:
-        log.warning(f'Invalid instance id {instance_id}')
-        return error_response('Invalid request')
+        log.warning(f"Invalid instance id {instance_id}")
+        return error_response("Invalid request")
 
     user = User.query.filter(User.id == instance.user.id).one_or_none()
     if not user:
-        log.warning(f'Invalid user ID {instance.user.id}')
-        return error_response('Invalid request')
+        log.warning(f"Invalid user ID {instance.user.id}")
+        return error_response("Invalid request")
 
     if instance.submission:
-        log.warning(f'User tried to submit instance that is already submitted: {instance}')
-        return error_response('Unable to submit: Instance is a submission itself.')
+        log.warning(
+            f"User tried to submit instance that is already submitted: {instance}"
+        )
+        return error_response("Unable to submit: Instance is a submission itself.")
 
     if not instance.exercise.has_deadline():
-        log.info(f'User tried to submit instance {instance} without deadline')
-        return error_response(f'Unable to submit: This is an un-graded, open-end exercise rather than an graded assignment. Use "task check" to receive feedback.')
+        log.info(f"User tried to submit instance {instance} without deadline")
+        return error_response(
+            'Unable to submit: This is an un-graded, open-end exercise rather than an graded assignment. Use "task check" to receive feedback.'
+        )
 
     if instance.exercise.deadine_passed():
-        log.info(f'User tried to submit instance {instance} after deadline :-O')
+        log.info(f"User tried to submit instance {instance} after deadline :-O")
         deadline = datetime_to_string(instance.exercise.submission_deadline_end)
-        return error_response(f'Unable to submit: The submission deadline already passed (was due before {deadline})')
+        return error_response(
+            f"Unable to submit: The submission deadline already passed (was due before {deadline})"
+        )
 
     if SystemSettingsManager.SUBMISSION_DISABLED.value:
-        log.info(f'Rejecting submission request since submission is currently disabled.')
-        return error_response(f'Submission is currently disabled, please try again later.')
+        log.info("Rejecting submission request since submission is currently disabled.")
+        return error_response(
+            "Submission is currently disabled, please try again later."
+        )
 
     mgr = InstanceManager(instance)
 
@@ -773,17 +815,22 @@ def api_instance_submit():
     # about the error!
     test_result_objs = []
     for r in test_results:
-        o = SubmissionTestResult(r.task_name, user_controlled_test_output, r.success, r.score)
+        o = SubmissionTestResult(
+            r.task_name, user_controlled_test_output, r.success, r.score
+        )
         test_result_objs.append(o)
     new_instance = mgr.create_submission(test_result_objs)
 
     current_app.db.session.commit()
-    log.info(f'Created submission: {new_instance.submission}')
+    log.info(f"Created submission: {new_instance.submission}")
 
-    return ok_response(f'[+] Submission with ID {new_instance.id} successfully created!')
+    return ok_response(
+        f"[+] Submission with ID {new_instance.id} successfully created!"
+    )
 
-@refbp.route('/api/instance/info', methods=('GET', 'POST'))
-@limiter.limit('10 per minute')
+
+@refbp.route("/api/instance/info", methods=("GET", "POST"))
+@limiter.limit("10 per minute")
 def api_instance_info():
     """
     {
@@ -795,31 +842,30 @@ def api_instance_info():
     except SignatureUnwrappingError as e:
         return error_response(e.user_error_message)
 
-    instance_id = content.get('instance_id')
+    instance_id = content.get("instance_id")
     try:
         instance_id = int(instance_id)
     except ValueError:
-        log.warning(f'Invalid instance id {instance_id}', exc_info=True)
-        return error_response('Invalid instance ID')
+        log.warning(f"Invalid instance id {instance_id}", exc_info=True)
+        return error_response("Invalid instance ID")
 
-    log.info(f'Received info request for instance_id={instance_id}')
+    log.info(f"Received info request for instance_id={instance_id}")
 
     instance: Instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
     if not instance:
-        log.warning(f'Invalid instance id {instance_id}')
-        return error_response('Invalid request')
+        log.warning(f"Invalid instance id {instance_id}")
+        return error_response("Invalid request")
 
-    user = instance.user
     exercise = instance.exercise
 
-    ret = ''
-    type_ = 'Submission' if instance.submission else 'Instance'
+    ret = ""
+    type_ = "Submission" if instance.submission else "Instance"
     user_name = instance.user.full_name
 
-    ret += f'Type     : {type_}\n'
-    ret += f'User     : {user_name}\n'
-    ret += f'Exercise : {exercise.short_name}\n'
-    ret += f'Version  : {exercise.version}\n'
+    ret += f"Type     : {type_}\n"
+    ret += f"User     : {user_name}\n"
+    ret += f"Exercise : {exercise.short_name}\n"
+    ret += f"Version  : {exercise.version}\n"
 
     ret = ret.rstrip()
 

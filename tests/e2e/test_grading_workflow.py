@@ -166,7 +166,9 @@ class TestAutomatedTesting:
         """
         Test that 'task check' runs automated tests without submitting.
         """
-        assert grading_state.student_private_key is not None, "Student key not available"
+        assert grading_state.student_private_key is not None, (
+            "Student key not available"
+        )
         assert grading_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -189,7 +191,9 @@ class TestAutomatedTesting:
         """
         Test that 'task check' passes with a correct solution.
         """
-        assert grading_state.student_private_key is not None, "Student key not available"
+        assert grading_state.student_private_key is not None, (
+            "Student key not available"
+        )
         assert grading_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -214,7 +218,9 @@ class TestAutomatedTesting:
         """
         Test that 'task check' fails with an incorrect solution.
         """
-        assert grading_state.student_private_key is not None, "Student key not available"
+        assert grading_state.student_private_key is not None, (
+            "Student key not available"
+        )
         assert grading_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -231,7 +237,9 @@ class TestAutomatedTesting:
 
         # Run task check - should fail
         success, output = client.check(timeout=120.0)
-        assert not success, f"task check should have failed with incorrect solution: {output}"
+        assert not success, (
+            f"task check should have failed with incorrect solution: {output}"
+        )
 
 
 class TestSubmissionCreation:
@@ -248,7 +256,9 @@ class TestSubmissionCreation:
         """
         Test that 'task submit' creates a submission.
         """
-        assert grading_state.student_private_key is not None, "Student key not available"
+        assert grading_state.student_private_key is not None, (
+            "Student key not available"
+        )
         assert grading_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -297,7 +307,9 @@ class TestSubmissionCreation:
         deadline, which could affect other tests.
         """
         # Skip this test as it requires a special setup with past deadline
-        pytest.skip("Test requires exercise with past deadline - skipping to avoid affecting other tests")
+        pytest.skip(
+            "Test requires exercise with past deadline - skipping to avoid affecting other tests"
+        )
 
     @pytest.mark.e2e
     def test_submission_preserves_state(
@@ -308,7 +320,9 @@ class TestSubmissionCreation:
         """
         Test that submission preserves the instance state.
         """
-        assert grading_state.student_private_key is not None, "Student key not available"
+        assert grading_state.student_private_key is not None, (
+            "Student key not available"
+        )
         assert grading_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -351,12 +365,14 @@ class TestManualGrading:
 
         # Navigate to grading page and verify it's accessible
         response = admin_client.client.get("/admin/grading/")
-        assert response.status_code == 200, "Admin should be able to access grading page"
+        assert response.status_code == 200, (
+            "Admin should be able to access grading page"
+        )
 
         # Page should contain grading-related content
-        assert "grading" in response.text.lower() or "submission" in response.text.lower(), (
-            "Grading page should contain grading-related content"
-        )
+        assert (
+            "grading" in response.text.lower() or "submission" in response.text.lower()
+        ), "Grading page should contain grading-related content"
 
     @pytest.mark.e2e
     def test_admin_can_grade_submission(
@@ -377,9 +393,9 @@ class TestManualGrading:
         assert response.status_code == 200, "Should be able to access grading view"
 
         # Verify the grading page has expected content
-        assert "grading" in response.text.lower() or "submission" in response.text.lower(), (
-            "Grading page should contain grading-related content"
-        )
+        assert (
+            "grading" in response.text.lower() or "submission" in response.text.lower()
+        ), "Grading page should contain grading-related content"
 
     @pytest.mark.e2e
     def test_grading_assistant_can_grade(
@@ -420,7 +436,9 @@ class TestManualGrading:
         # and having appropriate credentials. The admin would use instance-<ID> as username.
         # This test verifies the grading page shows submission information.
         response = admin_client.client.get("/admin/grading/")
-        assert response.status_code == 200, "Admin should be able to access grading page"
+        assert response.status_code == 200, (
+            "Admin should be able to access grading page"
+        )
 
 
 class TestGradingAssistantPermissions:
@@ -475,7 +493,9 @@ class TestGradingAssistantPermissions:
             admin_client.login("0", admin_password)
 
         response = admin_client.client.get("/admin/system/settings/")
-        assert response.status_code == 200, "Admin should be able to access system settings"
+        assert response.status_code == 200, (
+            "Admin should be able to access system settings"
+        )
 
 
 class TestTaskReset:
@@ -492,7 +512,9 @@ class TestTaskReset:
         """
         Test that 'task reset' restores initial state.
         """
-        assert grading_state.student_private_key is not None, "Student key not available"
+        assert grading_state.student_private_key is not None, (
+            "Student key not available"
+        )
         assert grading_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(
@@ -510,7 +532,9 @@ class TestTaskReset:
         assert success, f"task reset failed: {output}"
 
         # Verify custom file was removed
-        assert not client.file_exists(custom_file), "Custom file should be removed after reset"
+        assert not client.file_exists(custom_file), (
+            "Custom file should be removed after reset"
+        )
 
     @pytest.mark.e2e
     def test_task_reset_preserves_persistent_files(
@@ -524,7 +548,9 @@ class TestTaskReset:
         Note: This test verifies basic reset behavior. Full persistent file
         testing would require an exercise configured with persistent files.
         """
-        assert grading_state.student_private_key is not None, "Student key not available"
+        assert grading_state.student_private_key is not None, (
+            "Student key not available"
+        )
         assert grading_state.exercise_name is not None, "Exercise name not available"
 
         client = ssh_client_factory(

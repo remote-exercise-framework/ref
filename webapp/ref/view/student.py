@@ -1,11 +1,8 @@
 import datetime
 import re
-from functools import partial
 
 from Crypto.PublicKey import RSA
 from flask import (
-    Blueprint,
-    Flask,
     Response,
     abort,
     current_app,
@@ -20,7 +17,6 @@ from wtforms import (
     Form,
     IntegerField,
     PasswordField,
-    RadioField,
     SelectMultipleField,
     StringField,
     SubmitField,
@@ -32,13 +28,9 @@ from ref import db, limiter, refbp
 from ref.core import admin_required, flash
 from ref.core.logging import get_logger
 from ref.core.util import (
-    is_deadlock_error,
-    lock_db,
-    on_integrity_error,
     redirect_to_next,
-    set_transaction_deferable_readonly,
 )
-from ref.model import SystemSettingsManager, User, UserGroup
+from ref.model import SystemSettingsManager, User
 from ref.model.enums import UserAuthorizationGroups
 
 PASSWORD_MIN_LEN = 8
@@ -109,7 +101,7 @@ def validate_pubkey(form, field):
             key = fn(field.data).export_key(format="OpenSSH").decode()
             field.data = key
             return key
-        except:
+        except (ValueError, IndexError, TypeError):
             pass
         else:
             return
@@ -208,7 +200,7 @@ def student_download_pubkey(signed_mat: str):
     )
     try:
         mat_num = signer.loads(signed_mat, max_age=60 * 10)
-    except:
+    except Exception:
         log.warning("Invalid signature", exc_info=True)
         abort(400)
 
