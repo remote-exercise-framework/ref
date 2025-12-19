@@ -1,4 +1,3 @@
-import datetime
 import re
 
 from Crypto.PublicKey import RSA
@@ -25,7 +24,7 @@ from wtforms import (
 )
 
 from ref import db, limiter, refbp
-from ref.core import admin_required, flash
+from ref.core import UserManager, admin_required, flash
 from ref.core.logging import get_logger
 from ref.core.util import (
     redirect_to_next,
@@ -321,16 +320,14 @@ def student_getkey():
             pubkey = key.export_key(format="OpenSSH").decode()
             privkey = key.export_key().decode()
 
-        student = User()
-        student.mat_num = form.mat_num.data
-        student.first_name = form.firstname.data
-        student.surname = form.surname.data
-
-        student.set_password(form.password.data)
-        student.pub_key = pubkey
-        student.priv_key = privkey
-        student.registered_date = datetime.datetime.utcnow()
-        student.auth_groups = [UserAuthorizationGroups.STUDENT]
+        student = UserManager.create_student(
+            mat_num=form.mat_num.data,
+            first_name=form.firstname.data,
+            surname=form.surname.data,
+            password=form.password.data,
+            pub_key=pubkey,
+            priv_key=privkey,
+        )
 
         signer = URLSafeTimedSerializer(
             current_app.config["SECRET_KEY"], salt=DOWNLOAD_LINK_SIGN_SALT

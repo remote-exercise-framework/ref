@@ -5,6 +5,7 @@ from .exercise import ExerciseConfigError as ExerciseConfigError
 from .exercise import ExerciseManager as ExerciseManager
 from .image import ExerciseImageManager as ExerciseImageManager
 from .instance import InstanceManager as InstanceManager
+from .user import UserManager as UserManager
 from .security import admin_required as admin_required
 from .security import grading_assistant_required as grading_assistant_required
 from .util import AnsiColorUtil as AnsiColorUtil
