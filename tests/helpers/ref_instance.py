@@ -467,14 +467,34 @@ POSTGRES_PASSWORD={self.config.postgres_password}
         if env:
             run_env.update(env)
 
-        return subprocess.run(
+        # Always capture output when check=True so we can log errors
+        should_capture = capture_output or check
+        result = subprocess.run(
             cmd,
             cwd=str(self._ref_root),
-            check=check,
-            capture_output=capture_output,
+            check=False,  # We'll check manually to include output in errors
+            capture_output=should_capture,
             text=True,
             env=run_env,
         )
+
+        if check and result.returncode != 0:
+            # Log the error output for debugging
+            error_msg = f"Command failed with exit code {result.returncode}\n"
+            error_msg += f"Command: {' '.join(cmd)}\n"
+            if result.stdout:
+                error_msg += f"\n=== STDOUT ===\n{result.stdout}"
+            if result.stderr:
+                error_msg += f"\n=== STDERR ===\n{result.stderr}"
+            print(f"[REF E2E] Docker compose error:\n{error_msg}")
+
+            # Raise with output attached
+            exc = subprocess.CalledProcessError(
+                result.returncode, cmd, result.stdout, result.stderr
+            )
+            raise exc
+
+        return result
 
     def build(self, no_cache: bool = False) -> None:
         """
