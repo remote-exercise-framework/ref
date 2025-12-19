@@ -1,0 +1,71 @@
+[project]
+name = "ref-tests"
+version = "0.1.0"
+description = "E2E test dependencies for REF"
+requires-python = ">=3.10"
+dependencies = [
+    "pytest>=7.0.0",
+    "pytest-xdist>=3.0.0",
+    "pytest-timeout>=2.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-testmon>=2.1.0",
+    "pytest-watch>=4.2.0",
+    "httpx>=0.25.0",
+    "paramiko>=3.0.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=4.9.0",
+    "jinja2>=3.0.0",
+    "coverage[toml]>=7.0.0",
+    "ref-webapp",
+]
+
+[tool.uv.sources]
+ref-webapp = { path = "../webapp", editable = true }
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.10"
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+reportPrivateUsage = false
+reportUnusedVariable = "warning"
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["helpers", "../webapp/ref"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "*/site-packages/*",
+    "conftest.py",
+    "test_*.py",
+]
+data_file = "coverage_reports/.coverage"
+
+[tool.coverage.paths]
+# Map paths for combining coverage from different sources
+source = [
+    "helpers/",
+    "../webapp/ref/",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
+
+[tool.coverage.html]
+directory = "coverage_reports/htmlcov"
+
+[tool.coverage.xml]
+output = "coverage_reports/coverage.xml"
