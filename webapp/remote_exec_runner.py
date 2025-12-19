@@ -4,9 +4,9 @@ Remote Execution Runner for REF E2E Tests
 
 This script is executed inside the webapp container by remote_exec().
 It:
-1. Reads base64-encoded source code from stdin
+1. Reads base64-encoded cloudpickle data from stdin
 2. Creates Flask app context
-3. Executes the source code
+3. Deserializes and executes the function
 4. Returns the result via stdout
 
 SECURITY NOTE: This script should only be present in testing/development builds.
@@ -18,9 +18,11 @@ import json
 import sys
 import traceback
 
+import cloudpickle
+
 
 def main() -> int:
-    # Read the encoded source code from stdin
+    # Read the encoded function from stdin
     encoded_input = sys.stdin.read().strip()
 
     if not encoded_input:
@@ -28,14 +30,12 @@ def main() -> int:
         return 1
 
     try:
-        # Decode the input
-        decoded = base64.b64decode(encoded_input).decode("utf-8")
-        payload = json.loads(decoded)
-        source_code = payload["source"]
-        func_name = payload["func_name"]
+        # Decode and unpickle the function
+        pickled_data = base64.b64decode(encoded_input)
+        func = cloudpickle.loads(pickled_data)
 
     except Exception as e:
-        print(f"ERROR: Failed to decode input: {e}", file=sys.stderr)
+        print(f"ERROR: Failed to decode/unpickle function: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         return 1
 
@@ -46,12 +46,7 @@ def main() -> int:
         app = create_app()
 
         with app.app_context():
-            # Execute the function definition
-            local_vars: dict = {}
-            exec(source_code, {"__builtins__": __builtins__}, local_vars)
-
             # Call the function and get its return value
-            func = local_vars[func_name]
             result = func()
 
     except Exception as e:

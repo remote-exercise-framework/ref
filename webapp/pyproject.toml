@@ -43,4 +43,5 @@ dependencies = [
     "wcwidth==0.2.13",
     "websocket-client==1.8.0",
     "wtforms==3.2.1",
+    "cloudpickle>=3.0.0",
 ]

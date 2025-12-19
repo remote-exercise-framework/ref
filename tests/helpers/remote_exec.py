@@ -4,15 +4,17 @@ Remote Execution Helper for REF E2E Tests
 Allows tests to execute Python code inside the webapp container
 with Flask app context, enabling direct database access and
 system settings manipulation.
+
+Uses cloudpickle to serialize functions with closures.
 """
 
 from __future__ import annotations
 
 import base64
-import inspect
 import json
-import textwrap
 from typing import TYPE_CHECKING, Any, Callable
+
+import cloudpickle
 
 if TYPE_CHECKING:
     from helpers.ref_instance import REFInstance
@@ -29,18 +31,18 @@ class RemoteExecutionError(Exception):
 
 def remote_exec(
     instance: "REFInstance",
-    func: Callable[[], Any],
+    func: Callable[..., Any],
     timeout: float = 30.0,
 ) -> Any:
     """
     Execute a Python function inside the webapp container with Flask app context.
 
-    The function's source code is extracted, sent to the container, and executed.
-    The result must be JSON-serializable.
+    The function is serialized using cloudpickle (supports closures), sent to
+    the container, and executed. The result must be JSON-serializable.
 
     Args:
         instance: The REFInstance to execute code in
-        func: A callable (function) to execute. Must not require arguments.
+        func: A callable (function) to execute. Can use closures.
         timeout: Maximum execution time in seconds
 
     Returns:
@@ -50,28 +52,24 @@ def remote_exec(
         RemoteExecutionError: If execution fails
 
     Example:
-        def enable_forwarding():
-            from ref.model.settings import SystemSettingsManager
-            from flask import current_app
-            SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value = True
-            current_app.db.session.commit()
-            return True
+        def check_user(mat_num):
+            from ref.model.user import User
+            return User.query.filter_by(mat_num=mat_num).first() is not None
 
-        remote_exec(ref_instance, enable_forwarding)
+        # Closures work:
+        mat_num = "12345678"
+        def check():
+            from ref.model.user import User
+            return User.query.filter_by(mat_num=mat_num).first() is not None
+
+        remote_exec(ref_instance, check)
     """
-    # Get the source code and name of the function
+    # Serialize the function using cloudpickle (handles closures)
     try:
-        source = inspect.getsource(func)
-        # Dedent in case it's an inner function
-        source = textwrap.dedent(source)
-        func_name = func.__name__
-
+        pickled_func = cloudpickle.dumps(func)
+        encoded = base64.b64encode(pickled_func).decode("ascii")
     except Exception as e:
-        raise RemoteExecutionError(f"Failed to get function source: {e}") from e
-
-    # Create the payload with the function source and name
-    payload = {"source": source, "func_name": func_name}
-    encoded = base64.b64encode(json.dumps(payload).encode()).decode("ascii")
+        raise RemoteExecutionError(f"Failed to serialize function: {e}") from e
 
     # Execute in container via docker exec
     result = instance._run_compose(
