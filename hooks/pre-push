@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+#
+# Pre-push hook that prevents dev and main from diverging.
+#
+# This ensures that main is always an ancestor of dev, so rebasing
+# dev onto main (or fast-forward merging) never requires a merge commit.
+#
+# Install with: ./hooks/install.sh
+#
+
+set -e
+
+REMOTE="$1"
+
+# Read the push info from stdin
+while read -r local_ref local_sha remote_ref remote_sha; do
+    # Skip delete operations
+    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+        continue
+    fi
+
+    # Extract branch name from ref
+    branch="${remote_ref#refs/heads/}"
+
+    # Only check pushes to main or dev
+    if [ "$branch" != "main" ] && [ "$branch" != "dev" ]; then
+        continue
+    fi
+
+    # Fetch latest state of both branches from remote
+    git fetch "$REMOTE" main dev 2>/dev/null || true
+
+    # Get the remote refs (may not exist if branches are new)
+    remote_main=$(git rev-parse "$REMOTE/main" 2>/dev/null || echo "")
+    remote_dev=$(git rev-parse "$REMOTE/dev" 2>/dev/null || echo "")
+
+    # Determine what main and dev will be after this push
+    if [ "$branch" = "main" ]; then
+        new_main="$local_sha"
+        new_dev="${remote_dev:-}"
+    else
+        new_main="${remote_main:-}"
+        new_dev="$local_sha"
+    fi
+
+    # If either branch doesn't exist yet, allow the push
+    if [ -z "$new_main" ] || [ -z "$new_dev" ]; then
+        continue
+    fi
+
+    # Check that main is an ancestor of dev
+    # This ensures dev can be rebased onto main without a merge
+    if ! git merge-base --is-ancestor "$new_main" "$new_dev"; then
+        echo ""
+        echo "ERROR: This push would cause 'main' and 'dev' to diverge."
+        echo ""
+        echo "After this push, 'main' would no longer be an ancestor of 'dev',"
+        echo "which means rebasing 'dev' onto 'main' would require a merge."
+        echo ""
+        if [ "$branch" = "main" ]; then
+            echo "You are pushing to 'main' with commits not in 'dev'."
+            echo "Either:"
+            echo "  1. First merge/cherry-pick these commits into 'dev', or"
+            echo "  2. Push to 'dev' first, then fast-forward 'main' to 'dev'"
+        else
+            echo "You are pushing to 'dev' without 'main' as an ancestor."
+            echo "Either:"
+            echo "  1. Rebase 'dev' onto 'main' before pushing, or"
+            echo "  2. Include all commits from 'main' in your 'dev' branch"
+        fi
+        echo ""
+        exit 1
+    fi
+done
+
+exit 0

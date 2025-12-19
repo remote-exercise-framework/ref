@@ -14,4 +14,6 @@ echo "Installing git hooks..."
 git config core.hooksPath hooks
 
 echo "Git hooks installed successfully."
-echo "The pre-commit hook will now run linting checks before each commit."
+echo "Installed hooks:"
+echo "  - pre-commit: Runs linting checks before each commit"
+echo "  - pre-push: Prevents dev/main from diverging"
