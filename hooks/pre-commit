@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook that runs the same linting checks as CI.
+# Install with: git config core.hooksPath hooks
+#
+
+set -e
+
+# Get the repo root directory
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+echo "Running pre-commit linting checks..."
+
+# Check if ruff is available
+if ! command -v ruff &> /dev/null; then
+    echo "Error: ruff is not installed."
+    echo "Install with: uv tool install ruff"
+    exit 1
+fi
+
+# Run ruff check
+echo "Running ruff check..."
+if ! ruff check .; then
+    echo ""
+    echo "ruff check failed. Fix the issues above before committing."
+    echo "You can auto-fix some issues with: ruff check --fix ."
+    exit 1
+fi
+
+# Run ruff format check
+echo "Running ruff format --check..."
+if ! ruff format --check .; then
+    echo ""
+    echo "ruff format check failed. Code is not properly formatted."
+    echo "Fix with: ruff format ."
+    exit 1
+fi
+
+echo "All linting checks passed!"
