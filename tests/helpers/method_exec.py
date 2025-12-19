@@ -442,3 +442,41 @@ def create_submission(
         }
 
     return ref_instance.remote_exec(_create, timeout=timeout)
+
+
+def sign_file_browser_path(
+    ref_instance: "REFInstance",
+    path_prefix: str,
+) -> str:
+    """
+    Generate a signed file browser token for the given path prefix.
+
+    Uses the same URLSafeTimedSerializer as ref/view/file_browser.py
+    to create a valid token that authorizes access to files under
+    the given path prefix.
+
+    Args:
+        ref_instance: The REF instance to execute in
+        path_prefix: Absolute path prefix to authorize access to
+
+    Returns:
+        A signed token string that can be used with /admin/file-browser/load-file
+    """
+
+    def _sign() -> str:
+        import dataclasses
+
+        from flask import current_app
+        from itsdangerous import URLSafeTimedSerializer
+
+        @dataclasses.dataclass
+        class PathSignatureToken:
+            path_prefix: str
+
+        token = PathSignatureToken(path_prefix)
+        signer = URLSafeTimedSerializer(
+            current_app.config["SECRET_KEY"], salt="file-browser"
+        )
+        return signer.dumps(dataclasses.asdict(token))
+
+    return ref_instance.remote_exec(_sign)

@@ -8,10 +8,13 @@ security vulnerabilities, and input validation.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generator, Optional
+from typing import TYPE_CHECKING, Callable, Generator, Optional
 
 import httpx
 import pytest
+
+if TYPE_CHECKING:
+    from helpers.ref_instance import REFInstance
 
 
 @dataclass
@@ -177,3 +180,31 @@ def pytest_configure(config: pytest.Config) -> None:
     """Configure pytest markers for API tests."""
     config.addinivalue_line("markers", "api: API security tests")
     config.addinivalue_line("markers", "security: Security-focused tests")
+
+
+@pytest.fixture(scope="function")
+def file_browser_token_factory(
+    ref_instance: "REFInstance",
+) -> Callable[[str], str]:
+    """
+    Factory fixture for generating valid file browser tokens.
+
+    Returns a function that takes a path_prefix and returns a signed token.
+    This allows tests to verify that path traversal attempts are blocked
+    at the path validation layer, not just due to invalid tokens.
+
+    Usage:
+        def test_path_traversal(admin_session, file_browser_token_factory):
+            token = file_browser_token_factory("/tmp/test")
+            response = admin_session.post(
+                "/admin/file-browser/load-file",
+                data={"path": "../etc/passwd", "token": token, "hide_hidden_files": "true"},
+            )
+            assert response.status_code == 400  # Blocked by path validation
+    """
+    from helpers.method_exec import sign_file_browser_path
+
+    def _create_token(path_prefix: str) -> str:
+        return sign_file_browser_path(ref_instance, path_prefix)
+
+    return _create_token

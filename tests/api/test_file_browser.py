@@ -12,6 +12,8 @@ CRITICAL SECURITY TESTS:
 
 from __future__ import annotations
 
+from typing import Callable
+
 import httpx
 import pytest
 
@@ -86,13 +88,21 @@ class TestFileBrowserLoadFile:
         )
         assert response.status_code == 400
 
-    def test_path_traversal_in_path_param(self, admin_session: httpx.Client) -> None:
+    def test_path_traversal_in_path_param(
+        self,
+        admin_session: httpx.Client,
+        file_browser_token_factory: Callable[[str], str],
+    ) -> None:
         """
         Path traversal attempts in path parameter should be rejected.
 
         Even with a valid token, the path should be validated against
         the signed prefix to prevent traversal.
         """
+        # Generate a valid token for a restricted directory
+        # The token authorizes access only within /tmp/file_browser_test
+        token = file_browser_token_factory("/tmp/file_browser_test")
+
         traversal_paths = [
             "../../../etc/passwd",
             "..\\..\\..\\etc\\passwd",
@@ -104,21 +114,25 @@ class TestFileBrowserLoadFile:
             "....//....//....//etc/passwd",
             "./../../etc/passwd",
         ]
-        # FIXME(claude): Use a valid token, else you are not testing any of the vectors.
         for path in traversal_paths:
             response = admin_session.post(
                 "/admin/file-browser/load-file",
                 data={
                     "path": path,
-                    "token": "fake_token",
+                    "token": token,
                     "hide_hidden_files": "true",
                 },
             )
-            # Should reject (400) due to invalid token or path outside prefix
+            # Should reject (400) because resolved path is outside signed prefix
             assert response.status_code == 400, f"Path traversal not blocked: {path}"
 
-    def test_null_byte_injection(self, admin_session: httpx.Client) -> None:
+    def test_null_byte_injection(
+        self,
+        admin_session: httpx.Client,
+        file_browser_token_factory: Callable[[str], str],
+    ) -> None:
         """Null byte injection should be handled safely."""
+        token = file_browser_token_factory("/tmp/file_browser_test")
         null_paths = [
             "/etc/passwd\x00.txt",
             "file.txt\x00.jpg",
@@ -129,7 +143,7 @@ class TestFileBrowserLoadFile:
                 "/admin/file-browser/load-file",
                 data={
                     "path": path,
-                    "token": "fake_token",
+                    "token": token,
                     "hide_hidden_files": "true",
                 },
             )
@@ -154,8 +168,13 @@ class TestFileBrowserLoadFile:
             )
             assert response.status_code == 400
 
-    def test_special_chars_in_path(self, admin_session: httpx.Client) -> None:
+    def test_special_chars_in_path(
+        self,
+        admin_session: httpx.Client,
+        file_browser_token_factory: Callable[[str], str],
+    ) -> None:
         """Special characters in path should be handled safely."""
+        token = file_browser_token_factory("/tmp/file_browser_test")
         special_paths = [
             "<script>alert(1)</script>",
             "'; DROP TABLE files;--",
@@ -170,7 +189,7 @@ class TestFileBrowserLoadFile:
                 "/admin/file-browser/load-file",
                 data={
                     "path": path,
-                    "token": "fake_token",
+                    "token": token,
                     "hide_hidden_files": "true",
                 },
             )
@@ -270,21 +289,31 @@ class TestFileBrowserInputValidation:
     General input validation tests for file browser.
     """
 
-    def test_very_long_path(self, admin_session: httpx.Client) -> None:
+    def test_very_long_path(
+        self,
+        admin_session: httpx.Client,
+        file_browser_token_factory: Callable[[str], str],
+    ) -> None:
         """Very long path should be handled gracefully."""
+        token = file_browser_token_factory("/tmp/file_browser_test")
         long_path = "/" + "a" * 10000
         response = admin_session.post(
             "/admin/file-browser/load-file",
             data={
                 "path": long_path,
-                "token": "fake_token",
+                "token": token,
                 "hide_hidden_files": "true",
             },
         )
         assert response.status_code == 400
 
-    def test_unicode_path(self, admin_session: httpx.Client) -> None:
+    def test_unicode_path(
+        self,
+        admin_session: httpx.Client,
+        file_browser_token_factory: Callable[[str], str],
+    ) -> None:
         """Unicode characters in path should be handled safely."""
+        token = file_browser_token_factory("/tmp/file_browser_test")
         unicode_paths = [
             "/test_日本語/file.txt",
             "/test_🎉/file.txt",
@@ -295,14 +324,19 @@ class TestFileBrowserInputValidation:
                 "/admin/file-browser/load-file",
                 data={
                     "path": path,
-                    "token": "fake_token",
+                    "token": token,
                     "hide_hidden_files": "true",
                 },
             )
             assert response.status_code == 400
 
-    def test_hide_hidden_files_values(self, admin_session: httpx.Client) -> None:
+    def test_hide_hidden_files_values(
+        self,
+        admin_session: httpx.Client,
+        file_browser_token_factory: Callable[[str], str],
+    ) -> None:
         """hide_hidden_files parameter should only accept valid values."""
+        token = file_browser_token_factory("/tmp/file_browser_test")
         values = [
             ("true", True),
             ("false", True),
@@ -315,10 +349,10 @@ class TestFileBrowserInputValidation:
                 "/admin/file-browser/load-file",
                 data={
                     "path": "/",
-                    "token": "fake_token",
+                    "token": token,
                     "hide_hidden_files": value,
                 },
             )
             if should_work:
-                # 400 = invalid token (expected since we're testing param parsing)
+                # 400 = path doesn't exist (expected since we're testing param parsing)
                 assert response.status_code == 400
