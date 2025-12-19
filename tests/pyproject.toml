@@ -27,7 +27,7 @@ ref-webapp = { path = "../webapp", editable = true }
 
 [tool.pyright]
 typeCheckingMode = "strict"
-pythonVersion = "3.12"
+pythonVersion = "3.13"
 reportMissingTypeStubs = false
 reportUnknownMemberType = false
 reportUnknownArgumentType = false
@@ -74,7 +74,7 @@ directory = "coverage_reports/htmlcov"
 output = "coverage_reports/coverage.xml"
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 warn_return_any = false
 warn_unused_ignores = false
 ignore_missing_imports = true
