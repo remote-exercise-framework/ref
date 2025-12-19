@@ -13,7 +13,8 @@ from dataclasses import asdict
 import requests
 from itsdangerous import TimedSerializer
 
-from ref_utils import TaskTestResult, print_err, print_ok, print_warn, run_tests
+from ref_utils import TaskTestResult, print_err, print_ok, print_warn
+from ref_utils.decorator import run_tests
 
 with open("/etc/key", "rb") as f:
     KEY = f.read()
