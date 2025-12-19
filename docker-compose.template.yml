@@ -97,6 +97,7 @@ services:
             - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
             - HOT_RELOADING=${HOT_RELOADING}
             - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
+            - RATELIMIT_ENABLED=${RATELIMIT_ENABLED}
             - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
             - REAL_HOSTNAME=${REAL_HOSTNAME}
 {% if testing %}

@@ -109,6 +109,11 @@ class ReleaseConfig(Config):
 
     DISABLE_RESPONSE_CACHING = env_var_to_bool_or_false("DISABLE_RESPONSE_CACHING")
 
+    # Flask-Limiter rate limiting (enabled by default, can be disabled for testing)
+    # Set RATELIMIT_ENABLED=0 or RATELIMIT_ENABLED=false to disable
+    _ratelimit_env = os.environ.get("RATELIMIT_ENABLED", "1")
+    RATELIMIT_ENABLED = _ratelimit_env == "1" or _ratelimit_env.lower() == "true"
+
     # The port we are listinging on for TCP forwarding requests.
     SSH_PROXY_LISTEN_PORT = 8001
 

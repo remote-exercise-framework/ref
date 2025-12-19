@@ -116,6 +116,7 @@ class REFInstanceConfig:
     hot_reloading: bool = False
     disable_response_caching: bool = False
     binfmt_support: bool = False
+    ratelimit_enabled: bool = False  # Disable rate limiting for tests by default
 
     # Timeouts
     startup_timeout: float = 120.0
@@ -307,6 +308,7 @@ class REFInstance:
         return f"""# Auto-generated settings for REF test instance: {self.config.prefix}
 DEBUG={1 if self.config.debug else 0}
 MAINTENANCE_ENABLED={1 if self.config.maintenance_enabled else 0}
+RATELIMIT_ENABLED={1 if self.config.ratelimit_enabled else 0}
 
 ADMIN_PASSWORD={self.config.admin_password}
 DOCKER_GROUP_ID={self.config.docker_group_id}
@@ -466,6 +468,9 @@ POSTGRES_PASSWORD={self.config.postgres_password}
         run_env["HOT_RELOADING"] = "true" if self.config.hot_reloading else "false"
         run_env["DISABLE_RESPONSE_CACHING"] = (
             "true" if self.config.disable_response_caching else "false"
+        )
+        run_env["RATELIMIT_ENABLED"] = (
+            "true" if self.config.ratelimit_enabled else "false"
         )
 
         if env:

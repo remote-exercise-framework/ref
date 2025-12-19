@@ -113,6 +113,9 @@ class TestConfig(Config):
     SSH_PROXY_BACKLOG_SIZE = 10
     SSH_PROXY_CONNECTION_TIMEOUT = 30
 
+    # Rate limiting disabled for unit tests
+    RATELIMIT_ENABLED = False
+
     # Debug settings
     debug = False
     DEBUG = False
