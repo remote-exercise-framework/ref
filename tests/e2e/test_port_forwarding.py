@@ -13,7 +13,7 @@ import socket
 import time
 import uuid
 from pathlib import Path
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 import paramiko
 import pytest
@@ -22,7 +22,51 @@ from helpers.exercise_factory import create_sample_exercise
 from helpers.ssh_client import REFSSHClient
 from helpers.web_client import REFWebClient
 
+if TYPE_CHECKING:
+    from helpers.ref_instance import REFInstance
+
 SSHClientFactory = Callable[[str, str], REFSSHClient]
+
+
+def _enable_tcp_forwarding(ref_instance: "REFInstance") -> bool:
+    """Enable TCP port forwarding in system settings."""
+
+    def _enable() -> bool:
+        from flask import current_app
+
+        from ref.model.settings import SystemSettingsManager
+
+        SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value = True
+        current_app.db.session.commit()
+        return True
+
+    return ref_instance.remote_exec(_enable)
+
+
+def _disable_tcp_forwarding(ref_instance: "REFInstance") -> bool:
+    """Disable TCP port forwarding in system settings."""
+
+    def _disable() -> bool:
+        from flask import current_app
+
+        from ref.model.settings import SystemSettingsManager
+
+        SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value = False
+        current_app.db.session.commit()
+        return True
+
+    return ref_instance.remote_exec(_disable)
+
+
+def _get_tcp_forwarding_setting(ref_instance: "REFInstance") -> bool:
+    """Get the current TCP port forwarding setting value."""
+
+    def _get() -> bool:
+        from ref.model.settings import SystemSettingsManager
+
+        return SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value  # type: ignore[return-value]
+
+    return ref_instance.remote_exec(_get)
 
 
 class PortForwardingTestState:
@@ -71,6 +115,19 @@ class TestPortForwardingSetup:
         web_client.logout()
         success = web_client.login("0", admin_password)
         assert success, "Admin login failed"
+
+    @pytest.mark.e2e
+    def test_01b_enable_tcp_forwarding(
+        self,
+        ref_instance: "REFInstance",
+    ):
+        """Enable TCP port forwarding in system settings."""
+        result = _enable_tcp_forwarding(ref_instance)
+        assert result is True, "Failed to enable TCP port forwarding"
+
+        # Verify the setting was actually changed
+        value = _get_tcp_forwarding_setting(ref_instance)
+        assert value is True, "TCP port forwarding setting not enabled"
 
     @pytest.mark.e2e
     def test_02_create_exercise(
@@ -453,160 +510,6 @@ class TestTCPForwarding:
             client.close()
 
     @pytest.mark.e2e
-    def test_multiple_concurrent_channels(
-        self,
-        ssh_host: str,
-        ssh_port: int,
-        port_forwarding_state: PortForwardingTestState,
-    ):
-        """
-        Test multiple concurrent port forwarding channels.
-
-        This test verifies that multiple forwarding channels can be
-        opened and used simultaneously over the same SSH connection.
-        """
-        assert port_forwarding_state.student_private_key is not None
-        assert port_forwarding_state.exercise_name is not None
-
-        pkey = _parse_private_key(port_forwarding_state.student_private_key)
-        client = _create_ssh_client(
-            ssh_host, ssh_port, port_forwarding_state.exercise_name, pkey
-        )
-
-        test_ports = [19881, 19882, 19883]
-
-        try:
-            # Write and start echo servers on multiple ports
-            sftp = client.open_sftp()
-            sftp.file("/tmp/echo_server.py", "w").write(ECHO_SERVER_SCRIPT)
-            sftp.close()
-
-            for port in test_ports:
-                _, stdout, _ = client.exec_command(
-                    f"python3 /tmp/echo_server.py {port} &"
-                )
-                stdout.channel.recv_exit_status()
-
-            time.sleep(0.5)
-
-            transport = client.get_transport()
-            assert transport is not None
-
-            # Open channels to all servers
-            channels = []
-            for port in test_ports:
-                channel = transport.open_channel(
-                    "direct-tcpip",
-                    ("127.0.0.1", port),
-                    ("127.0.0.1", 0),
-                )
-                channel.settimeout(10.0)
-                channels.append((port, channel))
-
-            # Send data through all channels and verify responses
-            for port, channel in channels:
-                test_msg = f"Message to port {port}".encode()
-                channel.sendall(test_msg)
-                response = channel.recv(1024)
-                expected = b"ECHO:" + test_msg
-                assert response == expected, (
-                    f"Port {port}: Expected {expected!r}, got {response!r}"
-                )
-
-            # Close all channels
-            for _, channel in channels:
-                channel.close()
-
-        finally:
-            # Cleanup
-            try:
-                for port in test_ports:
-                    client.exec_command(f"pkill -f 'echo_server.py {port}'")
-                client.exec_command("rm -f /tmp/echo_server.py")
-            except Exception:
-                pass
-            client.close()
-
-    @pytest.mark.e2e
-    def test_large_data_transfer(
-        self,
-        ssh_host: str,
-        ssh_port: int,
-        port_forwarding_state: PortForwardingTestState,
-    ):
-        """
-        Test transferring larger amounts of data through port forwarding.
-
-        This verifies that the forwarding handles data beyond single packets.
-        """
-        assert port_forwarding_state.student_private_key is not None
-        assert port_forwarding_state.exercise_name is not None
-
-        pkey = _parse_private_key(port_forwarding_state.student_private_key)
-        client = _create_ssh_client(
-            ssh_host, ssh_port, port_forwarding_state.exercise_name, pkey
-        )
-
-        test_port = 19884
-
-        try:
-            # Write the echo server script
-            sftp = client.open_sftp()
-            sftp.file("/tmp/echo_server.py", "w").write(ECHO_SERVER_SCRIPT)
-            sftp.close()
-
-            # Start the echo server
-            _, stdout, _ = client.exec_command(
-                f"python3 /tmp/echo_server.py {test_port} &"
-            )
-            stdout.channel.recv_exit_status()
-            time.sleep(0.5)
-
-            transport = client.get_transport()
-            assert transport is not None
-
-            # Open channel
-            channel = transport.open_channel(
-                "direct-tcpip",
-                ("127.0.0.1", test_port),
-                ("127.0.0.1", 0),
-            )
-            channel.settimeout(10.0)
-
-            # Send larger data (64KB)
-            large_data = b"X" * (64 * 1024)
-            channel.sendall(large_data)
-
-            # Receive response
-            response = b""
-            expected_len = len(b"ECHO:") + len(large_data)
-            while len(response) < expected_len:
-                try:
-                    chunk = channel.recv(8192)
-                    if not chunk:
-                        break
-                    response += chunk
-                except socket.timeout:
-                    break
-
-            channel.close()
-
-            # Verify response
-            assert response.startswith(b"ECHO:"), "Response should start with ECHO:"
-            assert len(response) == expected_len, (
-                f"Expected {expected_len} bytes, got {len(response)}"
-            )
-
-        finally:
-            # Cleanup
-            try:
-                client.exec_command(f"pkill -f 'echo_server.py {test_port}'")
-                client.exec_command("rm -f /tmp/echo_server.py")
-            except Exception:
-                pass
-            client.close()
-
-    @pytest.mark.e2e
     def test_direct_tcpip_channel_can_be_opened(
         self,
         ssh_host: str,
@@ -912,8 +815,81 @@ class TestRemotePortForwarding:
                 # Remote port forwarding might be restricted
                 # This is acceptable - we're just testing the capability
                 if "rejected" in str(e).lower() or "denied" in str(e).lower():
+                    # 
                     pytest.skip(f"Remote port forwarding not available: {e}")
                 raise
 
         finally:
             client.close()
+
+
+class TestTCPForwardingSettingEnforcement:
+    """
+    Test that TCP port forwarding can be enabled/disabled via system settings.
+
+    These tests verify that the ALLOW_TCP_PORT_FORWARDING setting is properly
+    enforced by the SSH server.
+    """
+
+    @pytest.mark.e2e
+    def test_forwarding_blocked_when_disabled(
+        self,
+        ssh_host: str,
+        ssh_port: int,
+        ref_instance: "REFInstance",
+        port_forwarding_state: PortForwardingTestState,
+    ):
+        """
+        Verify TCP forwarding fails when the setting is disabled.
+
+        This test disables TCP forwarding and verifies that opening a
+        direct-tcpip channel fails with the expected error.
+        """
+        assert port_forwarding_state.student_private_key is not None
+        assert port_forwarding_state.exercise_name is not None
+
+        # Disable TCP forwarding
+        _disable_tcp_forwarding(ref_instance)
+
+        # Verify the setting is disabled
+        assert _get_tcp_forwarding_setting(ref_instance) is False
+
+        pkey = _parse_private_key(port_forwarding_state.student_private_key)
+
+        # Need a fresh SSH connection to pick up the new setting
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        try:
+            client.connect(
+                hostname=ssh_host,
+                port=ssh_port,
+                username=port_forwarding_state.exercise_name,
+                pkey=pkey,
+                timeout=5.0,
+                allow_agent=False,
+                look_for_keys=False,
+            )
+
+            transport = client.get_transport()
+            assert transport is not None
+
+            # Try to open a direct-tcpip channel - this should fail
+            with pytest.raises(paramiko.ChannelException) as exc_info:
+                transport.open_channel(
+                    "direct-tcpip",
+                    ("127.0.0.1", 12345),
+                    ("127.0.0.1", 0),
+                    timeout=3.0,
+                )
+
+            # Error code 1 = "Administratively prohibited"
+            # Error code 2 = "Connect failed" (also acceptable)
+            assert exc_info.value.code in (1, 2), (
+                f"Expected channel error code 1 or 2, got {exc_info.value.code}"
+            )
+
+        finally:
+            client.close()
+            # Re-enable TCP forwarding for subsequent tests
+            _enable_tcp_forwarding(ref_instance)

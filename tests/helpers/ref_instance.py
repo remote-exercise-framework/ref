@@ -25,9 +25,11 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 import jinja2
+
+T = TypeVar("T")
 
 
 def find_free_port(start: int = 10000, end: int = 65000) -> int:
@@ -432,6 +434,8 @@ POSTGRES_PASSWORD={self.config.postgres_password}
         check: bool = True,
         capture_output: bool = False,
         env: Optional[Dict[str, str]] = None,
+        input: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> subprocess.CompletedProcess[str]:
         """Run a docker compose command."""
         compose_cmd = self._get_docker_compose_cmd()
@@ -468,7 +472,7 @@ POSTGRES_PASSWORD={self.config.postgres_password}
             run_env.update(env)
 
         # Always capture output when check=True so we can log errors
-        should_capture = capture_output or check
+        should_capture = capture_output or check or input is not None
         result = subprocess.run(
             cmd,
             cwd=str(self._ref_root),
@@ -476,6 +480,8 @@ POSTGRES_PASSWORD={self.config.postgres_password}
             capture_output=should_capture,
             text=True,
             env=run_env,
+            input=input,
+            timeout=timeout,
         )
 
         if check and result.returncode != 0:
@@ -495,6 +501,48 @@ POSTGRES_PASSWORD={self.config.postgres_password}
             raise exc
 
         return result
+
+    def remote_exec(
+        self,
+        func: Callable[[], T],
+        timeout: float = 30.0,
+    ) -> T:
+        """
+        Execute a Python function inside the webapp container with Flask app context.
+
+        This enables tests to directly query or modify database state, system settings,
+        and other server-side state that would otherwise be difficult to test.
+
+        Args:
+            func: A callable (function or lambda) to execute inside the container.
+                  Must not require arguments.
+            timeout: Maximum execution time in seconds (default: 30)
+
+        Returns:
+            The return value of the function
+
+        Raises:
+            RemoteExecutionError: If serialization, execution, or deserialization fails
+
+        Example:
+            # Query a system setting
+            value = ref_instance.remote_exec(
+                lambda: SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value
+            )
+
+            # Modify a setting and commit
+            def enable_forwarding():
+                from ref.model.settings import SystemSettingsManager
+                from flask import current_app
+                SystemSettingsManager.ALLOW_TCP_PORT_FORWARDING.value = True
+                current_app.db.session.commit()
+                return True
+
+            result = ref_instance.remote_exec(enable_forwarding)
+        """
+        from helpers.remote_exec import remote_exec as _remote_exec
+
+        return _remote_exec(self, func, timeout)
 
     def build(self, no_cache: bool = False) -> None:
         """
