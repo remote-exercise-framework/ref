@@ -122,7 +122,10 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Build Docker images
-        run: ./ctrl.sh build
+        run: |
+          mkdir -p tests/build_logs
+          ./ctrl.sh build 2>&1 | tee tests/build_logs/docker-build.log
+          exit ${PIPESTATUS[0]}
 
       - name: Install test dependencies
         working-directory: tests
@@ -154,6 +157,14 @@ jobs:
         with:
           name: container-logs
           path: tests/container_logs/
+          retention-days: 7
+
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs
+          path: tests/build_logs/
           retention-days: 7
 
       - name: Cleanup Docker resources
