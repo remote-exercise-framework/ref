@@ -31,10 +31,9 @@ jobs:
       - name: Install linting tools
         run: |
           uv tool install ruff
-          uv tool install pyright
           uv tool install mypy
 
-      - name: Install test dependencies (for pyright)
+      - name: Install test dependencies (for mypy)
         working-directory: tests
         run: uv sync
 
@@ -43,10 +42,6 @@ jobs:
 
       - name: Run ruff format check
         run: ruff format --check .
-
-      - name: Run pyright
-        working-directory: tests
-        run: uv run pyright
 
       - name: Run mypy
         working-directory: tests

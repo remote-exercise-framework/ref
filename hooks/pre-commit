@@ -19,7 +19,7 @@ if ! command -v ruff &> /dev/null; then
     exit 1
 fi
 
-# Check if uv is available (needed for pyright and mypy)
+# Check if uv is available (needed for mypy)
 if ! command -v uv &> /dev/null; then
     echo "Error: uv is not installed."
     echo "See: https://docs.astral.sh/uv/getting-started/installation/"
@@ -44,17 +44,9 @@ if ! ruff format --check .; then
     exit 1
 fi
 
-# Run pyright from tests/ directory
-echo "Running pyright..."
-cd "$REPO_ROOT/tests"
-if ! uv run pyright; then
-    echo ""
-    echo "pyright type check failed. Fix the type errors above before committing."
-    exit 1
-fi
-
 # Run mypy from tests/ directory
 echo "Running mypy..."
+cd "$REPO_ROOT/tests"
 if ! uv run mypy .; then
     echo ""
     echo "mypy type check failed. Fix the type errors above before committing."

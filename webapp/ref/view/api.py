@@ -616,12 +616,13 @@ def api_get_header():
         resp += f"\n{msg_of_the_day}"
     return ok_response(resp)
 
-class SignatureUnwrappingError(Exception):
 
+class SignatureUnwrappingError(Exception):
     def __init__(self, user_error_message: str):
         # Message without any sensitive data that can be presented to the user.
         self.user_error_message = user_error_message
         super().__init__(self, user_error_message)
+
 
 def _unwrap_signed_container_request(request: Request, max_age_s: int = 60) -> ty.Any:
     """

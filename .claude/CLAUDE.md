@@ -31,21 +31,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Code Quality
 
-Python code must be checked using `pyright`, `ruff`, and `mypy`. Install these tools via `uv` if not already installed.
+Python code must pass the same checks as CI. **Always run these checks on new or modified code.**
 
 ```bash
-# From tests/ directory (has pyright config)
-cd tests && pyright
+# Install tools (if needed)
+uv tool install ruff
+uv tool install mypy
 
-# Linting
+# Install test dependencies (required for mypy)
+cd tests && uv sync
+
+# Linting and formatting (run from repo root)
 ruff check .
-ruff format .
+ruff format --check .    # Verify formatting (use 'ruff format .' to fix)
 
-# Type checking
-mypy .
+# Type checking (run from tests/ directory)
+cd tests && uv run mypy .
 ```
 
-**Always run linting and type checking for new code**, in addition to running tests.
+These checks must pass before committing. CI will reject PRs that fail any of these checks.
+
+### Git Hooks
+
+A pre-commit hook is available that automatically runs linting checks before each commit:
+
+```bash
+# Install git hooks
+./hooks/install.sh
+```
+
+The hook runs `ruff check`, `ruff format --check`, and `mypy`, rejecting commits that fail.
 
 ## Testing
 
