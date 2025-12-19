@@ -11,6 +11,9 @@ from typing import Any
 
 import yaml
 
+# Path to template files
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+
 
 def create_sample_exercise(
     exercise_dir: Path,
@@ -126,59 +129,10 @@ clean:
 
     # Create submission_tests if needed
     if has_submission_test:
-        submission_tests = '''\
-#!/usr/bin/env python3
-"""
-Submission tests for the test exercise.
-"""
-
-from pathlib import Path
-
-import ref_utils as rf
-rf.ref_util_install_global_exception_hook()
-from ref_utils import (
-    print_ok, print_err,
-    assert_is_exec,
-    environment_test, submission_test
-)
-
-TARGET_BIN = Path("/home/user/solution")
-
-
-@environment_test()
-def test_environment() -> bool:
-    """Test whether all required files are in place."""
-    return assert_is_exec(TARGET_BIN)
-
-
-@submission_test()
-def test_addition() -> bool:
-    """Test addition functionality."""
-    # Build the solution
-    ret, out = rf.run_with_payload(['make', '-B'])
-    if ret != 0:
-        print_err(f'[!] Failed to build! {out}')
-        return False
-
-    # Test: 2 + 3 = 5
-    ret, out = rf.run_with_payload([str(TARGET_BIN), '2', '3'])
-    if ret != 0:
-        print_err(f'[!] Program returned non-zero exit code: {ret}')
-        return False
-
-    if 'Result: 5' not in out.decode():
-        print_err(f'[!] Expected "Result: 5" but got: {out.decode()}')
-        return False
-
-    print_ok('[+] Addition test passed!')
-    return True
-
-
-rf.run_tests()
-'''
+        submission_tests_template = TEMPLATES_DIR / "submission_tests.py"
+        submission_tests = submission_tests_template.read_text()
         submission_tests_path = exercise_dir / "submission_tests"
-        with open(submission_tests_path, "w") as f:
-            f.write(submission_tests)
+        submission_tests_path.write_text(submission_tests)
         os.chmod(submission_tests_path, 0o755)
 
     return exercise_dir
