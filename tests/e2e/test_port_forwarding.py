@@ -815,7 +815,7 @@ class TestRemotePortForwarding:
                 # Remote port forwarding might be restricted
                 # This is acceptable - we're just testing the capability
                 if "rejected" in str(e).lower() or "denied" in str(e).lower():
-                    # 
+                    #
                     pytest.skip(f"Remote port forwarding not available: {e}")
                 raise
 
