@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import importlib.machinery
 import importlib.util
 import os
 import sys
@@ -102,8 +103,11 @@ def _load_submission_tests_module() -> ty.Any:
     if not test_path.exists():
         return None
 
-    spec = importlib.util.spec_from_file_location("submission_tests", test_path)
-    if spec is None or spec.loader is None:
+    # Use SourceFileLoader explicitly since the file doesn't have a .py extension
+    # (spec_from_file_location returns None for files without Python extensions)
+    loader = importlib.machinery.SourceFileLoader("submission_tests", str(test_path))
+    spec = importlib.util.spec_from_loader("submission_tests", loader)
+    if spec is None:
         return None
 
     module = importlib.util.module_from_spec(spec)

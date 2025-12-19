@@ -51,4 +51,6 @@ def test_addition() -> bool:
     return True
 
 
-rf.run_tests()
+# Note: Do NOT call rf.run_tests() here.
+# The task.py script loads this module and calls run_tests() itself.
+# Calling it here would run tests prematurely and clear the registered tests.
