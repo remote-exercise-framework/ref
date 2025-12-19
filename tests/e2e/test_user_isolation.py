@@ -11,13 +11,17 @@ Tests that multiple users have isolated containers:
 
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import pytest
 
+from helpers.conditions import InstanceConditions
 from helpers.exercise_factory import create_sample_exercise
 from helpers.ssh_client import REFSSHClient
 from helpers.web_client import REFWebClient
+
+if TYPE_CHECKING:
+    from helpers.ref_instance import REFInstance
 
 # Type alias for student credentials
 StudentCredentials = dict[str, str]
@@ -206,6 +210,8 @@ class TestUserIsolation:
         self,
         student1_client: REFSSHClient,
         student2_client: REFSSHClient,
+        isolation_state: IsolationTestState,
+        ref_instance: "REFInstance",
     ):
         """
         Test that each user gets a separate container.
@@ -237,6 +243,17 @@ class TestUserIsolation:
         assert exit_code == 0, "Student 2 should see their own marker file"
         exit_code, _, _ = student2_client.execute(f"test -f {marker1_path}")
         assert exit_code != 0, "Student 2 should NOT see student 1's marker file"
+
+        # Post-condition: Verify database-level isolation
+        assert isolation_state.student1_mat_num is not None
+        assert isolation_state.student2_mat_num is not None
+        assert isolation_state.exercise_name is not None
+        InstanceConditions.post_instances_isolated(
+            ref_instance,
+            isolation_state.student1_mat_num,
+            isolation_state.student2_mat_num,
+            isolation_state.exercise_name,
+        )
 
     @pytest.mark.e2e
     def test_file_isolation(

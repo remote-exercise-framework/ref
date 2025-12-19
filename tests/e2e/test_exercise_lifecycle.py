@@ -15,10 +15,15 @@ Tests the complete workflow:
 
 import uuid
 from pathlib import Path
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 import pytest
 
+from helpers.conditions import (
+    ExerciseConditions,
+    SubmissionConditions,
+    UserConditions,
+)
 from helpers.exercise_factory import (
     create_sample_exercise,
     create_correct_solution,
@@ -26,6 +31,9 @@ from helpers.exercise_factory import (
 )
 from helpers.ssh_client import REFSSHClient, wait_for_ssh_ready
 from helpers.web_client import REFWebClient
+
+if TYPE_CHECKING:
+    from helpers.ref_instance import REFInstance
 
 # Type alias for the SSH client factory fixture
 SSHClientFactory = Callable[[str, str], REFSSHClient]
@@ -119,10 +127,18 @@ class TestExerciseLifecycle:
         admin_client: REFWebClient,
         exercises_path: Path,
         lifecycle_state: TestExerciseLifecycleState,
+        ref_instance: "REFInstance",
     ):
         """Import the test exercise into REF."""
         assert lifecycle_state.exercise_name is not None, "exercise_name not set"
         exercise_path = str(exercises_path / lifecycle_state.exercise_name)
+
+        # Pre-condition: Exercise should not exist yet
+        ExerciseConditions.pre_exercise_not_exists(
+            ref_instance, lifecycle_state.exercise_name
+        )
+
+        # Action: Import via web interface
         success = admin_client.import_exercise(exercise_path)
         assert success, f"Failed to import exercise from {exercise_path}"
 
@@ -134,11 +150,17 @@ class TestExerciseLifecycle:
         lifecycle_state.exercise_id = exercise.get("id")
         assert lifecycle_state.exercise_id is not None, "Exercise ID not found"
 
+        # Post-condition: Verify database state
+        ExerciseConditions.post_exercise_imported(
+            ref_instance, lifecycle_state.exercise_name
+        )
+
     @pytest.mark.e2e
     def test_04_build_exercise(
         self,
         admin_client: REFWebClient,
         lifecycle_state: TestExerciseLifecycleState,
+        ref_instance: "REFInstance",
     ):
         """Build the exercise Docker image."""
         assert lifecycle_state.exercise_id is not None, "Exercise ID not set"
@@ -153,17 +175,28 @@ class TestExerciseLifecycle:
         )
         assert build_success, "Exercise build did not complete successfully"
 
+        # Post-condition: Verify build status in database
+        ExerciseConditions.post_exercise_built(
+            ref_instance, lifecycle_state.exercise_id
+        )
+
     @pytest.mark.e2e
     def test_05_enable_exercise(
         self,
         admin_client: REFWebClient,
         lifecycle_state: TestExerciseLifecycleState,
+        ref_instance: "REFInstance",
     ):
         """Enable the exercise (set as default)."""
         assert lifecycle_state.exercise_id is not None, "Exercise ID not set"
 
         success = admin_client.toggle_exercise_default(lifecycle_state.exercise_id)
         assert success, "Failed to toggle exercise as default"
+
+        # Post-condition: Verify exercise is enabled in database
+        ExerciseConditions.post_exercise_enabled(
+            ref_instance, lifecycle_state.exercise_id
+        )
 
     @pytest.mark.e2e
     def test_06_register_student(
@@ -172,6 +205,7 @@ class TestExerciseLifecycle:
         admin_password: str,
         test_student_mat_num: str,
         lifecycle_state: TestExerciseLifecycleState,
+        ref_instance: "REFInstance",
     ):
         """Register a test student and get SSH keys."""
         # Logout admin first to use student endpoint
@@ -179,6 +213,10 @@ class TestExerciseLifecycle:
 
         lifecycle_state.student_mat_num = test_student_mat_num
 
+        # Pre-condition: User should not exist yet
+        UserConditions.pre_user_not_exists(ref_instance, test_student_mat_num)
+
+        # Action: Register via web interface
         success, private_key, public_key = web_client.register_student(
             mat_num=test_student_mat_num,
             firstname="Test",
@@ -191,6 +229,13 @@ class TestExerciseLifecycle:
 
         lifecycle_state.student_private_key = private_key
         lifecycle_state.student_public_key = public_key
+
+        # Post-conditions: Verify user in database
+        UserConditions.post_user_created(
+            ref_instance, test_student_mat_num, "Test", "Student"
+        )
+        UserConditions.post_user_is_student(ref_instance, test_student_mat_num)
+        UserConditions.post_user_has_ssh_key(ref_instance, test_student_mat_num)
 
         # Re-login as admin for subsequent tests that may use admin_client
         web_client.login("0", admin_password)
@@ -332,12 +377,16 @@ class TestSubmissionWorkflow:
         self,
         ssh_client_factory: SSHClientFactory,
         lifecycle_state: TestExerciseLifecycleState,
+        ref_instance: "REFInstance",
     ):
         """Test that 'task submit' creates a submission."""
         assert lifecycle_state.student_private_key is not None, (
             "Student private key not available"
         )
         assert lifecycle_state.exercise_name is not None, "Exercise name not available"
+        assert lifecycle_state.student_mat_num is not None, (
+            "Student mat_num not available"
+        )
 
         client = ssh_client_factory(
             lifecycle_state.student_private_key,
@@ -347,6 +396,19 @@ class TestSubmissionWorkflow:
         # Submit the solution
         success, output = client.submit(timeout=120.0)
         assert success, f"task submit failed: {output}"
+
+        # Post-conditions: Verify submission in database
+        submission_data = SubmissionConditions.post_submission_created(
+            ref_instance,
+            lifecycle_state.student_mat_num,
+            lifecycle_state.exercise_name,
+        )
+        assert submission_data["submission_ts"] is not None
+
+        # Verify test results were recorded
+        SubmissionConditions.post_submission_has_test_results(
+            ref_instance, submission_data["id"]
+        )
 
 
 class TestIncorrectSolution:

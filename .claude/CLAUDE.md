@@ -93,6 +93,37 @@ Tests must fail if dependencies are missing. Only skip tests if explicitly reque
 
 **Do not use hardcoded values in assertions.** Tests should verify behavior and relationships, not specific magic numbers or strings that may change.
 
+### Test Architecture and Abstractions
+
+Tests outside of `tests/unit/` (e.g., integration tests, E2E tests) must **never directly manipulate database objects**. Instead, they should:
+
+1. **Use manager classes** - `ExerciseManager`, `InstanceManager`, `ExerciseImageManager` provide the business logic layer
+2. **Follow view function patterns** - Replicate the same logic that view functions in `ref/view/` use
+3. **Use `tests/helpers/method_exec.py`** - Pre-built functions that call managers via `remote_exec`
+
+This ensures tests exercise the same code paths as the real application, catching integration issues that unit tests might miss.
+
+**Example - Correct approach:**
+```python
+# Use InstanceManager.remove() like the view does
+mgr = InstanceManager(instance)
+mgr.remove()
+```
+
+**Example - Incorrect approach:**
+```python
+# Don't directly delete DB objects
+db.session.delete(instance)
+db.session.commit()
+```
+
+The abstraction layers are:
+- `ref/view/` - HTTP request handlers (views)
+- `ref/core/` - Business logic managers (ExerciseManager, InstanceManager, etc.)
+- `ref/model/` - SQLAlchemy models (data layer)
+
+Tests should interact with `ref/core/` managers or replicate `ref/view/` logic, not bypass them to manipulate `ref/model/` directly.
+
 ## Dependency Management
 
 Use `uv` for all Python dependency management. Each component has its own `pyproject.toml`:
@@ -138,6 +169,10 @@ Client (ssh exercise@host -p 2222)
 - `/data/data/imported_exercises/` - Exercise definitions
 - `/data/data/persistance/` - User submissions and instance data
 - `/data/log/` - Application logs
+
+## Code Comments
+
+- Do not reference line numbers in comments (e.g., "see api.py lines 397-404"). Line numbers change frequently and become outdated. Reference functions, classes, or use direct code references instead.
 
 ## Commit Messages
 
