@@ -209,10 +209,13 @@ def cmd_submit(_):
 
 def cmd_check(args: argparse.Namespace):
     """
-    Run a script that is specific to the current task and print its output?
+    Run tests and exit with non-zero status if any test fails.
     """
     only_run_these_tasks = args.only_run_these_tasks
-    _run_tests(only_run_these_tasks=only_run_these_tasks)
+    _, test_results = _run_tests(only_run_these_tasks=only_run_these_tasks)
+    any_test_failed = any(not t.success for t in test_results)
+    if any_test_failed:
+        sys.exit(1)
 
 
 def cmd_id(_):
