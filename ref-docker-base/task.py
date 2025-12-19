@@ -1,32 +1,18 @@
 #!/usr/bin/env python3
 
 import argparse
-import json
+import importlib.util
 import os
-import subprocess
 import sys
 import typing as ty
 import shutil
 from pathlib import Path
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 
 import requests
 from itsdangerous import TimedSerializer
 
-from ref_utils import print_err, print_ok, print_warn
-
-# ! Keep in sync with _TestResult in ref_utils/decorator.py
-@dataclass
-class TestResult():
-    """
-    The result of an submission test.
-    """
-    task_name: str
-    success: bool
-    score: ty.Optional[float]
-
-# ! Keep in sync with ref_utils/decorator.py
-TEST_JSON_RESULT_PATH = Path("/var/test_result")
+from ref_utils import TaskTestResult, print_err, print_ok, print_warn, run_tests
 
 with open('/etc/key', 'rb') as f:
     KEY = f.read()
@@ -101,42 +87,68 @@ def cmd_reset(_):
     res = requests.post('http://sshserver:8000/api/instance/reset', json=req)
     handle_response(res)
 
-# FIXME: We should include the `submission_tests? as module, this would considerably simplify
-# passing args and reading back the results.
-def _run_tests(*, result_will_be_submitted: bool =False, only_run_these_tasks: ty.Optional[ty.Sequence[str]] = None) ->  ty.Tuple[str, ty.List[TestResult]]:
+def _load_submission_tests_module() -> ty.Any:
+    """Load the submission_tests script as a Python module."""
+    test_path = Path('/usr/local/bin/submission_tests')
+    if not test_path.exists():
+        return None
+
+    spec = importlib.util.spec_from_file_location("submission_tests", test_path)
+    if spec is None or spec.loader is None:
+        return None
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["submission_tests"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _run_tests(
+    *,
+    result_will_be_submitted: bool = False,
+    only_run_these_tasks: ty.Optional[ty.Sequence[str]] = None
+) -> ty.Tuple[str, ty.List[TaskTestResult]]:
     test_path = Path('/usr/local/bin/submission_tests')
     if not test_path.exists():
         print_warn('[+] No testsuite found! Skipping tests..')
         return "No testsuite found! Skipping tests..", []
 
-    env = os.environ.copy()
-    if result_will_be_submitted:
-        env["RESULT_WILL_BE_SUBMITTED"] = "1"
+    # Load submission_tests as a module (this registers tests via decorators)
+    _load_submission_tests_module()
 
-    if only_run_these_tasks:
-        env["ONLY_RUN_THESE_TASKS"] = ":".join(only_run_these_tasks)
+    # Capture stdout/stderr during test execution
+    from io import StringIO
+    captured_output = StringIO()
 
-    test_stdout_stderr_path = Path('/tmp/test_logfile')
-    with test_stdout_stderr_path.open("w") as stdout_stderr_log:
-        proc = subprocess.Popen(test_path.as_posix(), env=env, shell=False, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        assert proc.stdout
-        for line in proc.stdout:
-            sys.stdout.write(line)
-            stdout_stderr_log.write(line)
-        proc.wait()
+    class TeeWriter:
+        """Write to both stdout and a capture buffer."""
+        def __init__(self, original: ty.TextIO, capture: StringIO):
+            self.original = original
+            self.capture = capture
 
-    # The result of the test should be written as json into the file.
-    if not TEST_JSON_RESULT_PATH.exists():
-        print_err("[!] The submission test did not produce any output, this should not happend! Please ask for assistance.")
-        exit(1)
+        def write(self, text: str) -> int:
+            self.original.write(text)
+            self.capture.write(text)
+            return len(text)
 
-    test_details_json = json.loads(TEST_JSON_RESULT_PATH.read_text())
-    test_details_parsed = []
-    for subtask in test_details_json:
-        subtask_details = TestResult(**subtask)
-        test_details_parsed.append(subtask_details)
+        def flush(self) -> None:
+            self.original.flush()
 
-    return test_stdout_stderr_path.read_text(), test_details_parsed
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+    sys.stdout = TeeWriter(original_stdout, captured_output)  # type: ignore[assignment]
+    sys.stderr = TeeWriter(original_stderr, captured_output)  # type: ignore[assignment]
+
+    try:
+        test_results = run_tests(
+            result_will_be_submitted=result_will_be_submitted,
+            only_run_these_tasks=only_run_these_tasks,
+        )
+    finally:
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
+
+    return captured_output.getvalue(), test_results
 
 def cmd_submit(_):
     print_ok('[+] Submitting instance..', flush=True)
