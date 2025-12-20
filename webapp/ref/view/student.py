@@ -1,6 +1,11 @@
 import re
 
 from Crypto.PublicKey import RSA
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    PublicFormat,
+    load_ssh_public_key,
+)
 from flask import (
     Response,
     abort,
@@ -83,9 +88,9 @@ def validate_password(form, field):
 
 def validate_pubkey(form, field):
     """
-    Validates an SSH key in the OpenSSH format. If the passed field was left empty,
-    validation is also successfull since in this case we generte a public/private
-    key pair.
+    Validates an SSH key in the OpenSSH format. Supports RSA, ed25519, and ECDSA keys.
+    If the passed field was left empty, validation is also successful since in this
+    case we generate a public/private key pair.
     Raises:
          ValidationError: If the key could not be parsed.
     """
@@ -93,17 +98,24 @@ def validate_pubkey(form, field):
     if field.data is None or field.data == "":
         return
 
-    for fn in [RSA.import_key]:
-        try:
-            # Replace the key with the parsed one, thus we use everywhere exactly
-            # the same string to represent a specific key.
-            key = fn(field.data).export_key(format="OpenSSH").decode()
-            field.data = key
-            return key
-        except (ValueError, IndexError, TypeError):
-            pass
-        else:
-            return
+    pubkey_str = field.data.strip()
+
+    # Try RSA first (using pycryptodome)
+    try:
+        key = RSA.import_key(pubkey_str)
+        field.data = key.export_key(format="OpenSSH").decode()
+        return field.data
+    except (ValueError, IndexError, TypeError):
+        pass
+
+    # Try ed25519/ECDSA using cryptography library
+    try:
+        key = load_ssh_public_key(pubkey_str.encode())
+        openssh_bytes = key.public_bytes(Encoding.OpenSSH, PublicFormat.OpenSSH)
+        field.data = openssh_bytes.decode()
+        return field.data
+    except Exception:
+        pass
 
     log.info(f"Invalid public-key {field.data}.")
     raise ValidationError("Invalid Public-Key.")

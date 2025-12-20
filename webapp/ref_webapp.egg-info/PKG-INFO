@@ -46,4 +46,5 @@ Requires-Dist: wcwidth==0.2.13
 Requires-Dist: websocket-client==1.8.0
 Requires-Dist: wtforms==3.2.1
 Requires-Dist: cloudpickle>=3.0.0
+Requires-Dist: cryptography>=41.0.0
 Dynamic: author
