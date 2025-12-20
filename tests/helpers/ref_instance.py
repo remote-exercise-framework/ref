@@ -567,16 +567,35 @@ POSTGRES_PASSWORD={self.config.postgres_password}
 
         # Always capture output when check=True so we can log errors
         should_capture = capture_output or check or input is not None
-        result = subprocess.run(
-            cmd,
-            cwd=str(self._ref_root),
-            check=False,  # We'll check manually to include output in errors
-            capture_output=should_capture,
-            text=True,
-            env=run_env,
-            input=input,
-            timeout=timeout,
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(self._ref_root),
+                check=False,  # We'll check manually to include output in errors
+                capture_output=should_capture,
+                text=True,
+                env=run_env,
+                input=input,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as e:
+            # Print captured output on timeout for debugging
+            print(f"\n[REF E2E] Command timed out after {timeout}s: {' '.join(cmd)}")
+            if e.stdout:
+                stdout_str = (
+                    e.stdout.decode("utf-8", errors="replace")
+                    if isinstance(e.stdout, bytes)
+                    else e.stdout
+                )
+                print(f"\n=== PARTIAL STDOUT ===\n{stdout_str}")
+            if e.stderr:
+                stderr_str = (
+                    e.stderr.decode("utf-8", errors="replace")
+                    if isinstance(e.stderr, bytes)
+                    else e.stderr
+                )
+                print(f"\n=== PARTIAL STDERR ===\n{stderr_str}")
+            raise
 
         if check and result.returncode != 0:
             # Log the error output for debugging
@@ -670,16 +689,8 @@ POSTGRES_PASSWORD={self.config.postgres_password}
         if build:
             self._run_compose("build")
 
-        # Start database first
-        self._run_compose("up", "-d", "db")
-
-        # Wait for database to be ready
-        self._wait_for_db()
-
-        # Run database migrations before starting web
-        self._run_db_migrations()
-
-        # Now start all remaining services
+        # Start all services - the webapp auto-initializes the database
+        # when running under uwsgi if the database is empty
         self._run_compose("up", "-d")
         self._started = True
 

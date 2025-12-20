@@ -273,6 +273,8 @@ def save_failure_logs(
     Creates a timestamped directory containing:
     - error.txt: The test error/traceback
     - container_logs.txt: Container logs at time of failure
+    - app.log: Flask application logs (if available)
+    - build.log: Build operation logs (if available)
 
     Args:
         test_name: Name of the failed test
@@ -282,6 +284,7 @@ def save_failure_logs(
     Returns:
         Path to the failure log directory
     """
+    import shutil
     from datetime import datetime
 
     FAILURE_LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -312,6 +315,18 @@ def save_failure_logs(
             log_file = failure_dir / "container_logs.txt"
             log_file.write_text(f"Failed to retrieve container logs: {e}")
             print(f"[REF E2E] Warning: Failed to save container logs: {e}")
+
+        # Copy log files from the data directory (mounted from host)
+        # These contain Flask app logs and build logs that persist after container exit
+        try:
+            data_log_dir = instance.data_dir / "logs"
+            if data_log_dir.exists():
+                for log_file_path in data_log_dir.glob("*.log*"):
+                    dest_file = failure_dir / log_file_path.name
+                    shutil.copy2(log_file_path, dest_file)
+                    print(f"[REF E2E] Copied log file: {log_file_path.name}")
+        except Exception as e:
+            print(f"[REF E2E] Warning: Failed to copy data log files: {e}")
 
     return failure_dir
 

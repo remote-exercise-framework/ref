@@ -216,6 +216,8 @@ def build_exercise(
     Build an exercise Docker image using ExerciseImageManager.
 
     Uses ExerciseImageManager.build() as the view does in ref/view/exercise.py.
+    Since build() starts a background thread, this function polls until
+    the build completes or times out.
 
     Args:
         ref_instance: The REF instance to execute in
@@ -226,7 +228,7 @@ def build_exercise(
         True if build succeeded, False otherwise
     """
 
-    def _build() -> bool:
+    def _start_build() -> bool:
         from flask import current_app
 
         from ref.core.image import ExerciseImageManager
@@ -236,14 +238,45 @@ def build_exercise(
         if exercise is None:
             return False
 
-        # Use ExerciseImageManager like the view does
+        # Use ExerciseImageManager like the view does.
+        # Use wait=True because remote_exec runs in a subprocess that
+        # exits after the function returns - background threads would be killed.
         mgr = ExerciseImageManager(exercise)
-        mgr.build()
+        mgr.build(wait=True)
         current_app.db.session.commit()
+        return True
 
-        return exercise.build_job_status.value == "FINISHED"
+    def _check_build_status() -> tuple[str, str]:
+        from flask import current_app
 
-    return ref_instance.remote_exec(_build, timeout=timeout)
+        from ref.model.exercise import Exercise
+
+        # Expire all to force fresh read from DB
+        current_app.db.session.expire_all()
+        exercise = Exercise.query.get(exercise_id)
+        if exercise is None:
+            return ("NOT_FOUND", "")
+        # Get build result log if available for debugging
+        build_log = exercise.build_job_result or ""
+        return (exercise.build_job_status.value, build_log)
+
+    # Run the build synchronously (wait=True is used inside _start_build)
+    print(f"[build_exercise] Starting synchronous build for exercise {exercise_id}")
+    start_result = ref_instance.remote_exec(_start_build, timeout=timeout)
+    print(f"[build_exercise] Build completed, result: {start_result}")
+    if not start_result:
+        print(f"[build_exercise] Failed to build exercise {exercise_id}")
+        return False
+
+    # Check final status
+    status, build_log = ref_instance.remote_exec(_check_build_status, timeout=30.0)
+    print(f"[build_exercise] Final build status for exercise {exercise_id}: {status}")
+    if status == "FINISHED":
+        return True
+    print(f"[build_exercise] Build ended with status: {status}")
+    if build_log:
+        print(f"[build_exercise] Build log:\n{build_log}")
+    return False
 
 
 def enable_exercise(ref_instance: "REFInstance", exercise_id: int) -> bool:
