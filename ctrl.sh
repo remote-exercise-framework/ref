@@ -419,11 +419,6 @@ function flask-cmd {
     execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref run --rm web bash -c "FLASK_APP=ref python3 -m flask $*"
 }
 
-function are_you_sure {
-    read -r -p "$(txt bold)$(txt green)Are you sure? [y/N] $(txt reset)" yes_no
-    [[ "$yes_no" =~ ^[Yy]$ ]]
-}
-
 cmd="$1"
 shift
 
@@ -438,22 +433,18 @@ case "$cmd" in
         up "$@"
     ;;
     down)
-        are_you_sure || exit 0
         down "$@"
     ;;
     logs)
         log "$@"
     ;;
     stop)
-        are_you_sure || exit 0
         stop "$@"
     ;;
     restart)
-        are_you_sure || exit 0
         restart "$@"
     ;;
     restart-web)
-        are_you_sure || exit 0
         restart web "$@"
     ;;
     ps)
