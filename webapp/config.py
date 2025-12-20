@@ -122,6 +122,13 @@ class ReleaseConfig(Config):
 
     SSH_PROXY_CONNECTION_TIMEOUT = 120
 
+    # Timeout in seconds for waiting to acquire database advisory lock.
+    # If exceeded, DatabaseLockTimeoutError is raised.
+    DB_LOCK_TIMEOUT_SECONDS = 60
+
+    # Log a warning if acquiring the database lock takes longer than this.
+    DB_LOCK_SLOW_THRESHOLD_SECONDS = 5
+
 
 class DebugConfig(ReleaseConfig):
     debug = True

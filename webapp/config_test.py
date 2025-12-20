@@ -113,6 +113,10 @@ class TestConfig(Config):
     SSH_PROXY_BACKLOG_SIZE = 10
     SSH_PROXY_CONNECTION_TIMEOUT = 30
 
+    # Database lock timeout (lower for tests)
+    DB_LOCK_TIMEOUT_SECONDS = 30
+    DB_LOCK_SLOW_THRESHOLD_SECONDS = 2
+
     # Rate limiting disabled for unit tests
     RATELIMIT_ENABLED = False
 

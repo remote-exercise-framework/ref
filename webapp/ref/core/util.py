@@ -22,6 +22,12 @@ from ref.model import SystemSettingsManager
 _database_lock = RLock()
 
 
+class DatabaseLockTimeoutError(Exception):
+    """Raised when waiting for database lock exceeds timeout."""
+
+    pass
+
+
 def redirect_to_next(default="ref.admin_default_routes"):
     next_page = request.args.get("next")
     if not next_page or url_parse(next_page).netloc != "":
@@ -99,12 +105,42 @@ def is_deadlock_error(err: OperationalError):
 
 
 def lock_db(connection: sqlalchemy.engine.Connection, readonly=False):
-    if readonly:
-        connection.execute(
-            sqlalchemy.text("select pg_advisory_xact_lock_shared(1234);")
+    import time
+
+    from flask import current_app
+
+    timeout_seconds = current_app.config.get("DB_LOCK_TIMEOUT_SECONDS", 60)
+    timeout_ms = timeout_seconds * 1000
+
+    # Set statement timeout to detect deadlocks/long waits
+    connection.execute(sqlalchemy.text(f"SET LOCAL statement_timeout = {timeout_ms};"))
+
+    start_time = time.monotonic()
+    try:
+        if readonly:
+            connection.execute(
+                sqlalchemy.text("select pg_advisory_xact_lock_shared(1234);")
+            )
+        else:
+            connection.execute(sqlalchemy.text("select pg_advisory_xact_lock(1234);"))
+    except OperationalError as e:
+        # PostgreSQL error code 57014 = query_canceled (statement timeout)
+        if getattr(e.orig, "pgcode", None) == "57014":
+            raise DatabaseLockTimeoutError(
+                f"Timeout after {timeout_seconds} seconds waiting for database lock. "
+                "Another request may be holding the lock for too long."
+            ) from e
+        raise
+    finally:
+        # Reset statement timeout to default (0 = no limit)
+        connection.execute(sqlalchemy.text("SET LOCAL statement_timeout = 0;"))
+
+    elapsed = time.monotonic() - start_time
+    slow_threshold = current_app.config.get("DB_LOCK_SLOW_THRESHOLD_SECONDS", 5)
+    if elapsed > slow_threshold:
+        current_app.logger.warning(
+            f"Slow database lock acquisition: took {elapsed:.2f} seconds"
         )
-    else:
-        connection.execute(sqlalchemy.text("select pg_advisory_xact_lock(1234);"))
 
 
 def unlock_db_and_commit():
