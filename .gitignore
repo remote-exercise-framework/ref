@@ -28,3 +28,4 @@ ssh-wrapper/ssh-server-keys/
 tests/container_logs/
 tests/coverage_reports/
 docker-compose.ref_e2e_*.yml
+.docker-cache/
