@@ -14,6 +14,7 @@ Features:
 Eventually intended to replace ctrl.sh.
 """
 
+import hashlib
 import os
 import secrets
 import shutil
@@ -240,14 +241,29 @@ class REFInstance:
         self._compose_dir.mkdir(parents=True, exist_ok=True)
 
     def _allocate_ports(self):
-        """Allocate HTTP and SSH ports."""
+        """Allocate HTTP and SSH ports.
+
+        Uses worker-specific port ranges when running under pytest-xdist to avoid
+        race conditions where multiple workers find the same "free" port.
+        """
+        # Get pytest-xdist worker ID for deterministic port allocation
+        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "")
+        try:
+            worker_num = int(worker_id.replace("gw", "").replace("master", "0"))
+        except ValueError:
+            worker_num = 0
+
+        # Each worker gets a range of 100 ports (supports up to 64 workers)
+        http_base = 18000 + (worker_num * 100)
+        ssh_base = 12000 + (worker_num * 100)
+
         if self.config.http_port == 0:
-            self._http_port = find_free_port(start=18000, end=19000)
+            self._http_port = find_free_port(start=http_base, end=http_base + 100)
         else:
             self._http_port = self.config.http_port
 
         if self.config.ssh_port == 0:
-            self._ssh_port = find_free_port(start=12222, end=13000)
+            self._ssh_port = find_free_port(start=ssh_base, end=ssh_base + 100)
         else:
             self._ssh_port = self.config.ssh_port
 
@@ -365,9 +381,77 @@ POSTGRES_PASSWORD={self.config.postgres_password}
                     f"{self._ssh_port}:4444"
                 ]
 
+            # Add IPAM configuration with smaller subnets (/28) to allow many parallel instances
+            # Default Docker uses /16 subnets which limits us to ~15 networks total
+            # With /28 subnets (14 usable IPs) we can run many more parallel instances
+            if "networks" in compose_dict:
+                # Find free subnets by querying existing Docker networks
+                free_subnets = self._find_free_subnets(len(compose_dict["networks"]))
+
+                for i, network_name in enumerate(compose_dict["networks"].keys()):
+                    subnet, gateway = free_subnets[i]
+                    compose_dict["networks"][network_name]["ipam"] = {
+                        "config": [{"subnet": subnet, "gateway": gateway}]
+                    }
+
             return yaml.dump(compose_dict, default_flow_style=False)
 
         return rendered
+
+    def _find_free_subnets(self, count: int) -> List[tuple[str, str]]:
+        """Allocate /28 subnets for this instance.
+
+        Uses the 172.80.0.0/12 range (172.80.0.0 - 172.95.255.255) which is
+        outside Docker's default pools (172.17-31.x.x).
+
+        To avoid race conditions with concurrent pytest-xdist workers, subnets
+        are allocated deterministically based on:
+        1. Worker ID (gw0, gw1, etc.) - gives each worker a separate range
+        2. Prefix hash - spreads allocations within the worker's range
+
+        Args:
+            count: Number of subnets needed
+
+        Returns:
+            List of (subnet, gateway) tuples
+        """
+        import ipaddress
+
+        # Use 172.80.0.0/12 range (outside Docker's default 172.17-31 range)
+        # This gives us 172.80.0.0 - 172.95.255.255 (65536 /28 subnets)
+        base_network = ipaddress.ip_network("172.80.0.0/12")
+        total_subnets = 2 ** (28 - 12)  # 65536 /28 subnets in /12
+
+        # Get pytest-xdist worker ID (gw0, gw1, etc.) or default to "gw0"
+        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
+        # Extract worker number (0, 1, 2, ...)
+        try:
+            worker_num = int(worker_id.replace("gw", "").replace("master", "0"))
+        except ValueError:
+            worker_num = 0
+
+        # Divide subnet space among workers (support up to 64 workers)
+        max_workers = 64
+        subnets_per_worker = total_subnets // max_workers  # 1024 subnets per worker
+
+        # Calculate this worker's subnet range
+        worker_base = worker_num * subnets_per_worker
+
+        # Use hash of prefix to pick position within worker's range
+        # This ensures different instances on the same worker get different subnets
+        prefix_hash = int(hashlib.md5(self.config.prefix.encode()).hexdigest(), 16)
+        offset_within_worker = prefix_hash % (subnets_per_worker - count)
+
+        # Allocate consecutive subnets starting from calculated position
+        free_subnets: List[tuple[str, str]] = []
+        for i in range(count):
+            subnet_idx = worker_base + offset_within_worker + i
+            addr_int = int(base_network.network_address) + (subnet_idx * 16)
+            subnet = ipaddress.ip_network(f"{ipaddress.IPv4Address(addr_int)}/28")
+            gateway = str(subnet.network_address + 1)
+            free_subnets.append((str(subnet), gateway))
+
+        return free_subnets
 
     def _generate_ssh_keys(self):
         """Generate SSH keys needed for container communication."""
@@ -456,6 +540,11 @@ POSTGRES_PASSWORD={self.config.postgres_password}
 
         # Set up environment
         run_env = os.environ.copy()
+        # Use a local docker config directory to avoid read-only filesystem issues
+        # with Docker buildx in sandboxed environments
+        docker_cache_dir = self._ref_root / ".docker-cache"
+        docker_cache_dir.mkdir(exist_ok=True)
+        run_env["DOCKER_CONFIG"] = str(docker_cache_dir)
         run_env["REAL_HOSTNAME"] = socket.gethostname()
         run_env["DEBUG"] = "true" if self.config.debug else "false"
         run_env["MAINTENANCE_ENABLED"] = (
