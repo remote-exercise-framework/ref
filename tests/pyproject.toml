@@ -22,6 +22,9 @@ dependencies = [
     "ref-webapp",
 ]
 
+[tool.uv]
+cache-dir = ".uv-cache"
+
 [tool.uv.sources]
 ref-webapp = { path = "../webapp", editable = true }
 

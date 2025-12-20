@@ -23,7 +23,7 @@ TARGET_SRC = Path("/home/user/solution.c")
 TARGET_BIN = Path("/home/user/solution")
 
 
-@environment_test()
+@environment_test()  # type: ignore[misc]
 def test_environment() -> bool:
     """Test whether the source file exists."""
     if not TARGET_SRC.exists():
@@ -33,7 +33,7 @@ def test_environment() -> bool:
     return True
 
 
-@submission_test()
+@submission_test()  # type: ignore[misc]
 def test_addition() -> bool:
     """Test addition functionality."""
     # Build the solution

@@ -45,3 +45,6 @@ dependencies = [
     "wtforms==3.2.1",
     "cloudpickle>=3.0.0",
 ]
+
+[tool.uv]
+cache-dir = ".uv-cache"

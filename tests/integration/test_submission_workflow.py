@@ -114,6 +114,7 @@ class TestInstanceCreation:
             password="TestPassword123!",
         )
 
+        result: dict[str, object] | None = None
         try:
             # Pre-condition
             InstanceConditions.pre_no_instance(
@@ -134,9 +135,11 @@ class TestInstanceCreation:
 
         finally:
             # Cleanup
-            if "id" in result:
+            if result is not None and "id" in result:
                 try:
-                    remove_instance(ref_instance, result["id"])
+                    instance_id = result["id"]
+                    assert isinstance(instance_id, int)
+                    remove_instance(ref_instance, instance_id)
                 except Exception:
                     pass
             delete_user(ref_instance, unique_mat_num)

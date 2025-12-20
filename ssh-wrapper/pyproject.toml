@@ -9,3 +9,6 @@ dependencies = [
     "pip-chill",
     "requests",
 ]
+
+[tool.uv]
+cache-dir = ".uv-cache"

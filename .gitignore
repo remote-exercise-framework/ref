@@ -3,6 +3,7 @@
 **/*.py[cod]
 **/*$py.class
 **/.mypy_cache
+**/.uv-cache
 **/Cargo.lock
 
 docker-compose.yml
