@@ -1,3 +1,4 @@
+import ipaddress
 import random
 import string
 import re
@@ -5,15 +6,22 @@ import subprocess
 import tarfile
 from io import BytesIO
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Optional
 
 import docker
 from docker import errors
+from docker.types import IPAMConfig, IPAMPool
 from flask import current_app
 
 from ref.core.logging import get_logger
 
 log = get_logger(__name__)
+
+# Network pool for instance networks. Using /29 subnets (6 usable IPs) to avoid
+# exhausting Docker's default address pool. A /16 pool with /29 subnets gives
+# us 8192 possible networks.
+INSTANCE_NETWORK_POOL = ipaddress.IPv4Network("10.200.0.0/16")
+INSTANCE_SUBNET_PREFIX = 29  # 8 IPs, 6 usable (gateway + 5 containers)
 
 
 class DockerClient:
@@ -387,18 +395,72 @@ class DockerClient:
             if container:
                 container.remove(force=True)
 
+    def _get_used_subnets(self) -> set[ipaddress.IPv4Network]:
+        """Get all subnets currently in use by Docker networks."""
+        used = set()
+        for network in self.client.networks.list():
+            try:
+                ipam_config = network.attrs.get("IPAM", {}).get("Config", [])
+                for config in ipam_config:
+                    subnet_str = config.get("Subnet")
+                    if subnet_str:
+                        used.add(ipaddress.IPv4Network(subnet_str))
+            except (KeyError, ValueError):
+                continue
+        return used
+
+    def _allocate_subnet(self) -> Optional[ipaddress.IPv4Network]:
+        """
+        Allocate an unused /29 subnet from the instance network pool.
+
+        Returns:
+            An available IPv4Network, or None if pool is exhausted.
+        """
+        used_subnets = self._get_used_subnets()
+
+        # Iterate through all possible /29 subnets in our pool
+        for subnet in INSTANCE_NETWORK_POOL.subnets(new_prefix=INSTANCE_SUBNET_PREFIX):
+            # Check if this subnet overlaps with any used subnet
+            overlaps = any(subnet.overlaps(used) for used in used_subnets)
+            if not overlaps:
+                return subnet
+
+        return None
+
     def create_network(self, name=None, driver="bridge", internal=False):
         """
+        Create a Docker network with a /29 subnet from the instance pool.
+
         Networks do not need a unique name. If name is not set, a random name
-        is chosen.
+        is chosen. Uses /29 subnets to avoid exhausting Docker's address pool.
+
         Raises:
             docker.errors.APIError
+            RuntimeError: If no subnet is available in the pool.
         """
         if not name:
             name = f"{current_app.config['DOCKER_RESSOURCE_PREFIX']}" + "".join(
                 random.choices(string.ascii_uppercase, k=10)
             )
-        return self.client.networks.create(name, driver=driver, internal=internal)
+
+        # Allocate a /29 subnet from our pool
+        subnet = self._allocate_subnet()
+        if subnet is None:
+            raise RuntimeError(
+                "No available subnet in instance network pool. "
+                "Consider cleaning up unused networks."
+            )
+
+        # First usable host is the gateway
+        gateway = str(list(subnet.hosts())[0])
+
+        ipam_pool = IPAMPool(subnet=str(subnet), gateway=gateway)
+        ipam_config = IPAMConfig(pool_configs=[ipam_pool])
+
+        log.debug(f"Creating network {name} with subnet {subnet}")
+        return self.client.networks.create(
+            name, driver=driver, internal=internal, ipam=ipam_config
+        )
 
     def network(self, network_id, raise_on_not_found=False):
         if not network_id:
