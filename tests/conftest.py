@@ -702,21 +702,6 @@ def resource_prefix(ref_instance: REFInstance) -> str:
 # Pytest Configuration
 # =============================================================================
 
-MAX_PYTEST_WORKERS = 16
-
-
-def pytest_xdist_auto_num_workers(config: Config) -> int:
-    """
-    Cap the number of pytest-xdist workers at MAX_PYTEST_WORKERS.
-
-    When using -n auto, pytest-xdist detects the number of CPUs.
-    This hook limits that to MAX_PYTEST_WORKERS to avoid resource exhaustion.
-    """
-    import os
-
-    cpu_count = os.cpu_count() or 1
-    return min(cpu_count, MAX_PYTEST_WORKERS)
-
 
 def pytest_configure(config: Config) -> None:
     """
