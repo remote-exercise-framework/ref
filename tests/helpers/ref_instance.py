@@ -321,6 +321,9 @@ class REFInstance:
 
     def _generate_settings_env(self) -> str:
         """Generate the settings.env file content."""
+        # Use test prefix for Docker resources so they can be identified and cleaned up
+        # The trailing hyphen ensures clean resource names like "ref_e2e_...-entry-123"
+        docker_prefix = f"{self.config.prefix}-"
         return f"""# Auto-generated settings for REF test instance: {self.config.prefix}
 DEBUG={1 if self.config.debug else 0}
 MAINTENANCE_ENABLED={1 if self.config.maintenance_enabled else 0}
@@ -333,6 +336,7 @@ HTTP_HOST_PORT={self._http_port}
 SECRET_KEY={self.config.secret_key}
 SSH_TO_WEB_KEY={self.config.ssh_to_web_key}
 POSTGRES_PASSWORD={self.config.postgres_password}
+DOCKER_RESSOURCE_PREFIX={docker_prefix}
 """
 
     def _generate_docker_compose(self) -> str:

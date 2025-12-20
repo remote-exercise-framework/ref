@@ -134,7 +134,7 @@ class REFTestConfig:
             "SSH_TO_WEB_KEY": self.ssh_to_web_key,
             "SSH_HOST_PORT": str(self.ssh_port) if self.ssh_port != 0 else "2222",
             "DEBUG": "1",
-            "DOCKER_RESSOURCE_PREFIX": f"{self.resource_prefix}_",
+            "DOCKER_RESSOURCE_PREFIX": f"{self.resource_prefix}-",
             "INSTANCES_CGROUP_PARENT": "",
             "MAINTENANCE_ENABLED": "0",
             "DISABLE_TELEGRAM": "1",
