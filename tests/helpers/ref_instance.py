@@ -236,10 +236,6 @@ class REFInstance:
         self._ssh_server_keys_dir = self._work_dir / "ssh-server-keys"
         self._ssh_server_keys_dir.mkdir(parents=True, exist_ok=True)
 
-        # Compose/config directory
-        self._compose_dir = self._work_dir / "config"
-        self._compose_dir.mkdir(parents=True, exist_ok=True)
-
     def _allocate_ports(self):
         """Allocate HTTP and SSH ports.
 
@@ -485,15 +481,15 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
         # Generate SSH keys if they don't exist
         self._generate_ssh_keys()
 
-        # Write settings.env to temp dir
-        settings_path = self._compose_dir / "settings.env"
+        # Write settings.env to work dir
+        settings_path = self._work_dir / "settings.env"
         settings_path.write_text(self._generate_settings_env())
 
-        # Write docker-compose.yml to ref_root so relative paths work
-        # Docker compose resolves paths relative to the compose file location
-        self._compose_file = self._ref_root / f"docker-compose.{self.config.prefix}.yml"
+        # Write docker-compose.yml to work dir (not repo root)
+        # The --project-directory flag in _run_compose ensures relative paths
+        # in the compose file resolve correctly relative to _ref_root
+        self._compose_file = self._work_dir / "docker-compose.yml"
         self._compose_file.write_text(self._generate_docker_compose())
-        self._temp_dirs.append(self._compose_file)  # Track for cleanup
 
     def _get_docker_compose_cmd(self) -> List[str]:
         """Get the docker compose command."""
@@ -529,12 +525,14 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
     ) -> subprocess.CompletedProcess[str]:
         """Run a docker compose command."""
         compose_cmd = self._get_docker_compose_cmd()
-        settings_file = self._compose_dir / "settings.env"
+        settings_file = self._work_dir / "settings.env"
 
         cmd = [
             *compose_cmd,
             "-p",
             self.project_name,
+            "--project-directory",
+            str(self._ref_root),
             "-f",
             str(self._compose_file),
             "--env-file",
