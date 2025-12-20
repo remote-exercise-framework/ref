@@ -182,18 +182,18 @@ class TestStudentGetkey:
             or "error" in response.text.lower()
         )
 
-    def test_invalid_rsa_key_format(
+    def test_invalid_key_format(
         self,
         raw_client_follow_redirects: httpx.Client,
         unique_mat_num: str,
         valid_password: str,
     ) -> None:
-        """Invalid RSA key format should be rejected."""
+        """Invalid key format should be rejected."""
         invalid_keys = [
             "not-a-key",
             "ssh-rsa short",  # Too short
             "-----BEGIN RSA PRIVATE KEY-----\ninvalid\n-----END RSA PRIVATE KEY-----",
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKg== test",  # Wrong type (ed25519)
+            "ssh-ed25519 invalid-base64",  # Invalid base64
         ]
         for pubkey in invalid_keys:
             response = raw_client_follow_redirects.post(
@@ -484,3 +484,89 @@ class TestStudentDefaultRoutes:
         response = raw_client.get("/student/")
         assert response.status_code == 302
         assert "getkey" in response.headers.get("location", "").lower()
+
+
+@pytest.mark.api
+class TestEd25519KeySupport:
+    """
+    Tests for ed25519 and ECDSA key support in student registration.
+
+    These tests verify that the system accepts modern key types beyond RSA.
+    """
+
+    def test_ed25519_key_registration(
+        self,
+        raw_client_follow_redirects: httpx.Client,
+        unique_mat_num: str,
+        valid_password: str,
+    ) -> None:
+        """Registration with a valid ed25519 public key should succeed."""
+        # Generate a real ed25519 key for testing
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives.serialization import (
+            Encoding,
+            PublicFormat,
+        )
+
+        private_key = Ed25519PrivateKey.generate()
+        public_key = private_key.public_key()
+        pubkey_openssh = public_key.public_bytes(
+            Encoding.OpenSSH, PublicFormat.OpenSSH
+        ).decode()
+
+        response = raw_client_follow_redirects.post(
+            "/student/getkey",
+            data={
+                "mat_num": unique_mat_num,
+                "firstname": "Ed25519",
+                "surname": "User",
+                "password": valid_password,
+                "password_rep": valid_password,
+                "pubkey": pubkey_openssh,
+                "submit": "Get Key",
+            },
+        )
+        assert response.status_code == 200
+        # Should show download links (successful registration)
+        assert (
+            "download" in response.text.lower()
+            or "/student/download/pubkey/" in response.text
+        )
+
+    def test_ecdsa_key_registration(
+        self,
+        raw_client_follow_redirects: httpx.Client,
+        unique_mat_num: str,
+        valid_password: str,
+    ) -> None:
+        """Registration with a valid ECDSA public key should succeed."""
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives.serialization import (
+            Encoding,
+            PublicFormat,
+        )
+
+        private_key = ec.generate_private_key(ec.SECP256R1())
+        public_key = private_key.public_key()
+        pubkey_openssh = public_key.public_bytes(
+            Encoding.OpenSSH, PublicFormat.OpenSSH
+        ).decode()
+
+        response = raw_client_follow_redirects.post(
+            "/student/getkey",
+            data={
+                "mat_num": unique_mat_num,
+                "firstname": "ECDSA",
+                "surname": "User",
+                "password": valid_password,
+                "password_rep": valid_password,
+                "pubkey": pubkey_openssh,
+                "submit": "Get Key",
+            },
+        )
+        assert response.status_code == 200
+        # Should show download links (successful registration)
+        assert (
+            "download" in response.text.lower()
+            or "/student/download/pubkey/" in response.text
+        )

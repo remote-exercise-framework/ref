@@ -62,6 +62,83 @@ def raw_client_follow_redirects(web_url: str) -> Generator[httpx.Client, None, N
     client.close()
 
 
+def _extract_keys_from_response(
+    response_text: str, raw_client_follow_redirects: httpx.Client
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    Extract private and public keys from a registration response.
+
+    Supports RSA keys (-----BEGIN RSA PRIVATE KEY-----) and
+    modern OpenSSH keys (-----BEGIN OPENSSH PRIVATE KEY-----).
+
+    Returns:
+        Tuple of (private_key, public_key)
+    """
+    import re
+
+    private_key = None
+    public_key = None
+
+    # Try RSA private key format
+    if "-----BEGIN RSA PRIVATE KEY-----" in response_text:
+        priv_match = re.search(
+            r"(-----BEGIN RSA PRIVATE KEY-----.*?-----END RSA PRIVATE KEY-----)",
+            response_text,
+            re.DOTALL,
+        )
+        if priv_match:
+            private_key = priv_match.group(1)
+
+    # Try OpenSSH private key format (ed25519, ECDSA)
+    if "-----BEGIN OPENSSH PRIVATE KEY-----" in response_text:
+        priv_match = re.search(
+            r"(-----BEGIN OPENSSH PRIVATE KEY-----.*?-----END OPENSSH PRIVATE KEY-----)",
+            response_text,
+            re.DOTALL,
+        )
+        if priv_match:
+            private_key = priv_match.group(1)
+
+    # Try RSA public key
+    if "ssh-rsa " in response_text:
+        pub_match = re.search(r"(ssh-rsa [A-Za-z0-9+/=]+)", response_text)
+        if pub_match:
+            public_key = pub_match.group(1)
+
+    # Try ed25519 public key
+    if "ssh-ed25519 " in response_text:
+        pub_match = re.search(r"(ssh-ed25519 [A-Za-z0-9+/=]+)", response_text)
+        if pub_match:
+            public_key = pub_match.group(1)
+
+    # Try ECDSA public key
+    if "ecdsa-sha2-" in response_text:
+        pub_match = re.search(r"(ecdsa-sha2-\S+ [A-Za-z0-9+/=]+)", response_text)
+        if pub_match:
+            public_key = pub_match.group(1)
+
+    # Also try download links
+    if "/student/download/privkey/" in response_text:
+        link_match = re.search(r'/student/download/privkey/([^"\'>\s]+)', response_text)
+        if link_match:
+            key_resp = raw_client_follow_redirects.get(
+                f"/student/download/privkey/{link_match.group(1)}"
+            )
+            if key_resp.status_code == 200:
+                private_key = key_resp.text
+
+    if "/student/download/pubkey/" in response_text:
+        link_match = re.search(r'/student/download/pubkey/([^"\'>\s]+)', response_text)
+        if link_match:
+            key_resp = raw_client_follow_redirects.get(
+                f"/student/download/pubkey/{link_match.group(1)}"
+            )
+            if key_resp.status_code == 200:
+                public_key = key_resp.text
+
+    return private_key, public_key
+
+
 @pytest.fixture(scope="function")
 def registered_student(
     raw_client_follow_redirects: httpx.Client, unique_test_id: str
@@ -87,50 +164,9 @@ def registered_student(
     response = raw_client_follow_redirects.post("/student/getkey", data=data)
     assert response.status_code == 200, f"Failed to register student: {response.text}"
 
-    # Extract keys from response
-    private_key = None
-    public_key = None
-
-    if "-----BEGIN RSA PRIVATE KEY-----" in response.text:
-        import re
-
-        priv_match = re.search(
-            r"(-----BEGIN RSA PRIVATE KEY-----.*?-----END RSA PRIVATE KEY-----)",
-            response.text,
-            re.DOTALL,
-        )
-        if priv_match:
-            private_key = priv_match.group(1)
-
-    if "ssh-rsa " in response.text:
-        import re
-
-        pub_match = re.search(r"(ssh-rsa [A-Za-z0-9+/=]+)", response.text)
-        if pub_match:
-            public_key = pub_match.group(1)
-
-    # Also try download links
-    if "/student/download/privkey/" in response.text:
-        import re
-
-        link_match = re.search(r'/student/download/privkey/([^"\'>\s]+)', response.text)
-        if link_match:
-            key_resp = raw_client_follow_redirects.get(
-                f"/student/download/privkey/{link_match.group(1)}"
-            )
-            if key_resp.status_code == 200:
-                private_key = key_resp.text
-
-    if "/student/download/pubkey/" in response.text:
-        import re
-
-        link_match = re.search(r'/student/download/pubkey/([^"\'>\s]+)', response.text)
-        if link_match:
-            key_resp = raw_client_follow_redirects.get(
-                f"/student/download/pubkey/{link_match.group(1)}"
-            )
-            if key_resp.status_code == 200:
-                public_key = key_resp.text
+    private_key, public_key = _extract_keys_from_response(
+        response.text, raw_client_follow_redirects
+    )
 
     return StudentCredentials(
         mat_num=mat_num,
@@ -139,6 +175,80 @@ def registered_student(
         password=password,
         private_key=private_key,
         public_key=public_key,
+    )
+
+
+@pytest.fixture(scope="function")
+def ed25519_key_pair() -> tuple[str, str]:
+    """
+    Generate an ed25519 key pair for testing.
+
+    Returns:
+        Tuple of (private_key_pem, public_key_openssh)
+    """
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        NoEncryption,
+        PrivateFormat,
+        PublicFormat,
+    )
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key()
+
+    private_pem = private_key.private_bytes(
+        Encoding.PEM, PrivateFormat.OpenSSH, NoEncryption()
+    ).decode()
+    public_openssh = public_key.public_bytes(
+        Encoding.OpenSSH, PublicFormat.OpenSSH
+    ).decode()
+
+    return private_pem, public_openssh
+
+
+@pytest.fixture(scope="function")
+def registered_student_ed25519(
+    raw_client_follow_redirects: httpx.Client,
+    unique_test_id: str,
+    ed25519_key_pair: tuple[str, str],
+) -> StudentCredentials:
+    """
+    Create a registered student with ed25519 key and return credentials.
+
+    Uses the /student/getkey endpoint with a pre-generated ed25519 public key.
+    """
+    private_key_pem, public_key_openssh = ed25519_key_pair
+    mat_num = str(abs(hash(unique_test_id + "ed25519")) % 10000000)
+    password = "TestPass123!"
+
+    data = {
+        "mat_num": mat_num,
+        "firstname": f"Ed25519_{unique_test_id[:4]}",
+        "surname": f"User_{unique_test_id[4:8]}",
+        "password": password,
+        "password_rep": password,
+        "pubkey": public_key_openssh,
+        "submit": "Get Key",
+    }
+
+    response = raw_client_follow_redirects.post("/student/getkey", data=data)
+    assert response.status_code == 200, (
+        f"Failed to register ed25519 student: {response.text}"
+    )
+    # Verify registration was successful (should show download links)
+    assert (
+        "download" in response.text.lower()
+        or "/student/download/pubkey/" in response.text
+    ), f"Registration may have failed: {response.text[:500]}"
+
+    return StudentCredentials(
+        mat_num=mat_num,
+        firstname=data["firstname"],
+        surname=data["surname"],
+        password=password,
+        private_key=private_key_pem,
+        public_key=public_key_openssh,
     )
 
 
