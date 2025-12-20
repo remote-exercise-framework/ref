@@ -42,7 +42,6 @@ reportUnknownLambdaType = false
 
 [tool.coverage.run]
 branch = true
-parallel = true
 source = ["helpers", "../webapp/ref"]
 omit = [
     "*/tests/*",
@@ -52,13 +51,14 @@ omit = [
     "conftest.py",
     "test_*.py",
 ]
-data_file = "coverage_reports/.coverage"
 
 [tool.coverage.paths]
-# Map paths for combining coverage from different sources
+# Map container paths to host paths for combined coverage reporting.
+# First path must exist on the reporting machine; others are patterns to remap.
+# Paths are relative to tests/coverage_reports/ where coverage combine runs.
 source = [
-    "helpers/",
-    "../webapp/ref/",
+    "../../webapp/ref",
+    "/app/ref",
 ]
 
 [tool.coverage.report]

@@ -392,27 +392,51 @@ def combine_all_coverage() -> None:
     """Combine all coverage files (unit tests + container coverage) and generate reports.
 
     This is called at the end of the test session to merge:
-    - pytest-cov coverage from unit tests (host)
-    - Container coverage from e2e tests (Docker)
+    - pytest-cov coverage from tests/.coverage.* (host pytest workers)
+    - Container coverage from coverage_reports/.coverage.* (Docker containers)
     """
-    if not COVERAGE_OUTPUT_DIR.exists():
-        return
+    tests_dir = Path(__file__).parent
 
-    coverage_files = list(COVERAGE_OUTPUT_DIR.glob(".coverage*"))
+    # Collect coverage files from both locations:
+    # 1. tests/.coverage.* - pytest-cov worker files (host unit/e2e tests)
+    # 2. coverage_reports/.coverage.* - container coverage files (e2e Docker)
+    coverage_files: list[Path] = list(tests_dir.glob(".coverage*"))
+    if COVERAGE_OUTPUT_DIR.exists():
+        coverage_files.extend(COVERAGE_OUTPUT_DIR.glob(".coverage*"))
+
     if not coverage_files:
         print("[Coverage] No coverage data found to combine")
         return
 
-    print(f"[Coverage] Found {len(coverage_files)} coverage files to combine")
+    print(f"[Coverage] Found {len(coverage_files)} coverage files to combine:")
+    for cf in coverage_files:
+        print(f"  - {cf}")
+
+    # Copy all files to coverage_reports for combination
+    COVERAGE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    for cov_file in coverage_files:
+        if cov_file.parent != COVERAGE_OUTPUT_DIR:
+            dest = COVERAGE_OUTPUT_DIR / cov_file.name
+            try:
+                shutil.copy(cov_file, dest)
+                print(
+                    f"[Coverage] Copied {cov_file.name} to {COVERAGE_OUTPUT_DIR.name}/"
+                )
+            except Exception as e:
+                print(f"[Coverage] Warning: Failed to copy {cov_file.name}: {e}")
+
+    # Use pyproject.toml from tests/ directory for coverage config
+    # This contains the path mapping for container -> host paths
+    rcfile = str(tests_dir / "pyproject.toml")
 
     orig_dir = os.getcwd()
     try:
         os.chdir(COVERAGE_OUTPUT_DIR)
 
-        # Combine all coverage files
+        # Combine all coverage files with explicit config
         try:
             result = subprocess.run(
-                ["coverage", "combine", "--keep"],
+                ["coverage", "combine", "--keep", f"--rcfile={rcfile}"],
                 check=False,
                 capture_output=True,
                 text=True,
@@ -423,7 +447,7 @@ def combine_all_coverage() -> None:
         if result.returncode != 0:
             # Try without --keep for older coverage versions
             result = subprocess.run(
-                ["coverage", "combine"],
+                ["coverage", "combine", f"--rcfile={rcfile}"],
                 check=False,
                 capture_output=True,
                 text=True,
@@ -434,21 +458,21 @@ def combine_all_coverage() -> None:
 
         # Generate HTML report
         subprocess.run(
-            ["coverage", "html", "-d", "htmlcov"],
+            ["coverage", "html", "-d", "htmlcov", f"--rcfile={rcfile}"],
             check=False,
             capture_output=True,
         )
 
         # Generate XML report (Cobertura format)
         subprocess.run(
-            ["coverage", "xml", "-o", "coverage.xml"],
+            ["coverage", "xml", "-o", "coverage.xml", f"--rcfile={rcfile}"],
             check=False,
             capture_output=True,
         )
 
         # Print summary report
         result = subprocess.run(
-            ["coverage", "report"],
+            ["coverage", "report", f"--rcfile={rcfile}"],
             check=False,
             capture_output=True,
             text=True,
@@ -828,6 +852,16 @@ def pytest_sessionstart(session: Session) -> None:
     # Also clean any legacy resources without timestamps
     cleanup_docker_resources_by_prefix("ref-ressource-")
 
+    # Clean up stale coverage files to prevent SQLite race conditions
+    # pytest-cov will write to tests/.coverage.* with unique suffixes per worker
+    tests_dir = Path(__file__).parent
+    for coverage_file in tests_dir.glob(".coverage*"):
+        try:
+            coverage_file.unlink()
+            print(f"[REF E2E] Removed stale coverage file: {coverage_file.name}")
+        except Exception as e:
+            print(f"[REF E2E] Warning: Failed to remove {coverage_file.name}: {e}")
+
     # Prune unused Docker networks to avoid IP pool exhaustion
     print("[REF E2E] Pruning unused Docker networks...")
     try:
@@ -840,6 +874,14 @@ def pytest_sessionstart(session: Session) -> None:
         print(f"[REF E2E] Warning: Failed to prune networks: {e}")
 
     COVERAGE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Also clean container coverage files from previous runs
+    for coverage_file in COVERAGE_OUTPUT_DIR.glob(".coverage*"):
+        try:
+            coverage_file.unlink()
+            print(f"[REF E2E] Removed stale container coverage: {coverage_file.name}")
+        except Exception as e:
+            print(f"[REF E2E] Warning: Failed to remove {coverage_file.name}: {e}")
 
 
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
