@@ -1,8 +1,11 @@
 import re
 
 from Crypto.PublicKey import RSA
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
+    NoEncryption,
+    PrivateFormat,
     PublicFormat,
     load_ssh_public_key,
 )
@@ -174,7 +177,7 @@ class GetKeyForm(Form):
         default="",
     )
     pubkey = StringFieldDefaultEmpty(
-        "Public RSA Key (if empty, a key-pair is generated for you)",
+        "Public SSH Key (if empty, an Ed25519 key-pair is generated for you)",
         validators=[validate_pubkey],
     )
     submit = SubmitField("Get Key")
@@ -328,9 +331,15 @@ def student_getkey():
             pubkey = form.pubkey.data
             privkey = None
         else:
-            key = RSA.generate(2048)
-            pubkey = key.export_key(format="OpenSSH").decode()
-            privkey = key.export_key().decode()
+            key = Ed25519PrivateKey.generate()
+            pubkey = (
+                key.public_key()
+                .public_bytes(Encoding.OpenSSH, PublicFormat.OpenSSH)
+                .decode()
+            )
+            privkey = key.private_bytes(
+                Encoding.PEM, PrivateFormat.OpenSSH, NoEncryption()
+            ).decode()
 
         student = UserManager.create_student(
             mat_num=form.mat_num.data,
