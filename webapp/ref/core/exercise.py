@@ -23,6 +23,10 @@ from .instance import InstanceManager
 
 log = get_logger(__name__)
 
+# Maximum number of peripheral services per exercise.
+# Limited by /29 subnet size: 6 usable IPs - 1 gateway - 1 entry container = 4 peripherals
+MAX_PERIPHERAL_SERVICES = 4
+
 
 class ExerciseConfigError(Exception):
     pass
@@ -399,6 +403,13 @@ class ExerciseManager:
         peripheral_cfg = cfg.get("services")
         if not peripheral_cfg:
             return
+
+        # Validate peripheral service count (limited by /29 subnet size)
+        if len(peripheral_cfg) > MAX_PERIPHERAL_SERVICES:
+            raise ExerciseConfigError(
+                f"Too many peripheral services: {len(peripheral_cfg)}. "
+                f"Maximum allowed is {MAX_PERIPHERAL_SERVICES} due to network subnet constraints."
+            )
 
         services_names = set()
         for service_name, service_values in peripheral_cfg.items():
