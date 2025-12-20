@@ -19,13 +19,18 @@ from ref_utils import (  # noqa: E402
     submission_test,
 )
 
+TARGET_SRC = Path("/home/user/solution.c")
 TARGET_BIN = Path("/home/user/solution")
 
 
 @environment_test()
 def test_environment() -> bool:
-    """Test whether all required files are in place."""
-    return assert_is_exec(TARGET_BIN)
+    """Test whether the source file exists."""
+    if not TARGET_SRC.exists():
+        print_err(f"[!] Source file not found: {TARGET_SRC}")
+        return False
+    print_ok(f"[+] Source file found: {TARGET_SRC}")
+    return True
 
 
 @submission_test()
@@ -35,6 +40,10 @@ def test_addition() -> bool:
     ret, out = rf.run_with_payload(["make", "-B"])
     if ret != 0:
         print_err(f"[!] Failed to build! {out}")
+        return False
+
+    # Verify binary was created
+    if not assert_is_exec(TARGET_BIN):
         return False
 
     # Test: 2 + 3 = 5
