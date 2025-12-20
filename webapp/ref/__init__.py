@@ -112,6 +112,9 @@ def setup_loggin(app):
     """
     Setup all loggin related functionality.
     """
+    from pathlib import Path
+    from logging.handlers import RotatingFileHandler
+
     # Logs to the WSGI servers stderr
     wsgi_handler = StreamHandler(wsgi_errors_stream)
     wsgi_handler.addFilter(HostnameFilter())
@@ -120,6 +123,25 @@ def setup_loggin(app):
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
     root_logger.addHandler(wsgi_handler)
+
+    # Also log to file for persistence and debugging
+    # This is especially useful for tests where container logs may be lost
+    log_dir = Path(app.config.get("LOG_DIR", "/data/logs"))
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / "app.log"
+        file_handler = RotatingFileHandler(
+            str(log_file),
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=3,
+        )
+        file_handler.addFilter(HostnameFilter())
+        file_handler.setFormatter(bw_log_formatter)
+        file_handler.setLevel(logging.DEBUG)
+        root_logger.addHandler(file_handler)
+    except Exception as e:
+        # Don't fail if we can't create the log file
+        print(f"Warning: Could not setup file logging to {log_dir}: {e}")
 
     # Logger that can be used to debug database queries that are emitted by the ORM.
     # logging.getLogger('alembic').setLevel(logging.DEBUG)

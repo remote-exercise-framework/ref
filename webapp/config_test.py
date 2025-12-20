@@ -65,6 +65,7 @@ class TestConfig(Config):
     BASEDIR = "/tmp/ref-test"
     DATADIR = "/tmp/ref-test/data"
     DBDIR = "/tmp/ref-test/data/db"
+    LOG_DIR = "/tmp/ref-test/logs"
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

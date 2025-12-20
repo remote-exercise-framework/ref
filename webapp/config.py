@@ -20,6 +20,7 @@ class ReleaseConfig(Config):
     BASEDIR = "/data"
     DATADIR = os.path.join(BASEDIR, "data")
     DBDIR = os.path.join(DATADIR, "db")
+    LOG_DIR = os.path.join(BASEDIR, "logs")
 
     POSTGRES_USER = os.environ["POSTGRES_USER"]
     POSTGRES_DB = os.environ["POSTGRES_DB"]
