@@ -36,7 +36,7 @@ else:
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_failsafe import failsafe as flask_failsafe
 from flask_login import LoginManager, current_user
-from flask_migrate import Migrate
+from flask_migrate import Migrate, upgrade
 from flask_moment import Moment
 from telegram_handler import TelegramHandler
 
@@ -463,13 +463,13 @@ def create_app(config=None):
     if not setup_db(app):
         if is_running_under_uwsgi():
             with app.app_context():
-                current_app.logger.warning(
-                    "Please setup/upgrade the database by running ./ctrl.sh flask-cmd db upgrade"
-                )
-            exit(1)
-        # If we are not running under uwsgi, we assume that someone tries to execute a shell cmd
-        # e.g., db upgrade. Hence, we return the app before setting-up the database.
-        return app
+                current_app.logger.info("Database is empty, running migrations...")
+                upgrade(directory=app.config["SQLALCHEMY_MIGRATE_REPO"])
+                current_app.logger.info("Database migrations completed.")
+        else:
+            # If we are not running under uwsgi, we assume that someone tries to execute a shell cmd
+            # e.g., db upgrade. Hence, we return the app before setting-up the database.
+            return app
 
     if os.environ.get("DB_MIGRATE"):
         # We are currently migrating, do not touch the DB (below) and directly
