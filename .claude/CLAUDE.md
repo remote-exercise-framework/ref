@@ -10,6 +10,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build and Run Commands
 
+**Note:** In sandboxed environments where `~/.docker` may be read-only, set `DOCKER_CONFIG` to a writable directory before running Docker commands:
+
+```bash
+export DOCKER_CONFIG=/path/to/repo/.docker-cache
+```
+
+The test infrastructure (`tests/helpers/ref_instance.py`) automatically sets this to `.docker-cache/` in the repo root.
+
 ```bash
 # Build all Docker images
 ./ctrl.sh build
@@ -64,11 +72,13 @@ The hook runs `ruff check`, `ruff format --check`, and `mypy`, rejecting commits
 
 ## Testing
 
+**Important:** Never manually start a REF instance for running automated Python tests. The test infrastructure handles instance lifecycle automatically. Starting instances manually for interactive testing/debugging is fine.
+
 ```bash
 # Install test dependencies
 cd tests && uv sync
 
-# Run all tests (requires running REF instance)
+# Run all tests (test infrastructure manages REF instance)
 cd tests && pytest
 
 # Run only unit tests
@@ -173,6 +183,10 @@ Client (ssh exercise@host -p 2222)
 ## Code Comments
 
 - Do not reference line numbers in comments (e.g., "see api.py lines 397-404"). Line numbers change frequently and become outdated. Reference functions, classes, or use direct code references instead.
+
+## Pending Tasks
+
+Pending tasks in the codebase are marked with `FIXME(claude)` and `TODO(claude)`. When the user requests to process todos or fixmes, search for these markers and address them.
 
 ## Commit Messages
 
