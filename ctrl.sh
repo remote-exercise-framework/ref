@@ -149,7 +149,6 @@ if [[ $# -lt 1 ]]; then
 fi
 
 submodules=(
-    "ssh-wrapper/openssh-portable/README.md"
     "ref-docker-base/ref-utils/README.md"
     "webapp/ref/static/ace-builds/README.md"
 )

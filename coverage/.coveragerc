@@ -1,11 +1,9 @@
 [run]
 branch = True
 parallel = True
-source = /app/ref, /usr/bin, /home/ref-utils
+source = /app/ref, /home/ref-utils
 include =
     /app/ref/*
-    /usr/bin/ssh-wrapper.py
-    /usr/bin/ssh-authorized-keys.py
     /home/ref-utils/ref_utils/*
     /home/user/*
 omit = */tests/*, */__pycache__/*, */migrations/*, */site-packages/*
@@ -19,9 +17,6 @@ source =
 ref_utils =
     ref-docker-base/ref-utils/ref_utils/
     /home/ref-utils/ref_utils/
-ssh_scripts =
-    ssh-wrapper/
-    /usr/bin/
 
 [report]
 exclude_lines =

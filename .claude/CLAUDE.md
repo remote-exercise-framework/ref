@@ -138,7 +138,6 @@ Tests should interact with `ref/core/` managers or replicate `ref/view/` logic, 
 
 Use `uv` for all Python dependency management. Each component has its own `pyproject.toml`:
 - `webapp/pyproject.toml` - Web application
-- `ssh-wrapper/pyproject.toml` - SSH wrapper
 - `ref-docker-base/pyproject.toml` - Container base image
 - `tests/pyproject.toml` - Test suite
 
@@ -153,9 +152,10 @@ REF is a containerized platform for hosting programming exercises with isolated 
    - `ref/model/` - SQLAlchemy models
    - `ref/core/` - Docker operations, exercise building, instance management
 
-2. **SSH Entry Server** (`ssh-wrapper/`) - Custom OpenSSH on port 2222
+2. **SSH Reverse Proxy** (`ssh-reverse-proxy/`) - Rust-based SSH proxy on port 2222
    - Routes student SSH connections to exercise containers
    - Uses web API for authentication and provisioning
+   - Supports shell, exec, SFTP, and port forwarding
 
 3. **Instance Container** (`ref-docker-base/`) - Ubuntu 24.04 with dev tools
    - Isolated per student/exercise
@@ -168,8 +168,8 @@ REF is a containerized platform for hosting programming exercises with isolated 
 
 ```
 Client (ssh exercise@host -p 2222)
-  -> sshserver validates via /api/getkeys
-  -> ssh-wrapper provisions via /api/provision
+  -> ssh-reverse-proxy validates via /api/getkeys
+  -> ssh-reverse-proxy provisions via /api/provision
   -> Traffic proxied to container SSH (port 13370)
 ```
 

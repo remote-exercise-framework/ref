@@ -375,10 +375,10 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
             if "web" in compose_dict.get("services", {}):
                 compose_dict["services"]["web"]["ports"] = [f"{self._http_port}:8000"]
 
-            # Add sshserver port mapping
-            if "sshserver" in compose_dict.get("services", {}):
-                compose_dict["services"]["sshserver"]["ports"] = [
-                    f"{self._ssh_port}:4444"
+            # Add ssh-reverse-proxy port mapping
+            if "ssh-reverse-proxy" in compose_dict.get("services", {}):
+                compose_dict["services"]["ssh-reverse-proxy"]["ports"] = [
+                    f"{self._ssh_port}:2222"
                 ]
 
             # Add IPAM configuration with smaller subnets (/28) to allow many parallel instances
@@ -455,7 +455,7 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
 
     def _generate_ssh_keys(self):
         """Generate SSH keys needed for container communication."""
-        container_keys_dir = self._ref_root / "ssh-wrapper" / "container-keys"
+        container_keys_dir = self._ref_root / "container-keys"
         ref_docker_base_keys = self._ref_root / "ref-docker-base" / "container-keys"
 
         container_keys_dir.mkdir(parents=True, exist_ok=True)

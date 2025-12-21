@@ -51,16 +51,8 @@ RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -
 COPY wait-for-host /usr/bin/wait-for-host
 RUN  chmod 555 /usr/bin/wait-for-host
 
-RUN cd /tmp && git clone https://github.com/rofl0r/microsocks.git \
-    && cd microsocks \
-    && make install \
-    && cd .. && rm -rf /tmp/microsocks
-
 # 2. Setup related stuff
 RUN mkdir -p /run/sshd
-
-# Group and user that is used to run the socks proxy related stuff.
-RUN groupadd -g 9911 socks && useradd -g 9911 -u 9911 -s /bin/false socks
 
 # Create user and use its home as workdir
 RUN groupadd -g 9999 user && useradd -g 9999 -u 9999 -d /home/user -m -s /bin/bash user

@@ -476,12 +476,13 @@ class InstanceManager:
         # Object/Instance of the EntryService
         instance_entry_service = self.instance.entry_service
 
-        # Get the container ID of the ssh container, thus we can connect the new instance to it.
-        ssh_container = self.dc.container(
-            current_app.config["SSHSERVER_CONTAINER_NAME"]
+        # Get the container IDs of the SSH reverse proxy and web container.
+        ssh_proxy_container = self.dc.container(
+            current_app.config["SSH_REVERSE_PROXY_CONTAINER_NAME"]
         )
+        web_container = self.dc.container(current_app.config["WEB_CONTAINER_NAME"])
 
-        # Create a network that connects the entry service with the ssh service.
+        # Create a network that connects the entry service with the SSH reverse proxy.
         entry_to_ssh_network_name = f"{current_app.config['DOCKER_RESSOURCE_PREFIX']}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}"
 
         # If it is internal, the host does not attach an interface to the bridge, and therefore there is no way
@@ -492,15 +493,25 @@ class InstanceManager:
         )
         self.instance.network_id = entry_to_ssh_network.id
 
-        # Make the ssh server join the network
-        log.info(f"Connecting ssh server to network {self.instance.network_id}")
+        # Make the SSH reverse proxy join the network (for SSH routing to instance containers)
+        log.info(f"Connecting SSH reverse proxy to network {self.instance.network_id}")
 
-        # aliases makes the ssh_container available to other container through the hostname sshserver
         try:
-            entry_to_ssh_network.connect(ssh_container, aliases=["sshserver"])
+            entry_to_ssh_network.connect(ssh_proxy_container)
         except Exception:
             # This will reraise automatically
             with inconsistency_on_error():
+                self.dc.remove_network(entry_to_ssh_network)
+
+        # Connect web container with alias so instance containers can reach the API
+        # (task.py uses http://ssh-reverse-proxy:8000 for API calls)
+        log.info(f"Connecting web container to network {self.instance.network_id}")
+        try:
+            entry_to_ssh_network.connect(web_container, aliases=["ssh-reverse-proxy"])
+        except Exception:
+            # This will reraise automatically
+            with inconsistency_on_error():
+                entry_to_ssh_network.disconnect(ssh_proxy_container)
                 self.dc.remove_network(entry_to_ssh_network)
 
         image_name = exercise.entry_service.image_name
@@ -517,7 +528,8 @@ class InstanceManager:
             except Exception:
                 # This will reraise automatically
                 with inconsistency_on_error():
-                    entry_to_ssh_network.disconnect(ssh_container)
+                    entry_to_ssh_network.disconnect(web_container)
+                    entry_to_ssh_network.disconnect(ssh_proxy_container)
                     self.dc.remove_network(entry_to_ssh_network)
 
         # A folder that can be used to share data with an instance
@@ -530,7 +542,8 @@ class InstanceManager:
                 shutil.rmtree(local_shared_folder_path)
             except Exception:
                 with inconsistency_on_error():
-                    entry_to_ssh_network.disconnect(ssh_container)
+                    entry_to_ssh_network.disconnect(web_container)
+                    entry_to_ssh_network.disconnect(ssh_proxy_container)
                     self.dc.remove_network(entry_to_ssh_network)
 
         mounts[self.dc.local_path_to_host(local_shared_folder_path.as_posix())] = {
@@ -580,7 +593,8 @@ class InstanceManager:
         except Exception:
             # This will reraise automatically
             with inconsistency_on_error():
-                entry_to_ssh_network.disconnect(ssh_container)
+                entry_to_ssh_network.disconnect(web_container)
+                entry_to_ssh_network.disconnect(ssh_proxy_container)
                 self.dc.remove_network(entry_to_ssh_network)
 
         instance_entry_service.container_id = container.id
@@ -614,7 +628,8 @@ class InstanceManager:
             log.info(f"Container setup script failed. ret={ret}")
             with inconsistency_on_error():
                 self.dc.stop_container(container, remove=True)
-                entry_to_ssh_network.disconnect(ssh_container)
+                entry_to_ssh_network.disconnect(web_container)
+                entry_to_ssh_network.disconnect(ssh_proxy_container)
                 self.dc.remove_network(entry_to_ssh_network)
             raise Exception("Failed to start instance")
 
@@ -632,7 +647,8 @@ class InstanceManager:
         except Exception:
             with inconsistency_on_error():
                 self.dc.stop_container(container, remove=True)
-                entry_to_ssh_network.disconnect(ssh_container)
+                entry_to_ssh_network.disconnect(web_container)
+                entry_to_ssh_network.disconnect(ssh_proxy_container)
                 self.dc.remove_network(entry_to_ssh_network)
             raise Exception("Failed to establish the instances network connection")
 
@@ -643,33 +659,10 @@ class InstanceManager:
                 entry_to_ssh_network.disconnect(container)
                 self.dc.stop_container(container, remove=True)
 
-                entry_to_ssh_network.disconnect(ssh_container)
+                entry_to_ssh_network.disconnect(web_container)
+                entry_to_ssh_network.disconnect(ssh_proxy_container)
                 self.dc.remove_network(entry_to_ssh_network)
             raise Exception("Failed to start peripheral services") from e
-
-        # Setup SOCKS proxy for SSH port forwarding support.
-
-        # Create a unix domain socket that the SSH entry server will send
-        # proxy requests to.
-        # We listen on `unix_socket_path` and forward each incoming connection to
-        # 127.0.0.1 on port 37777 (where our SOCKS proxy is going to listen on).
-        unix_socket_path = f"{shared_folder_path}/socks_proxy"
-        unix_to_proxy_cmd = f"socat -d -d -d -lf {shared_folder_path}/proxy-socat.log UNIX-LISTEN:{unix_socket_path},reuseaddr,fork,su=socks TCP:127.0.0.1:37777"
-        proxy_cmd = "/usr/local/bin/microsocks -i 127.0.0.1 -p 37777"
-        try:
-            log.info(f"Running {unix_to_proxy_cmd}")
-            container.exec_run(unix_to_proxy_cmd, detach=True)
-            log.info(f"Running {proxy_cmd}")
-            ret = container.exec_run(proxy_cmd, user="socks", detach=True)
-            log.info(ret)
-        except Exception as e:
-            with inconsistency_on_error():
-                entry_to_ssh_network.disconnect(container)
-                self.dc.stop_container(container, remove=True)
-
-                entry_to_ssh_network.disconnect(ssh_container)
-                self.dc.remove_network(entry_to_ssh_network)
-            raise Exception("Failed start SOCKS proxy") from e
 
         current_app.db.session.add(self.instance)
         current_app.db.session.add(self.instance.entry_service)
@@ -759,17 +752,23 @@ class InstanceManager:
         if not ssh_to_entry_network:
             return False
 
-        ssh_container = self.dc.container(
-            current_app.config["SSHSERVER_CONTAINER_NAME"]
+        ssh_proxy_container = self.dc.container(
+            current_app.config["SSH_REVERSE_PROXY_CONTAINER_NAME"]
         )
-        assert ssh_container
+        assert ssh_proxy_container
 
-        # Check if the ssh container is connected to our network. This might not be the case if the ssh server
-        # was removed and restarted with a new id that is not part of our network anymore.
+        web_container = self.dc.container(current_app.config["WEB_CONTAINER_NAME"])
+        assert web_container
+
+        # Check if the SSH reverse proxy and web containers are connected to our network.
+        # This might not be the case if they were removed and restarted with
+        # a new id that is not part of our network anymore.
         # i.e., docker-compose down -> docker-compose up
         ssh_to_entry_network.reload()
         containers = ssh_to_entry_network.containers
-        if ssh_container not in containers:
+        if ssh_proxy_container not in containers:
+            return False
+        if web_container not in containers:
             return False
 
         # Check if the entry container is part of the network

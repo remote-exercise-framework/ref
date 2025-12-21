@@ -19,11 +19,7 @@ webapp/venv
 ref-docker-base/task-wrapper
 ref-docker-base/container-keys
 
-ref-interface/target
-
-ssh-wrapper/ref-interface/target/
-ssh-wrapper/container-keys
-ssh-wrapper/ssh-server-keys/
+container-keys/
 
 tests/container_logs/
 tests/coverage_reports/

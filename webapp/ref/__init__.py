@@ -416,26 +416,6 @@ def get_config(config):
     return cfg
 
 
-def create_ssh_proxy(config=None):
-    """
-    FIXME: Run this in a new process?
-    Factory for creating the SSH proxy that is responsible to proxy port forwarding
-    request from SSH client to the actual users containers.
-    """
-    app = Flask(__name__)
-
-    cfg = get_config(config)
-
-    app.config.from_object(cfg)
-    app.logger.info("create_ssh_proxy")
-
-    setup_db(app)
-
-    from ref.proxy import server_loop
-
-    server_loop(app)
-
-
 def fix_stuck_exercise_builds(app: Flask):
     """
     Resets any exercises that are stuck in BUILDING status back to NOT_BUILD.
@@ -519,16 +499,34 @@ def create_app(config=None):
     if app.config["DEBUG_TOOLBAR"]:
         DebugToolbarExtension(app)
 
-    # Get name of ssh entry server
+    # Get name of SSH reverse proxy container and web container
     with app.app_context():
         try:
-            app.config["SSHSERVER_CONTAINER_NAME"] = (
-                DockerClient.container_name_by_hostname("sshserver")
+            app.config["SSH_REVERSE_PROXY_CONTAINER_NAME"] = (
+                DockerClient.container_name_by_hostname("ssh-reverse-proxy")
+            )
+            app.logger.info(
+                f"Found SSH reverse proxy container: {app.config['SSH_REVERSE_PROXY_CONTAINER_NAME']}"
             )
         except Exception:
             from ref.core import failsafe
 
-            app.logger.error("Failed get container name of SSH server.", exc_info=True)
+            app.logger.error(
+                "Failed to get container name of SSH reverse proxy.", exc_info=True
+            )
+            failsafe()
+
+        try:
+            app.config["WEB_CONTAINER_NAME"] = DockerClient.container_name_by_hostname(
+                "web"
+            )
+            app.logger.info(f"Found web container: {app.config['WEB_CONTAINER_NAME']}")
+        except Exception:
+            from ref.core import failsafe
+
+            app.logger.error(
+                "Failed to get container name of web container.", exc_info=True
+            )
             failsafe()
 
     # Enable/Disable maintenance mode base on the ctrl.sh '--maintenance' argument.

@@ -43,6 +43,9 @@ class ReleaseConfig(Config):
     # The container name of the ssh entry server.
     # NOTE: Filled during initialization.
     SSHSERVER_CONTAINER_NAME = None
+    # Optional additional SSH proxy container (e.g., Rust SSH proxy)
+    # NOTE: Filled during initialization if available.
+    RUST_SSH_PROXY_CONTAINER_NAME = None
 
     SECRET_KEY = os.environ["SECRET_KEY"]
     SSH_TO_WEB_KEY = os.environ["SSH_TO_WEB_KEY"]

@@ -38,28 +38,29 @@ def generate_docker_compose():
 
 def generate_ssh_keys():
     """
-    Generate the SSH keys that are used by the ssh entry server to authenticate at the containers.
+    Generate the SSH keys that are used by the SSH reverse proxy to authenticate at the containers.
     """
-    container_root_key_path = Path("container-keys/root_key")
-    container_user_key_path = Path("container-keys/user_key")
+    container_keys_dir = Path("container-keys")
+    container_keys_dir.mkdir(exist_ok=True)
 
-    # generate keys in the ssh-wrapper dir
-    for key_path_suffix in [container_root_key_path, container_user_key_path]:
-        ssh_wrapper_key_path = "ssh-wrapper" / key_path_suffix
-        if not ssh_wrapper_key_path.exists():
-            assert ssh_wrapper_key_path.parent.exists(), (
-                f"{ssh_wrapper_key_path.parent} doe not exists"
-            )
+    key_paths = [
+        container_keys_dir / "root_key",
+        container_keys_dir / "user_key",
+    ]
+
+    for key_path in key_paths:
+        if not key_path.exists():
             subprocess.check_call(
-                f"ssh-keygen -t ed25519 -N '' -f {ssh_wrapper_key_path.as_posix()}",
+                f"ssh-keygen -t ed25519 -N '' -f {key_path.as_posix()}",
                 shell=True,
             )
-            # Copy keys to the ref-docker-base
-            shutil.copytree(
-                ssh_wrapper_key_path.parent,
-                Path("ref-docker-base") / key_path_suffix.parent,
-                dirs_exist_ok=True,
-            )
+
+    # Copy keys to ref-docker-base for container builds
+    shutil.copytree(
+        container_keys_dir,
+        Path("ref-docker-base") / "container-keys",
+        dirs_exist_ok=True,
+    )
 
 
 def main():

@@ -416,7 +416,6 @@ def api_ssh_authenticated():
         return error_response("Invalid request")
 
     pubkey = pubkey.strip()
-    pubkey = " ".join(pubkey.split(" ")[1:])
 
     # The user name used for authentication
     name = content.get("name", None)

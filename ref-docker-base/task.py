@@ -94,7 +94,7 @@ def cmd_reset(_):
     )
     req = {}
     req = finalize_request(req)
-    res = requests.post("http://sshserver:8000/api/instance/reset", json=req)
+    res = requests.post("http://ssh-reverse-proxy:8000/api/instance/reset", json=req)
     handle_response(res)
 
 
@@ -202,7 +202,7 @@ def cmd_submit(_):
     req = {"output": test_output, "test_results": [asdict(e) for e in test_results]}
 
     req = finalize_request(req)
-    res = requests.post("http://sshserver:8000/api/instance/submit", json=req)
+    res = requests.post("http://ssh-reverse-proxy:8000/api/instance/submit", json=req)
     _, ret = handle_response(res)
     print_ok(ret)
 
@@ -226,7 +226,7 @@ def cmd_id(_):
 def cmd_info(_):
     req = {}
     req = finalize_request(req)
-    res = requests.post("http://sshserver:8000/api/instance/info", json=req)
+    res = requests.post("http://ssh-reverse-proxy:8000/api/instance/info", json=req)
     _, info = handle_response(res)
     print(info)
 

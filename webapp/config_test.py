@@ -60,6 +60,7 @@ class TestConfig(Config):
     ADMIN_PASSWORD = _TestConfigNotAvailable("ADMIN_PASSWORD")
     SSH_HOST_PORT = _TestConfigNotAvailable("SSH_HOST_PORT")
     SSHSERVER_CONTAINER_NAME = _TestConfigNotAvailable("SSHSERVER_CONTAINER_NAME")
+    RUST_SSH_PROXY_CONTAINER_NAME = None  # Optional, may not exist
 
     # Properties that can be safely mocked
     BASEDIR = "/tmp/ref-test"

@@ -242,7 +242,7 @@ def save_container_logs(instance: "REFInstance") -> None:
     """
     LOG_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    services = ["web", "sshserver", "db", "ssh-proxy"]
+    services = ["web", "ssh-reverse-proxy", "db"]
 
     for service in services:
         try:

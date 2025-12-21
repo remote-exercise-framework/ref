@@ -29,15 +29,17 @@ def _get_dangling_networks():
         filters={"name": current_app.config["DOCKER_RESSOURCE_PREFIX"]}
     )
 
-    ssh_container = d.container(current_app.config["SSHSERVER_CONTAINER_NAME"])
+    ssh_proxy_container = d.container(
+        current_app.config["SSH_REVERSE_PROXY_CONTAINER_NAME"]
+    )
 
     for network in networks:
         connected_containers = d.get_connected_container(network)
 
         if connected_containers and set(connected_containers) != set(
-            [ssh_container.id]
+            [ssh_proxy_container.id]
         ):
-            # Containers connected (besides the SSH container), ignore it
+            # Containers connected (besides the SSH proxy container), ignore it
             continue
 
         dn = danglingNetwork(network.id, network.name)
@@ -63,19 +65,19 @@ def _is_in_db(container_id):
     )
 
 
-def _is_connected_to_sshserver(dc, ssh_container, container):
+def _is_connected_to_ssh_proxy(dc, ssh_proxy_container, container):
     """
-    Check whether the container is connected to the SSH server.
+    Check whether the container is connected to the SSH reverse proxy.
     Returns:
-        True, if the container is connected to the SSH server
+        True, if the container is connected to the SSH reverse proxy
         Else, False.
     """
-    if ssh_container == container:
+    if ssh_proxy_container == container:
         return container, True
 
     containers = dc.container_transitive_closure_get_containers(container)
 
-    return container, ssh_container.id in containers
+    return container, ssh_proxy_container.id in containers
 
 
 def _get_dangling_container():
@@ -87,12 +89,16 @@ def _get_dangling_container():
         sparse=True,
         filters={"name": current_app.config["DOCKER_RESSOURCE_PREFIX"]},
     )
-    ssh_container = dc.container(current_app.config["SSHSERVER_CONTAINER_NAME"])
+    ssh_proxy_container = dc.container(
+        current_app.config["SSH_REVERSE_PROXY_CONTAINER_NAME"]
+    )
 
     executor = ThreadPoolExecutor(max_workers=16)
     is_connected_to_ssh_futures = set()
 
-    is_connected_to_sshserver = partial(_is_connected_to_sshserver, dc, ssh_container)
+    is_connected_to_ssh_proxy_fn = partial(
+        _is_connected_to_ssh_proxy, dc, ssh_proxy_container
+    )
 
     for container in containers:
         if not _is_in_db(container.id):
@@ -101,7 +107,7 @@ def _get_dangling_container():
                 DanglingContainer(container.id, container.name, container.status)
             )
         is_connected_to_ssh_futures.add(
-            executor.submit(is_connected_to_sshserver, container)
+            executor.submit(is_connected_to_ssh_proxy_fn, container)
         )
 
     for future in is_connected_to_ssh_futures:

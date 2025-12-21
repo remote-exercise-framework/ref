@@ -5,42 +5,6 @@ volumes:
         name: "{{ prefix }}_coverage_data"
 {% endif %}
 services:
-    sshserver:
-        init: true
-        environment:
-            - DEBUG=${DEBUG:?"DEBUG not set"}
-            - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
-{% if testing %}
-            - COVERAGE_PROCESS_START=/coverage-config/.coveragerc
-            - COVERAGE_CONTAINER_NAME=sshserver
-{% endif %}
-        build:
-            context: ./ssh-wrapper
-            args:
-                SSH_TO_WEB_KEY: ${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
-    {% if not testing %}
-        ports:
-            - "${SSH_HOST_PORT:?SSH_HOST_PORT not set}:4444"
-    {% endif %}
-        volumes:
-            - ./ssh-wrapper/ssh-wrapper.py:/usr/bin/ssh-wrapper.py:ro
-            - ./ssh-wrapper/ssh-server-keys:/ssh-server-keys:rw
-{% if testing %}
-            - coverage-data:/coverage-data:rw
-            - ./coverage:/coverage-config:ro
-{% endif %}
-        networks:
-            - ssh-and-host
-            - ssh-proxy-and-ssh
-            - web-and-ssh
-        cgroup_parent: "{{ cgroup_parent }}-core.slice"
-        cap_drop:
-            - ALL
-        cap_add:
-            - SYS_CHROOT
-            - SETUID
-            - SETGID
-            - CHOWN
     db:
         init: true
         image: postgres:17.2
@@ -56,7 +20,6 @@ services:
             - REAL_HOSTNAME=${REAL_HOSTNAME}
         networks:
             - web-and-db
-            - ssh-proxy-and-db
         cgroup_parent: "{{ cgroup_parent }}-core.slice"
         cap_drop:
             - ALL
@@ -140,57 +103,32 @@ services:
             - web-and-db
         depends_on:
             - db
-            - sshserver
         cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
-    ssh-proxy:
+    # Rust-based SSH reverse proxy
+    ssh-reverse-proxy:
         init: true
-        command: "bash -c \"cd /app && python -c 'import ref; ref.create_ssh_proxy()'\""
-        environment:
-            - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD not set}
-            - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
-            - DEBUG=${DEBUG:?DEBUG not set}
-            - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
-            - POSTGRES_USER=ref
-            - POSTGRES_DB=ref
-            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
-            - SECRET_KEY=${SECRET_KEY:?SECRET_KEY not set}
-            - SSH_HOST_PORT=${SSH_HOST_PORT:?SSH_HOST_PORT not set}
-            - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
-            - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
-            - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
-            - HOT_RELOADING=${HOT_RELOADING}
-            - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
-            - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
-            - REAL_HOSTNAME=${REAL_HOSTNAME}
-{% if testing %}
-            - COVERAGE_PROCESS_START=/coverage-config/.coveragerc
-            - COVERAGE_CONTAINER_NAME=ssh-proxy
-{% endif %}
+        hostname: ssh-reverse-proxy
         build:
-            context: "./webapp"
-            args:
-                #Pass the hosts docker group id, since we are using the docker socket from the host.
-                DOCKER_GROUP_ID: ${DOCKER_GROUP_ID:?DOCKER_GROUP_ID not set}
+            context: ./ssh-reverse-proxy
+            dockerfile: Dockerfile
+        environment:
+            - SSH_LISTEN_ADDR=0.0.0.0:2222
+            - API_BASE_URL=http://web:8000
+            - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
+            - CONTAINER_SSH_PORT=13370
+            - RUST_LOG=ref_ssh_proxy=info,russh=warn
         volumes:
-            #Persistance folder (db, templates, ...)
-            #The mounts need to be propageted, thus we can mount mounts created
-            #in this container from the host into other containers
-            - type: bind
-              source: {{ data_path }} # NOTE: Indented with two spaces!!!
-              target: /data # NOTE: Indented with two spaces!!!
-            #The webinterface, only needed for live updating during development
-            - ./webapp/:/app
-{% if testing %}
-            - coverage-data:/coverage-data:rw
-            - ./coverage:/coverage-config:ro
-{% endif %}
+            - ./container-keys:/keys:ro
+    {% if not testing %}
+        ports:
+            - "${SSH_HOST_PORT:-2222}:2222"
+    {% endif %}
         networks:
-            - ssh-proxy-and-ssh
-            - ssh-proxy-and-db
+            - web-and-ssh
+            - ssh-and-host
         depends_on:
-            - db
-            - sshserver
+            - web
         cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
 networks:
@@ -199,15 +137,15 @@ networks:
         driver: bridge
         driver_opts:
             com.docker.network.bridge.name: "br-whost-{{ bridge_id if testing else 'ref' }}"
-    #Interface between the SSH entry server and the webinterface.
-    #This interface is used by the SSH server to retrive information
-    #on how a incoming connection should be routed.
+    #Interface between the SSH reverse proxy and the webinterface.
+    #This interface is used by the SSH proxy to retrieve information
+    #on how an incoming connection should be routed.
     web-and-ssh:
         driver: bridge
         internal: true
         driver_opts:
             com.docker.network.bridge.name: "br-w2ssh-{{ bridge_id if testing else 'ref' }}"
-    #This network connects the SSH entry server to the host.
+    #This network connects the SSH reverse proxy to the host.
     ssh-and-host:
         driver: bridge
         driver_opts:
@@ -218,15 +156,3 @@ networks:
         internal: true
         driver_opts:
             com.docker.network.bridge.name: "br-w2db-{{ bridge_id if testing else 'ref' }}"
-
-    ssh-proxy-and-ssh:
-        driver: bridge
-        internal: true
-        driver_opts:
-            com.docker.network.bridge.name: "br-spro-{{ bridge_id if testing else 'ref' }}"
-
-    ssh-proxy-and-db:
-        driver: bridge
-        internal: true
-        driver_opts:
-            com.docker.network.bridge.name: "br-pdb-{{ bridge_id if testing else 'ref' }}"

@@ -1,6 +1,5 @@
 exclude = [
     "webapp/ref/static/ace-builds",
     "ref-linux",
-    "ssh-wrapper/openssh-portable",
     "ref-docker-base/ref-utils",
 ]

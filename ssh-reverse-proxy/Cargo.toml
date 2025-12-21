@@ -1,0 +1,47 @@
+[package]
+name = "ssh-reverse-proxy"
+version = "0.1.0"
+edition = "2021"
+description = "SSH proxy for Remote Exercise Framework"
+authors = ["REF Team"]
+
+[dependencies]
+# SSH implementation (russh re-exports russh-keys as russh::keys)
+russh = "0.55"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP client for API calls (use rustls for TLS, no OpenSSL dependency)
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Configuration
+toml = "0.8"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+thiserror = "1"
+anyhow = "1"
+
+# Crypto for request signing (itsdangerous compatible)
+hmac = "0.12"
+sha1 = "0.10"
+sha2 = "0.10"
+base64 = "0.22"
+
+# Async utilities
+async-trait = "0.1"
+futures = "0.3"
+
+# Random number generation (match russh's rand version)
+rand = "0.8"
+
+[dev-dependencies]
+tokio-test = "0.4"

@@ -8,7 +8,7 @@ Remote Exercise Framework - A platform for hosting programming exercises with is
 ┌─────────────────────────────────────────────────────────────────┐
 │                         HOST SYSTEM                             │
 ├─────────────────────────────────────────────────────────────────┤
-│  Port 2222 ──> sshserver ──> ssh-wrapper.py ──> Instance (SSH)  │
+│  Port 2222 ──> ssh-reverse-proxy (Rust) ──> Instance (SSH)      │
 │  Port 8000 ──> web (Flask) ──> Docker API ──> Instance Mgmt     │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -25,7 +25,6 @@ Flask application providing the management interface.
 - `ref/view/` - Route handlers (login, exercises, instances, grading, API)
 - `ref/model/` - SQLAlchemy models (users, exercises, instances)
 - `ref/core/` - Business logic (Docker operations, exercise building)
-- `ref/proxy/` - SSH proxy server for logging
 
 **Features:**
 - Exercise management and import
@@ -48,20 +47,28 @@ Isolated Docker container per student/exercise based on Ubuntu 24.04.
 
 **Entry point:** SSH server on port 13370
 
-### 3. SSH Entry Server (`ssh-wrapper/`)
+### 3. SSH Reverse Proxy (`ssh-reverse-proxy/`)
 
-Custom OpenSSH server routing student connections to their containers.
+Rust-based SSH proxy routing student connections to their containers.
 
 **Connection flow:**
 1. Client connects: `ssh <exercise>@host -p 2222`
-2. `ssh-authorized-keys.py` validates key via web API (`/api/getkeys`)
-3. `ssh-wrapper.py` provisions instance via `/api/provision`
-4. Traffic proxied to container's SSH (port 13370)
+2. Proxy validates key via web API (`/api/getkeys`)
+3. Proxy provisions instance via `/api/provision`
+4. Traffic proxied directly to container's SSH (port 13370)
 
-**Components:**
-- Custom OpenSSH build with `ref-interface` (Rust library)
-- Python wrapper scripts for orchestration
-- itsdangerous signed API requests
+**Features:**
+- Shell sessions (interactive PTY)
+- Command execution (`ssh host command`)
+- SFTP subsystem
+- Local port forwarding (`-L`)
+- Remote port forwarding (`-R`)
+- X11 forwarding (`-X`)
+- Public key authentication
+
+**Stack:** Rust + russh + tokio
+
+See `ssh-reverse-proxy/docs/SSH_PROXY_ARCHITECTURE.md` for detailed implementation.
 
 ### 4. ref-utils (`ref-docker-base/ref-utils/`)
 
@@ -88,10 +95,9 @@ PostgreSQL 17.2 storing:
 
 | Network | Purpose |
 |---------|---------|
-| `web-and-ssh` | Web ↔ SSH server API |
+| `web-and-ssh` | Web ↔ SSH reverse proxy API |
 | `web-and-db` | Web ↔ PostgreSQL |
-| `ssh-and-host` | SSH server ↔ Host |
-| `ssh-proxy-and-*` | SSH proxy connections |
+| `ssh-and-host` | SSH reverse proxy ↔ Host |
 
 ## Exercise Structure
 

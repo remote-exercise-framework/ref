@@ -18,7 +18,6 @@ jobs:
 
       - name: Initialize submodules (excluding ref-linux)
         run: |
-          git submodule update --init ssh-wrapper/openssh-portable
           git submodule update --init ref-docker-base/ref-utils
           git submodule update --init webapp/ref/static/ace-builds
 
@@ -55,7 +54,6 @@ jobs:
 
       - name: Initialize submodules (excluding ref-linux)
         run: |
-          git submodule update --init ssh-wrapper/openssh-portable
           git submodule update --init ref-docker-base/ref-utils
           git submodule update --init webapp/ref/static/ace-builds
 
@@ -82,7 +80,6 @@ jobs:
 
       - name: Initialize submodules (excluding ref-linux)
         run: |
-          git submodule update --init ssh-wrapper/openssh-portable
           git submodule update --init ref-docker-base/ref-utils
           git submodule update --init webapp/ref/static/ace-builds
 
