@@ -1,22 +1,24 @@
 from __future__ import annotations
 
 import datetime
-import typing
 from collections import defaultdict
-from typing import List
+from typing import TYPE_CHECKING, List, Optional
 
 from flask import current_app
-from sqlalchemy import PickleType, and_
+from sqlalchemy import ForeignKey, PickleType, Text, and_
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ref import db
 
 from .enums import ExerciseBuildStatus
-from .instance import Instance, Submission
 from .util import CommonDbOpsMixin, ModelToStringMixin
+
+if TYPE_CHECKING:
+    from .instance import Instance, InstanceService, Submission
 
 
 class ConfigParsingError(Exception):
-    def __init__(self, msg: str, path: str = None):
+    def __init__(self, msg: str, path: Optional[str] = None):
         if path:
             msg = f"{msg} ({path})"
         super().__init__(msg)
@@ -33,16 +35,17 @@ class RessourceLimits(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         "memory_kernel_in_mb",
     ]
     __tablename__ = "exercise_ressource_limits"
-    id = db.Column(db.Integer, primary_key=True)
 
-    cpu_cnt_max: float = db.Column(db.Float(), nullable=True, default=None)
-    cpu_shares: int = db.Column(db.Integer(), nullable=True, default=None)
+    id: Mapped[int] = mapped_column(primary_key=True)
 
-    pids_max: int = db.Column(db.Integer(), nullable=True, default=None)
+    cpu_cnt_max: Mapped[Optional[float]] = mapped_column(default=None)
+    cpu_shares: Mapped[Optional[int]] = mapped_column(default=None)
 
-    memory_in_mb: int = db.Column(db.Integer(), nullable=True, default=None)
-    memory_swap_in_mb: int = db.Column(db.Integer(), nullable=True, default=None)
-    memory_kernel_in_mb: int = db.Column(db.Integer(), nullable=True, default=None)
+    pids_max: Mapped[Optional[int]] = mapped_column(default=None)
+
+    memory_in_mb: Mapped[Optional[int]] = mapped_column(default=None)
+    memory_swap_in_mb: Mapped[Optional[int]] = mapped_column(default=None)
+    memory_kernel_in_mb: Mapped[Optional[int]] = mapped_column(default=None)
 
 
 class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
@@ -53,52 +56,47 @@ class ExerciseEntryService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     __to_str_fields__ = ["id", "exercise_id"]
     __tablename__ = "exercise_entry_service"
-    __allow_unmapped__ = True
 
-    id = db.Column(db.Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
 
     # The exercise this entry service belongs to
-    exercise_id: int = db.Column(
-        db.Integer, db.ForeignKey("exercise.id", ondelete="RESTRICT"), nullable=False
+    exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("exercise.id", ondelete="RESTRICT")
     )
-    exercise: "Exercise" = db.relationship(
+    exercise: Mapped["Exercise"] = relationship(
         "Exercise", foreign_keys=[exercise_id], back_populates="entry_service"
     )
 
     # Path inside the container that is persistet
-    persistance_container_path: str = db.Column(db.Text(), nullable=True)
+    persistance_container_path: Mapped[Optional[str]] = mapped_column(Text)
 
-    files: List[str] = db.Column(PickleType(), nullable=True)
+    files: Mapped[Optional[List[str]]] = mapped_column(PickleType)
 
     # List of commands that are executed when building the service's Docker image.
-    build_cmd: List[str] = db.Column(db.PickleType(), nullable=True)
+    build_cmd: Mapped[Optional[List[str]]] = mapped_column(PickleType)
 
-    no_randomize_files: typing.Optional[List[str]] = db.Column(
-        db.PickleType(), nullable=True
-    )
+    no_randomize_files: Mapped[Optional[List[str]]] = mapped_column(PickleType)
 
-    disable_aslr: bool = db.Column(db.Boolean(), nullable=False)
+    disable_aslr: Mapped[bool]
 
     # Command that is executed as soon a user connects (list)
-    cmd: List[str] = db.Column(db.PickleType(), nullable=False)
+    cmd: Mapped[List[str]] = mapped_column(PickleType)
 
-    readonly: bool = db.Column(db.Boolean(), nullable=False, default=False)
+    readonly: Mapped[bool] = mapped_column(default=False)
 
-    allow_internet: bool = db.Column(db.Boolean(), nullable=False, default=False)
+    allow_internet: Mapped[bool] = mapped_column(default=False)
 
     # options for the flag that is placed inside the container
-    flag_path: str = db.Column(db.Text(), nullable=True)
-    flag_value: str = db.Column(db.Text(), nullable=True)
-    flag_user: str = db.Column(db.Text(), nullable=True)
-    flag_group: str = db.Column(db.Text(), nullable=True)
-    flag_permission: str = db.Column(db.Text(), nullable=True)
+    flag_path: Mapped[Optional[str]] = mapped_column(Text)
+    flag_value: Mapped[Optional[str]] = mapped_column(Text)
+    flag_user: Mapped[Optional[str]] = mapped_column(Text)
+    flag_group: Mapped[Optional[str]] = mapped_column(Text)
+    flag_permission: Mapped[Optional[str]] = mapped_column(Text)
 
-    ressource_limit_id: int = db.Column(
-        db.Integer,
-        db.ForeignKey("exercise_ressource_limits.id", ondelete="RESTRICT"),
-        nullable=True,
+    ressource_limit_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("exercise_ressource_limits.id", ondelete="RESTRICT")
     )
-    ressource_limit: RessourceLimits = db.relationship(
+    ressource_limit: Mapped[Optional[RessourceLimits]] = relationship(
         "RessourceLimits", foreign_keys=[ressource_limit_id]
     )
 
@@ -127,44 +125,41 @@ class ExerciseService(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     __to_str_fields__ = ["id", "exercise_id"]
     __tablename__ = "exercise_service"
-    __allow_unmapped__ = True
 
-    id: int = db.Column(db.Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
 
-    name: str = db.Column(db.Text())
+    name: Mapped[Optional[str]] = mapped_column(Text)
 
     # Backref is exercise
-    exercise_id: int = db.Column(
-        db.Integer, db.ForeignKey("exercise.id", ondelete="RESTRICT"), nullable=False
+    exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("exercise.id", ondelete="RESTRICT")
     )
-    exercise: "Exercise" = db.relationship(
+    exercise: Mapped["Exercise"] = relationship(
         "Exercise", foreign_keys=[exercise_id], back_populates="services"
     )
 
-    files: List[str] = db.Column(PickleType(), nullable=True)
-    build_cmd: List[str] = db.Column(db.PickleType(), nullable=True)
+    files: Mapped[Optional[List[str]]] = mapped_column(PickleType)
+    build_cmd: Mapped[Optional[List[str]]] = mapped_column(PickleType)
 
-    disable_aslr: bool = db.Column(db.Boolean(), nullable=False)
-    cmd: List[str] = db.Column(db.PickleType(), nullable=False)
+    disable_aslr: Mapped[bool]
+    cmd: Mapped[List[str]] = mapped_column(PickleType)
 
-    readonly: bool = db.Column(db.Boolean(), nullable=True, default=False)
+    readonly: Mapped[Optional[bool]] = mapped_column(default=False)
 
-    allow_internet: bool = db.Column(db.Boolean(), nullable=True, default=False)
+    allow_internet: Mapped[Optional[bool]] = mapped_column(default=False)
 
-    instances: List[Instance] = db.relationship(
+    instances: Mapped[List["InstanceService"]] = relationship(
         "InstanceService",
         back_populates="exercise_service",
         lazy=True,
         passive_deletes="all",
     )
 
-    # health_check_cmd: List[str] = db.Column(db.PickleType(), nullable=False)
-
-    flag_path: str = db.Column(db.Text(), nullable=True)
-    flag_value: str = db.Column(db.Text(), nullable=True)
-    flag_user: str = db.Column(db.Text(), nullable=True)
-    flag_group: str = db.Column(db.Text(), nullable=True)
-    flag_permission: str = db.Column(db.Text(), nullable=True)
+    flag_path: Mapped[Optional[str]] = mapped_column(Text)
+    flag_value: Mapped[Optional[str]] = mapped_column(Text)
+    flag_user: Mapped[Optional[str]] = mapped_column(Text)
+    flag_group: Mapped[Optional[str]] = mapped_column(Text)
+    flag_permission: Mapped[Optional[str]] = mapped_column(Text)
 
     @property
     def image_name(self) -> str:
@@ -184,12 +179,11 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
     __to_str_fields__ = ["id", "short_name", "version", "category", "build_job_status"]
     __tablename__ = "exercise"
-    __allow_unmapped__ = True
 
-    id: int = db.Column(db.Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
 
     # The services that defines the entrypoint of this exercise
-    entry_service: ExerciseEntryService = db.relationship(
+    entry_service: Mapped[Optional[ExerciseEntryService]] = relationship(
         "ExerciseEntryService",
         uselist=False,
         back_populates="exercise",
@@ -197,58 +191,54 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     )
 
     # Additional services that are mapped into the network for this exercise.
-    services: List[ExerciseService] = db.relationship(
+    services: Mapped[List[ExerciseService]] = relationship(
         "ExerciseService", back_populates="exercise", lazy=True, passive_deletes="all"
     )
 
     # Folder the template was initially imported from
-    template_import_path: str = db.Column(db.Text(), nullable=False, unique=False)
+    template_import_path: Mapped[str] = mapped_column(Text)
 
     # Folder where a copy of the template is stored for persisting it after import
-    template_path: str = db.Column(db.Text(), nullable=False, unique=True)
+    template_path: Mapped[str] = mapped_column(Text, unique=True)
 
     # Path to the folder that contains all persisted data of this exercise.
-    persistence_path: str = db.Column(db.Text(), nullable=False, unique=True)
+    persistence_path: Mapped[str] = mapped_column(Text, unique=True)
 
     # Name that identifies the exercise
-    short_name: str = db.Column(db.Text(), nullable=False, unique=False)
+    short_name: Mapped[str] = mapped_column(Text)
 
     # Version of the exercise used for updating mechanism.
-    version: int = db.Column(db.Integer(), nullable=False)
+    version: Mapped[int]
 
     # Used to group the exercises
-    category: str = db.Column(db.Text(), nullable=True, unique=False)
+    category: Mapped[Optional[str]] = mapped_column(Text)
 
     # Instances must be submitted before this point in time.
-    submission_deadline_end: datetime.datetime = db.Column(db.DateTime(), nullable=True)
+    submission_deadline_end: Mapped[Optional[datetime.datetime]]
 
-    submission_deadline_start: datetime.datetime = db.Column(
-        db.DateTime(), nullable=True
-    )
+    submission_deadline_start: Mapped[Optional[datetime.datetime]]
 
-    submission_test_enabled: datetime.datetime = db.Column(db.Boolean(), nullable=False)
+    submission_test_enabled: Mapped[bool]
 
     # Max point a user can get for this exercise. Might be None.
-    max_grading_points: int = db.Column(db.Integer, nullable=True)
+    max_grading_points: Mapped[Optional[int]]
 
     # Is this Exercise version deployed by default in case an instance is requested?
     # At most one exercise with same short_name can have this flag.
-    is_default: bool = db.Column(db.Boolean(), nullable=False)
+    is_default: Mapped[bool]
 
     # Log of the last build run
-    build_job_result: str = db.Column(db.Text(), nullable=True)
+    build_job_result: Mapped[Optional[str]] = mapped_column(Text)
 
     # Build status of the docker images that belong to the exercise
-    build_job_status: ExerciseBuildStatus = db.Column(
-        db.Enum(ExerciseBuildStatus), nullable=False
-    )
+    build_job_status: Mapped[ExerciseBuildStatus]
 
     # All running instances of this exercise
-    instances: List[Instance] = db.relationship(
+    instances: Mapped[List["Instance"]] = relationship(
         "Instance", back_populates="exercise", lazy=True, passive_deletes="all"
     )
 
-    def get_users_instance(self, user) -> List[Instance]:
+    def get_users_instance(self, user) -> List["Instance"]:
         for instance in self.instances:
             if instance.user == user:
                 return instance
@@ -270,7 +260,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     def is_update(self) -> bool:
         return len(self.predecessors()) > 0
 
-    def predecessor(self) -> Exercise:
+    def predecessor(self) -> Optional[Exercise]:
         predecessors = self.predecessors()
         if predecessors:
             return predecessors[0]
@@ -298,21 +288,21 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         )
         return exercises
 
-    def successor(self) -> Exercise:
+    def successor(self) -> Optional[Exercise]:
         successors = self.successors()
         if successors:
             return successors[0]
         else:
             return None
 
-    def head(self) -> Exercise:
+    def head(self) -> Optional[Exercise]:
         """
         Returns the newest version of this exercise.
         """
         ret = self.successors() + [self]
         return max(ret, key=lambda e: e.version, default=None)
 
-    def tail(self) -> Exercise:
+    def tail(self) -> Optional[Exercise]:
         """
         Returns the oldest version of this exercise.
         """
@@ -320,7 +310,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return min(ret, key=lambda e: e.version, default=None)
 
     @staticmethod
-    def get_default_exercise(short_name, for_update=False) -> Exercise:
+    def get_default_exercise(short_name, for_update=False) -> Optional[Exercise]:
         """
         Returns and locks the default exercise for the given short_name.
         """
@@ -330,7 +320,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return q.one_or_none()
 
     @staticmethod
-    def get_exercise(short_name, version, for_update=False) -> Exercise:
+    def get_exercise(short_name, version, for_update=False) -> Optional[Exercise]:
         exercise = Exercise.query.filter(
             and_(Exercise.short_name == short_name, Exercise.version == version)
         )
@@ -354,13 +344,15 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             or datetime.datetime.now() > self.submission_deadline_start
         )
 
-    def submission_heads(self) -> List[Submission]:
+    def submission_heads(self) -> List["Submission"]:
         """
         Returns the most recent submission for this exercise for each user.
         Note: This function does not consider Submissions of other
         version of this exercise. Hence, the returned submissions might
         not be the most recent ones for an specific instance.
         """
+        from .instance import Instance
+
         most_recent_instances = []
         instances_per_user = defaultdict(list)
         instances = Instance.query.filter(
@@ -374,7 +366,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
             most_recent_instances += [max(instances, key=lambda e: e.creation_ts)]
         return [e.submission for e in most_recent_instances if e.submission]
 
-    def submission_heads_global(self) -> List[Submission]:
+    def submission_heads_global(self) -> List["Submission"]:
         """
         Same as .submission_heads(), except only submissions
         that have no newer (based on a more recent exercise version)
@@ -400,7 +392,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         return ret
 
     @property
-    def active_instances(self) -> List[Instance]:
+    def active_instances(self) -> List["Instance"]:
         """
         Get all instances of this exercise that are no submissions.
         Note: This function does not returns Instances that belong to
@@ -408,7 +400,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
         """
         return [i for i in self.instances if not i.submission]
 
-    def submissions(self, user=None) -> List[Submission]:
+    def submissions(self, user=None) -> List["Submission"]:
         """
         Get all submissions of this exercise.
         Note: This function does not returns Submissions that belong to
@@ -441,7 +433,7 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
                 return True
         return False
 
-    def avg_points(self) -> float:
+    def avg_points(self) -> Optional[float]:
         """
         Returns the average points calculated over all submission heads.
         If there are no submissions, None is returned.

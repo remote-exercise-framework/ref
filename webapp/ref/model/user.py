@@ -1,10 +1,12 @@
-import typing
-from typing import TYPE_CHECKING
+import datetime
 import uuid
-
+from typing import TYPE_CHECKING, List, Optional
 
 from flask_bcrypt import check_password_hash, generate_password_hash
 from flask_login import UserMixin
+from sqlalchemy import ForeignKey, LargeBinary, PickleType, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from ref import db
 from ref.model.enums import CourseOfStudies, UserAuthorizationGroups
 
@@ -17,12 +19,11 @@ if TYPE_CHECKING:
 class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ["id", "name"]
     __tablename__ = "user_group"
-    __allow_unmapped__ = True
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Text(), nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(Text, unique=True)
 
-    users = db.relationship(
+    users: Mapped[List["User"]] = relationship(
         "User", back_populates="group", lazy=True, passive_deletes="all"
     )
 
@@ -30,33 +31,32 @@ class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
     __to_str_fields__ = ["id", "is_admin", "first_name", "surname", "nickname"]
     __tablename__ = "user"
-    __allow_unmapped__ = True
 
-    id = db.Column(db.Integer, primary_key=True)
-    login_token = db.Column(db.Text(), nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    login_token: Mapped[Optional[str]] = mapped_column(Text)
 
-    first_name = db.Column(db.Text(), nullable=False)
-    surname = db.Column(db.Text(), nullable=False)
-    nickname = db.Column(db.Text(), nullable=True, unique=True)
+    first_name: Mapped[str] = mapped_column(Text)
+    surname: Mapped[str] = mapped_column(Text)
+    nickname: Mapped[Optional[str]] = mapped_column(Text, unique=True)
 
     # backref is group
-    group_id = db.Column(db.Integer, db.ForeignKey("user_group.id"), nullable=True)
-    group: "UserGroup" = db.relationship(
+    group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("user_group.id"))
+    group: Mapped[Optional["UserGroup"]] = relationship(
         "UserGroup", foreign_keys=[group_id], back_populates="users"
     )
 
-    password = db.Column(db.LargeBinary(), nullable=False)
-    mat_num = db.Column(db.Text(), nullable=False, unique=True)
+    password: Mapped[bytes] = mapped_column(LargeBinary)
+    mat_num: Mapped[str] = mapped_column(Text, unique=True)
 
-    registered_date = db.Column(db.DateTime(), nullable=False)
-    pub_key = db.Column(db.Text(), nullable=False)
-    priv_key = db.Column(db.Text(), nullable=True)
-    course_of_studies = db.Column(db.Enum(CourseOfStudies), nullable=True)
+    registered_date: Mapped[datetime.datetime]
+    pub_key: Mapped[str] = mapped_column(Text)
+    priv_key: Mapped[Optional[str]] = mapped_column(Text)
+    course_of_studies: Mapped[Optional[CourseOfStudies]]
 
-    auth_groups = db.Column(db.PickleType(), nullable=False)
+    auth_groups: Mapped[List[UserAuthorizationGroups]] = mapped_column(PickleType)
 
     # Exercise instances associated to the student
-    exercise_instances = db.relationship(
+    exercise_instances: Mapped[List["Instance"]] = relationship(
         "Instance", back_populates="user", lazy="joined", passive_deletes="all"
     )
 
@@ -105,9 +105,9 @@ class User(CommonDbOpsMixin, ModelToStringMixin, UserMixin, db.Model):
         return f"{self.first_name} {self.surname}"
 
     @property
-    def instances(self) -> typing.List["Instance"]:
+    def instances(self) -> List["Instance"]:
         return [i for i in self.exercise_instances if not i.submission]
 
     @property
-    def submissions(self) -> typing.List["Instance"]:
+    def submissions(self) -> List["Instance"]:
         return [i for i in self.exercise_instances if i.submission]

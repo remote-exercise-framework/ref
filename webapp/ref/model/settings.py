@@ -1,7 +1,10 @@
 import secrets
 import string
+from typing import Any, Optional
 
 from flask import current_app
+from sqlalchemy import PickleType, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from ref import db
 
@@ -17,11 +20,10 @@ def generate_installation_id() -> str:
 class SystemSetting(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ["id", "name"]
     __tablename__ = "system_setting"
-    __allow_unmapped__ = True
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Text(), nullable=False, unique=True)
-    value = db.Column(db.PickleType(), nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(Text, unique=True)
+    value: Mapped[Optional[Any]] = mapped_column(PickleType)
 
     @staticmethod
     def get_setting(name):
@@ -56,7 +58,7 @@ class Setting:
     value = property(_get_value, _set_value)
 
 
-default_ssh_welcome_msg = """
+default_ssh_welcome_msg = r"""
  ____  ____  ____                 _ __
 / __ \/ __/ / __/__ ______ ______(_) /___ __
 / /_/ /\ \  _\ \/ -_) __/ // / __/ / __/ // /
