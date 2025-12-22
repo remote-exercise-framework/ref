@@ -417,18 +417,70 @@ class REFSSHClient:
         stdin.channel.shutdown_write()
 
         # Try to read output - the connection may drop during this
-        output = ""
+        # Initialize chunks outside try block so they survive exceptions
+        stdout_chunks: list[str] = []
+        stderr_chunks: list[str] = []
+
         try:
             channel = stdout.channel
             channel.settimeout(timeout)
 
-            # Read output until connection drops or command completes
-            stdout_data = stdout.read().decode("utf-8", errors="replace")
-            stderr_data = stderr.read().decode("utf-8", errors="replace")
-            output = stdout_data + stderr_data
+            # Read until connection drops, command completes, or timeout
+            # Use recv instead of read() for more control
+            start_time = time.time()
+            max_wait = 5.0  # Max time to wait for output before giving up
+            idle_count = 0  # Count consecutive idle iterations
+
+            while not channel.closed and (time.time() - start_time) < max_wait:
+                if channel.recv_ready():
+                    chunk = channel.recv(4096)
+                    if chunk:
+                        stdout_chunks.append(chunk.decode("utf-8", errors="replace"))
+                        idle_count = 0
+                    else:
+                        break  # EOF
+                elif channel.recv_stderr_ready():
+                    chunk = channel.recv_stderr(4096)
+                    if chunk:
+                        stderr_chunks.append(chunk.decode("utf-8", errors="replace"))
+                        idle_count = 0
+                    else:
+                        break  # EOF
+                elif channel.exit_status_ready():
+                    # Command completed, drain remaining output
+                    while channel.recv_ready():
+                        chunk = channel.recv(4096)
+                        if chunk:
+                            stdout_chunks.append(
+                                chunk.decode("utf-8", errors="replace")
+                            )
+                        else:
+                            break
+                    while channel.recv_stderr_ready():
+                        chunk = channel.recv_stderr(4096)
+                        if chunk:
+                            stderr_chunks.append(
+                                chunk.decode("utf-8", errors="replace")
+                            )
+                        else:
+                            break
+                    break
+                else:
+                    # No data available, wait a bit
+                    time.sleep(0.1)
+                    idle_count += 1
+                    # If we've been idle for 2 seconds (20 * 0.1s), check if channel is dead
+                    if idle_count > 20:
+                        # Check if the transport is still active
+                        transport = channel.get_transport()
+                        if transport is None or not transport.is_active():
+                            break
         except Exception:
             # Connection dropped during read - this is expected for reset
             pass
+
+        # Combine whatever output was captured (even if connection dropped)
+        output = "".join(stdout_chunks) + "".join(stderr_chunks)
 
         # After reset, the container is destroyed and recreated
         # The connection will be closed by the server

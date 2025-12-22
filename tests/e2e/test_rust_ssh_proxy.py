@@ -5,6 +5,7 @@ Tests the new Rust-based SSH proxy implementation (issue #30).
 Connects via the ssh_port fixture to the SSH reverse proxy.
 """
 
+import logging
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,15 @@ import pytest
 from helpers.exercise_factory import create_sample_exercise
 from helpers.ssh_client import REFSSHClient
 from helpers.web_client import REFWebClient
+
+# Set up logging for this test module
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+# Ensure logs go to stdout
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("[%(name)s] %(message)s"))
+    logger.addHandler(handler)
 
 
 class RustProxyTestState:
@@ -137,6 +147,7 @@ class TestRustProxySetup:
         web_client.logout()
         mat_num = str(uuid.uuid4().int)[:8]
         rust_proxy_state.mat_num = mat_num
+        logger.info(f"[TEST] Registering student with mat_num: {mat_num}")
 
         success, private_key, _ = web_client.register_student(
             mat_num=mat_num,
@@ -148,6 +159,22 @@ class TestRustProxySetup:
         assert success, "Failed to register student"
         assert private_key is not None
         rust_proxy_state.private_key = private_key
+
+        # Log private key info
+        logger.info(f"[TEST] Got private key of length {len(private_key)}")
+        logger.info(f"[TEST] Private key first 100 chars: {private_key[:100]}...")
+
+        # Parse the key to get the public key for comparison
+        import io
+        import paramiko
+
+        try:
+            key_file = io.StringIO(private_key)
+            pkey = paramiko.Ed25519Key.from_private_key(key_file)
+            pub_key_str = f"{pkey.get_name()} {pkey.get_base64()}"
+            logger.info(f"[TEST] Derived public key: {pub_key_str}")
+        except Exception as e:
+            logger.error(f"[TEST] Failed to parse private key: {e}")
 
         # Re-login as admin
         web_client.login("0", admin_password)
@@ -162,17 +189,65 @@ class TestRustSSHProxyConnection:
         ssh_host: str,
         ssh_port: int,
         rust_proxy_state: RustProxyTestState,
+        ref_instance,
     ):
         """Verify SSH connection works through the Rust SSH proxy."""
         assert rust_proxy_state.private_key is not None
         assert rust_proxy_state.exercise_name is not None
 
-        client = create_rust_ssh_client(
-            host=ssh_host,
-            port=ssh_port,
-            private_key=rust_proxy_state.private_key,
-            exercise_name=rust_proxy_state.exercise_name,
-        )
+        logger.info(f"[TEST] Connecting to SSH proxy at {ssh_host}:{ssh_port}")
+        logger.info(f"[TEST] Exercise name: {rust_proxy_state.exercise_name}")
+        logger.info(f"[TEST] Private key length: {len(rust_proxy_state.private_key)}")
+
+        # Parse the key to log the public key
+        import io
+        import paramiko
+
+        try:
+            key_file = io.StringIO(rust_proxy_state.private_key)
+            pkey = paramiko.Ed25519Key.from_private_key(key_file)
+            pub_key_str = f"{pkey.get_name()} {pkey.get_base64()}"
+            logger.info(f"[TEST] Will authenticate with public key: {pub_key_str}")
+        except Exception as e:
+            logger.error(f"[TEST] Failed to parse private key: {e}")
+
+        # Capture SSH proxy logs before connection attempt
+        logger.info("[TEST] === SSH Proxy logs BEFORE connection attempt ===")
+        try:
+            logs = ref_instance.logs(tail=50)
+            for line in logs.split("\n"):
+                if (
+                    "ssh-reverse-proxy" in line.lower()
+                    or "[AUTH]" in line
+                    or "[API]" in line
+                ):
+                    logger.info(f"[PROXY LOG] {line}")
+        except Exception as e:
+            logger.error(f"[TEST] Failed to get logs: {e}")
+
+        try:
+            client = create_rust_ssh_client(
+                host=ssh_host,
+                port=ssh_port,
+                private_key=rust_proxy_state.private_key,
+                exercise_name=rust_proxy_state.exercise_name,
+            )
+        except Exception as e:
+            # Capture SSH proxy logs after failed connection
+            logger.error(f"[TEST] Connection failed: {e}")
+            logger.info("[TEST] === SSH Proxy logs AFTER failed connection ===")
+            try:
+                logs = ref_instance.logs(tail=100)
+                for line in logs.split("\n"):
+                    if (
+                        "ssh-reverse-proxy" in line.lower()
+                        or "[AUTH]" in line
+                        or "[API]" in line
+                    ):
+                        logger.info(f"[PROXY LOG] {line}")
+            except Exception as log_e:
+                logger.error(f"[TEST] Failed to get logs: {log_e}")
+            raise
 
         assert client.is_connected(), "Rust SSH proxy connection failed"
 
