@@ -352,9 +352,15 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
         cgroup_parent = f"{cgroup_base}-core.slice"
         instances_cgroup_parent = f"{cgroup_base}-instances.slice"
 
-        # Extract unique bridge ID from prefix (last 6 hex chars) for test network names
-        # This allows cleanup of leaked networks while keeping names under 15 char limit
-        bridge_id = self.config.prefix[-6:] if self.config.testing else ""
+        # Generate unique bridge ID using global counter for test network names
+        # Format: 3-digit counter (001, 002, etc.) with 'reft' prefix in template
+        # This allows cleanup of leaked networks (br-reft-*) and keeps names under 15 chars
+        if self.config.testing:
+            from helpers.bridge_counter import get_next_bridge_id
+
+            bridge_id = f"{get_next_bridge_id():03d}"
+        else:
+            bridge_id = ""
 
         rendered = template.render(
             testing=self.config.testing,

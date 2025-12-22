@@ -42,6 +42,7 @@ services:
 
     web:
         init: true
+        hostname: web
         security_opt:
             #Needed for mounting overlay inside containers
             - apparmor:unconfined
@@ -61,6 +62,7 @@ services:
             - HOT_RELOADING=${HOT_RELOADING}
             - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
             - RATELIMIT_ENABLED=${RATELIMIT_ENABLED}
+            - DOCKER_RESSOURCE_PREFIX=${DOCKER_RESSOURCE_PREFIX:-}
             - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
             - REAL_HOSTNAME=${REAL_HOSTNAME}
 {% if testing %}
@@ -136,7 +138,7 @@ networks:
     web-host:
         driver: bridge
         driver_opts:
-            com.docker.network.bridge.name: "br-whost-{{ bridge_id if testing else 'ref' }}"
+            com.docker.network.bridge.name: "br-{{ 'reft-' + bridge_id + '-wh' if testing else 'whost-ref' }}"
     #Interface between the SSH reverse proxy and the webinterface.
     #This interface is used by the SSH proxy to retrieve information
     #on how an incoming connection should be routed.
@@ -144,15 +146,15 @@ networks:
         driver: bridge
         internal: true
         driver_opts:
-            com.docker.network.bridge.name: "br-w2ssh-{{ bridge_id if testing else 'ref' }}"
+            com.docker.network.bridge.name: "br-{{ 'reft-' + bridge_id + '-ws' if testing else 'w2ssh-ref' }}"
     #This network connects the SSH reverse proxy to the host.
     ssh-and-host:
         driver: bridge
         driver_opts:
-            com.docker.network.bridge.name: "br-shost-{{ bridge_id if testing else 'ref' }}"
+            com.docker.network.bridge.name: "br-{{ 'reft-' + bridge_id + '-sh' if testing else 'shost-ref' }}"
     #Connect web to postgres
     web-and-db:
         driver: bridge
         internal: true
         driver_opts:
-            com.docker.network.bridge.name: "br-w2db-{{ bridge_id if testing else 'ref' }}"
+            com.docker.network.bridge.name: "br-{{ 'reft-' + bridge_id + '-wd' if testing else 'w2db-ref' }}"

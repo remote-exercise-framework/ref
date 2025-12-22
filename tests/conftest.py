@@ -2,7 +2,8 @@
 REF E2E Test Configuration and Fixtures
 
 All E2E tests automatically start and manage their own REF instance.
-The instance is started once per test session and cleaned up afterwards.
+Each test module gets its own isolated instance to eliminate contention
+when running tests in parallel with pytest-xdist.
 
 No manual startup is required - tests are fully self-contained.
 """
@@ -50,11 +51,11 @@ from test_config import generate_test_prefix  # noqa: E402
 # Emergency Cleanup on Unexpected Exit
 # =============================================================================
 
-# Track the active REF instance for emergency cleanup
-_cleanup_instance: Optional[REFInstance] = None
+# Track active REF instances for emergency cleanup (multiple with module scope)
+_cleanup_instances: List[REFInstance] = []
 _cleanup_registered: bool = False
-# Track the current session's prefix for cleanup at session end
-_current_session_prefix: Optional[str] = None
+# Track prefixes for cleanup at session end
+_session_prefixes: List[str] = []
 
 
 def _emergency_cleanup(
@@ -69,22 +70,20 @@ def _emergency_cleanup(
     It ensures Docker resources are cleaned up even if pytest crashes
     or is killed unexpectedly.
     """
-    global _cleanup_instance
-    if _cleanup_instance is not None:
+    global _cleanup_instances
+    # Clean up all tracked instances
+    for instance in list(_cleanup_instances):
         try:
-            print(
-                f"\n[REF E2E] Emergency cleanup triggered: {_cleanup_instance.prefix}"
-            )
-            _cleanup_instance.cleanup()
+            print(f"\n[REF E2E] Emergency cleanup triggered: {instance.prefix}")
+            instance.cleanup()
         except Exception as e:
             print(f"[REF E2E] Emergency cleanup failed: {e}")
             # Try prefix-based cleanup as fallback
             try:
-                cleanup_docker_resources_by_prefix(_cleanup_instance.prefix)
+                cleanup_docker_resources_by_prefix(instance.prefix)
             except Exception:
                 pass
-        finally:
-            _cleanup_instance = None
+    _cleanup_instances.clear()
 
     if signum is not None:
         # Re-raise the signal after cleanup
@@ -487,20 +486,51 @@ def combine_all_coverage() -> None:
 
 
 # =============================================================================
+# Session-level cleanup and initialization
+# =============================================================================
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_stale_test_bridges() -> Generator[None, None, None]:
+    """
+    Clean up stale Docker bridges from previous test runs and reset the counter.
+
+    This runs once at the start of the test session to:
+    1. Remove any leftover br-reft-* bridges from crashed/interrupted tests
+    2. Reset the bridge counter to ensure fresh numbering
+    """
+    from helpers.bridge_counter import cleanup_test_bridges, reset_bridge_counter
+
+    # Clean up any leftover bridges from previous runs
+    removed = cleanup_test_bridges()
+    if removed > 0:
+        print(f"[REF E2E] Cleaned up {removed} stale test bridges")
+
+    # Reset counter for this session
+    reset_bridge_counter()
+
+    yield
+
+
+# =============================================================================
 # Managed REF Instance - Automatically started for E2E tests
 # =============================================================================
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def ref_instance(
     tmp_path_factory: TempPathFactory,
+    request: pytest.FixtureRequest,
 ) -> Generator[REFInstance, None, None]:
     """
-    Provides a managed REF instance for the test session.
+    Provides a managed REF instance for each test module.
+
+    Each test module gets its own isolated REF instance, eliminating
+    contention when running tests in parallel with pytest-xdist.
 
     The instance is automatically:
-    - Started before E2E tests run
-    - Cleaned up after tests complete
+    - Started before the module's tests run
+    - Cleaned up after the module's tests complete
 
     All E2E test fixtures use this instance for:
     - web_url
@@ -508,18 +538,22 @@ def ref_instance(
     - admin_password
     - exercises_path
     """
-    global _cleanup_instance, _current_session_prefix
+    global _cleanup_instances, _session_prefixes
 
     # Register emergency cleanup handlers (signal handlers + atexit)
     _register_cleanup_handlers()
 
-    # Create temp directories for this test session
-    session_id = generate_test_prefix()
+    # Create temp directories for this test module
+    module_id = generate_test_prefix()
+    # Include module name in prefix for easier debugging
+    module_name = (
+        request.module.__name__.split(".")[-1] if request.module else "unknown"
+    )
     exercises_dir = tmp_path_factory.mktemp("exercises")
     data_dir = tmp_path_factory.mktemp("data")
 
     config = REFInstanceConfig(
-        prefix=f"ref_e2e_{session_id}",
+        prefix=f"ref_e2e_{module_id}_{module_name[:20]}",
         exercises_dir=exercises_dir,
         data_dir=data_dir,
         testing=True,
@@ -531,12 +565,13 @@ def ref_instance(
     instance = REFInstance(config)
 
     # Track instance for emergency cleanup (SIGTERM, SIGINT, atexit)
-    _cleanup_instance = instance
-    _current_session_prefix = instance.prefix
+    _cleanup_instances.append(instance)
+    _session_prefixes.append(instance.prefix)
 
     try:
         # Build and start the instance
         print(f"\n[REF E2E] Starting managed REF instance: {instance.prefix}")
+        print(f"[REF E2E] Module: {module_name}")
         print(f"[REF E2E] Web URL will be: {instance.web_url}")
         print(f"[REF E2E] SSH port will be: {instance.ssh_port}")
         print(f"[REF E2E] Exercises dir: {exercises_dir}")
@@ -574,8 +609,9 @@ def ref_instance(
         print(f"[REF E2E] Cleaning up instance: {instance.prefix}")
         instance.cleanup()
 
-        # Clear emergency cleanup tracking (normal cleanup completed)
-        _cleanup_instance = None
+        # Remove from emergency cleanup tracking (normal cleanup completed)
+        if instance in _cleanup_instances:
+            _cleanup_instances.remove(instance)
 
 
 # =============================================================================
@@ -583,37 +619,37 @@ def ref_instance(
 # =============================================================================
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def web_url(ref_instance: REFInstance) -> str:
     """Returns the web interface URL from the managed instance."""
     return ref_instance.web_url
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def ssh_host(ref_instance: REFInstance) -> str:
     """Returns the SSH server host from the managed instance."""
     return ref_instance.ssh_host
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def ssh_port(ref_instance: REFInstance) -> int:
     """Returns the SSH server port from the managed instance."""
     return ref_instance.ssh_port
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def admin_password(ref_instance: REFInstance) -> str:
     """Returns the admin password from the managed instance."""
     return ref_instance.admin_password
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def exercises_path(ref_instance: REFInstance) -> Path:
     """Returns the path to the exercises directory."""
     return ref_instance.exercises_dir
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def test_config(ref_instance: REFInstance) -> Dict[str, Any]:
     """Returns the test configuration dictionary."""
     return {
@@ -631,10 +667,14 @@ def test_config(ref_instance: REFInstance) -> Dict[str, Any]:
 # =============================================================================
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def web_client(ref_instance: REFInstance) -> Generator["REFWebClient", None, None]:
     """
     Creates an HTTP client for interacting with the REF web interface.
+
+    Module-scoped to ensure each test file gets its own client instance,
+    preventing authentication state corruption when running tests in parallel
+    with pytest-xdist.
     """
     from helpers.web_client import REFWebClient
 
@@ -643,12 +683,15 @@ def web_client(ref_instance: REFInstance) -> Generator["REFWebClient", None, Non
     client.close()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def admin_client(
     web_client: "REFWebClient", admin_password: str
 ) -> Generator["REFWebClient", None, None]:
     """
     Creates an authenticated admin client.
+
+    Module-scoped to match web_client scope and ensure each test file
+    gets its own authenticated session.
     """
     # Login as admin (mat_num=0)
     success = web_client.login("0", admin_password)
@@ -690,7 +733,7 @@ def ssh_client_factory(
 # =============================================================================
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sample_exercise_path(
     tmp_path_factory: TempPathFactory, exercises_path: Path
 ) -> Path:
@@ -716,9 +759,9 @@ def unique_test_id() -> str:
     return f"test_{uuid.uuid4().hex[:8]}"
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def resource_prefix(ref_instance: REFInstance) -> str:
-    """Returns the unique resource prefix for this test run."""
+    """Returns the unique resource prefix for this test module."""
     return ref_instance.prefix
 
 
@@ -745,7 +788,22 @@ def pytest_configure(config: Config) -> None:
 def pytest_collection_modifyitems(config: Config, items: List[Item]) -> None:
     """
     Automatically mark all tests based on directory.
+
+    Also enforces file-level granularity for E2E tests - these tests depend on
+    earlier tests in the same file for setup (state sharing via class attributes).
+    Running individual tests causes false failures due to missing state.
     """
+    # Check if any e2e/ test was selected with :: (specific test/class selection)
+    for arg in config.args:
+        if "e2e/" in arg and "::" in arg:
+            file_path = arg.split("::")[0]
+            pytest.exit(
+                f"ERROR: Cannot run individual E2E tests due to state dependencies.\n"
+                f"Run the full file instead: pytest {file_path}\n"
+                f"Or run all E2E tests: pytest e2e/",
+                returncode=1,
+            )
+
     for item in items:
         if "e2e" in str(item.fspath):
             item.add_marker(pytest.mark.e2e)
@@ -896,10 +954,10 @@ def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
 
     # Final cleanup pass for resources
     if os.environ.get("REF_CLEANUP_ON_EXIT", "1") == "1":
-        # Clean up current session's resources (safety net if fixture cleanup failed)
-        if _current_session_prefix:
-            print(f"[REF E2E] Final cleanup for session: {_current_session_prefix}")
-            cleanup_docker_resources_by_prefix(_current_session_prefix)
+        # Clean up all session's resources (safety net if fixture cleanup failed)
+        for prefix in _session_prefixes:
+            print(f"[REF E2E] Final cleanup for prefix: {prefix}")
+            cleanup_docker_resources_by_prefix(prefix)
 
         # Also clean up orphaned resources from crashed runs (PID-based)
         cleanup_orphaned_resources_by_pid()
@@ -942,8 +1000,8 @@ def pytest_runtest_makereport(
 
         error_message = "\n".join(error_parts)
 
-        # Try to get the REF instance from the session
-        instance = _cleanup_instance
+        # Try to get the REF instance from the tracked instances
+        instance = _cleanup_instances[0] if _cleanup_instances else None
 
         # Save failure logs
         try:
