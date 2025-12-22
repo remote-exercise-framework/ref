@@ -52,14 +52,15 @@ def create_sample_exercise(
         "version": version,
         "category": category,
         "submission-test": has_submission_test,
-        "grading-points": grading_points,
         "entry": {
             "files": ["solution.c", "Makefile"],
             "build-cmd": ["chown user:user solution.c"],
         },
     }
 
+    # grading-points and deadline must both be set or neither (webapp validation)
     if has_deadline:
+        settings["grading-points"] = grading_points
         settings["deadline"] = {
             "start": {
                 "date": start_date,  # datetime.date object for proper YAML serialization
