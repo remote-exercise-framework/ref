@@ -477,10 +477,22 @@ class InstanceManager:
         instance_entry_service = self.instance.entry_service
 
         # Get the container IDs of the SSH reverse proxy and web container.
-        ssh_proxy_container = self.dc.container(
-            current_app.config["SSH_REVERSE_PROXY_CONTAINER_NAME"]
+        ssh_proxy_name = current_app.config["SSH_REVERSE_PROXY_CONTAINER_NAME"]
+        web_name = current_app.config["WEB_CONTAINER_NAME"]
+        log.info(f"[INSTANCE] Looking up SSH proxy container: {ssh_proxy_name}")
+        log.info(f"[INSTANCE] Looking up web container: {web_name}")
+        print(
+            f"[INSTANCE] Looking up SSH proxy container: {ssh_proxy_name}", flush=True
         )
-        web_container = self.dc.container(current_app.config["WEB_CONTAINER_NAME"])
+        print(f"[INSTANCE] Looking up web container: {web_name}", flush=True)
+
+        ssh_proxy_container = self.dc.container(ssh_proxy_name)
+        web_container = self.dc.container(web_name)
+
+        log.info(f"[INSTANCE] SSH proxy container: {ssh_proxy_container}")
+        log.info(f"[INSTANCE] Web container: {web_container}")
+        print(f"[INSTANCE] SSH proxy container: {ssh_proxy_container}", flush=True)
+        print(f"[INSTANCE] Web container: {web_container}", flush=True)
 
         # Create a network that connects the entry service with the SSH reverse proxy.
         entry_to_ssh_network_name = f"{current_app.config['DOCKER_RESSOURCE_PREFIX']}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}"
@@ -682,13 +694,16 @@ class InstanceManager:
         if entry_container:
             entry_container = self.dc.container(entry_container)
             if entry_container and entry_container.status == "running":
-                entry_container.kill()
+                # Use stop() instead of kill() to allow graceful shutdown.
+                # This sends SIGTERM first, giving the SSH server time to close
+                # connections properly before SIGKILL after the timeout.
+                entry_container.stop(timeout=2)
 
         for service in self.instance.peripheral_services:
             if service.container_id:
                 container = self.dc.container(service.container_id)
                 if container and container.status == "running":
-                    container.kill()
+                    container.stop(timeout=2)
 
     def _remove_container(self):
         entry_container = self.instance.entry_service.container_id
