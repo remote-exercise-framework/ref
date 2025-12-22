@@ -188,6 +188,15 @@ Client (ssh exercise@host -p 2222)
 
 Pending tasks in the codebase are marked with `FIXME(claude)` and `TODO(claude)`. When the user requests to process todos or fixmes, search for these markers and address them.
 
+## Fixing Race Conditions
+
+**Never fix race conditions by:**
+- Adding timeouts or delays (e.g., `time.sleep()`)
+- Reducing the number of threads or parallel processes
+- Reducing test parallelism (e.g., changing `-n 10` to `-n 4`)
+
+These approaches hide the underlying problem rather than fixing it. Race conditions must be fixed by addressing the root cause: proper synchronization, locking, atomic operations, or architectural changes.
+
 ## Commit Messages
 
 - Do not include Claude as author or co-author in commit messages.
