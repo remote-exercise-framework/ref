@@ -4,6 +4,7 @@ REF Web Client Helper
 HTTP client for interacting with the REF web interface during E2E tests.
 """
 
+import logging
 import re
 import time
 import urllib.parse
@@ -11,6 +12,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 
 class REFWebClient:
@@ -279,8 +282,17 @@ class REFWebClient:
             # Check for error alerts (Bootstrap alert-danger class)
             error_alerts = soup.select(".alert-danger")
             if error_alerts:
+                logger.info(
+                    "import_exercise error alerts: %s",
+                    [e.get_text() for e in error_alerts],
+                )
                 return False
             return True
+        logger.info(
+            "import_exercise request failed: status=%d, url=%s",
+            response.status_code,
+            url,
+        )
         return False
 
     def build_exercise(self, exercise_id: int) -> bool:

@@ -156,10 +156,12 @@ def exercise_do_import(cfg_path):
     try:
         cfg_path = urllib.parse.unquote_plus(cfg_path)
     except Exception:
+        log.info("Import failed: invalid config path encoding")
         flash.error("Invalid config path")
         return render()
 
     if not sanitize_path_is_subdir(current_app.config["EXERCISES_PATH"], cfg_path):
+        log.info(f"Import failed: path not in exercises dir: {cfg_path}")
         flash.error("Invalid cfg path")
         return render()
 
@@ -168,16 +170,19 @@ def exercise_do_import(cfg_path):
     try:
         exercise = ExerciseManager.from_template(cfg_path)
     except ExerciseConfigError as err:
+        log.info(f"Import failed: template at {cfg_path} contains errors: {err}")
         flash.error(f"Template at {cfg_path} contains errors: {err}")
         return render()
 
     if exercise.exists():
+        log.info(f"Import failed: exercise version already imported: {cfg_path}")
         flash.warning("The given exercise version was already imported")
         return render()
 
     # Check if this is really a new version or a new task
     successor = exercise.successor()
     if successor:
+        log.info(f"Import failed: older version of existing exercise: {cfg_path}")
         flash.warning("Unable to import older version of already existing exercise")
         return render()
 
