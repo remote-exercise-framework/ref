@@ -261,6 +261,9 @@ def setup_installation_id(app: Flask):
     Initialize the installation ID and update Docker resource prefix.
     The installation ID is a unique 6-character identifier for this REF instance,
     used to distinguish Docker resources created by different installations.
+
+    If DOCKER_RESSOURCE_PREFIX is set via environment variable, it takes precedence
+    over the installation ID. This allows tests to use custom prefixes for isolation.
     """
     from ref.model import SystemSettingsManager
     from ref.model.settings import generate_installation_id
@@ -273,11 +276,16 @@ def setup_installation_id(app: Flask):
             app.db.session.commit()
             app.logger.info(f"Generated new installation ID: {install_id}")
 
-        # Update the Docker resource prefix to include the installation ID
-        app.config["DOCKER_RESSOURCE_PREFIX"] = f"ref-{install_id}-"
-        app.logger.info(
-            f"Docker resource prefix: {app.config['DOCKER_RESSOURCE_PREFIX']}"
-        )
+        # Respect environment override (for tests) or use installation ID
+        env_prefix = os.environ.get("DOCKER_RESSOURCE_PREFIX")
+        if env_prefix:
+            app.config["DOCKER_RESSOURCE_PREFIX"] = env_prefix
+            app.logger.info(f"Docker resource prefix from env: {env_prefix}")
+        else:
+            app.config["DOCKER_RESSOURCE_PREFIX"] = f"ref-{install_id}-"
+            app.logger.info(
+                f"Docker resource prefix: {app.config['DOCKER_RESSOURCE_PREFIX']}"
+            )
 
 
 def setup_login(app: Flask):
