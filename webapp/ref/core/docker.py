@@ -2,7 +2,6 @@ import ipaddress
 import random
 import string
 import re
-import subprocess
 import tarfile
 from io import BytesIO
 from pathlib import Path
@@ -31,35 +30,37 @@ class DockerClient:
     @staticmethod
     def container_name_by_hostname(hostname):
         """
-        Resolves the hostname of an container to its full name.
-        E.g., ssh -> ref_sshserver_1
+        Finds a container by its hostname using the Docker API.
+        Filters by Docker Compose project to handle parallel test instances.
+        E.g., ssh-reverse-proxy -> ref_e2e_xxx_ssh-reverse-proxy_1
         """
-        log.debug(f"Getting FQN of host {hostname}")
-        cmd = f"dig +short {hostname}"
-        ip = None
+        client = docker.from_env()
+
+        # Find our own container's compose project label using container ID
+        our_project = None
         try:
-            ip = subprocess.check_output(cmd, shell=True)
-        except subprocess.CalledProcessError:
-            log.error(f'Failed to get IP of host "{hostname}"', exc_info=True)
-            raise
+            my_container_id = DockerClient.get_own_container_id()
+            for container in client.containers.list():
+                if container.id == my_container_id:
+                    labels = container.attrs.get("Config", {}).get("Labels", {})
+                    our_project = labels.get("com.docker.compose.project")
+                    break
+        except Exception:
+            pass  # Fall back to non-filtered lookup
 
-        ip = ip.decode().rstrip()
-        log.debug(f"IP is {ip}")
+        # Find container with matching hostname AND same compose project
+        for container in client.containers.list():
+            config = container.attrs.get("Config", {})
+            if config.get("Hostname") == hostname:
+                if our_project:
+                    labels = config.get("Labels", {})
+                    if labels.get("com.docker.compose.project") == our_project:
+                        return container.name
+                else:
+                    # Fallback if we couldn't determine our project
+                    return container.name
 
-        cmd = f'nslookup {ip} | grep -o "name = .*$" | cut -d "=" -f 2 | xargs | cut -d "." -f 1'
-        full_hostname = None
-        try:
-            full_hostname = subprocess.check_output(cmd, shell=True)
-        except subprocess.CalledProcessError:
-            log.error(
-                f"Failed to get hostname for IP {ip} of host {hostname}", exc_info=True
-            )
-            raise
-
-        full_hostname = full_hostname.decode().rstrip()
-        log.debug(f"Full hostname is {full_hostname}")
-
-        return full_hostname
+        raise Exception(f"No running container found with hostname '{hostname}'")
 
     @property
     def client(self) -> docker.DockerClient:
