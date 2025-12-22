@@ -5,7 +5,7 @@ use base64::Engine;
 use hmac::{Hmac, Mac};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, instrument};
+use tracing::{debug, info, error, instrument};
 
 /// API client for communicating with the REF web server.
 #[derive(Clone)]
@@ -119,10 +119,12 @@ impl ApiClient {
             username: "NotUsed".to_string(),
         };
         let payload = serde_json::to_string(&request)?;
+        info!("[API] get_keys payload: {}", payload);
         let signed = self.sign_payload(&payload);
+        info!("[API] get_keys signed (first 100 chars): {}...", &signed[..std::cmp::min(100, signed.len())]);
 
         let url = format!("{}/api/getkeys", self.base_url);
-        debug!("Fetching keys from {}", url);
+        info!("[API] Fetching keys from {}", url);
 
         // Send signed string as JSON (Python: requests.post(..., json=signed_string))
         let response = self
@@ -132,15 +134,26 @@ impl ApiClient {
             .send()
             .await?;
 
-        if !response.status().is_success() {
+        let status = response.status();
+        info!("[API] get_keys response status: {}", status);
+
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            error!("[API] get_keys failed: status={}, body={}", status, body);
             return Err(anyhow!(
                 "API request failed with status: {}",
-                response.status()
+                status
             ));
         }
 
-        let keys_response: GetKeysResponse = response.json().await?;
-        debug!("Received {} keys", keys_response.keys.len());
+        let body_text = response.text().await?;
+        info!("[API] get_keys response body (first 500 chars): {}...", &body_text[..std::cmp::min(500, body_text.len())]);
+
+        let keys_response: GetKeysResponse = serde_json::from_str(&body_text)?;
+        info!("[API] Received {} keys", keys_response.keys.len());
+        for (i, key) in keys_response.keys.iter().enumerate() {
+            info!("[API] Key {}: {} chars, first 60: {}...", i, key.len(), &key[..std::cmp::min(60, key.len())]);
+        }
         Ok(keys_response.keys)
     }
 
@@ -157,6 +170,7 @@ impl ApiClient {
         };
 
         let url = format!("{}/api/ssh-authenticated", self.base_url);
+        info!("[API] ssh_authenticated: exercise={}, pubkey={}...", exercise_name, &pubkey[..std::cmp::min(40, pubkey.len())]);
         debug!("Authenticating user for exercise: {}", exercise_name);
 
         let response = self
@@ -166,14 +180,25 @@ impl ApiClient {
             .send()
             .await?;
 
-        if !response.status().is_success() {
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            use std::io::Write;
+            // Escape newlines for single-line logging
+            let body_escaped = body.replace('\n', "\\n").replace('\r', "\\r");
+            eprintln!("[SSH-PROXY] ssh_authenticated FAILED: status={}, body={}", status, body_escaped);
+            std::io::stderr().flush().ok();
+            error!("[API] ssh_authenticated FAILED: status={}, body={}", status, body_escaped);
             return Err(anyhow!(
                 "SSH authentication failed with status: {}",
-                response.status()
+                status
             ));
         }
 
-        let auth_response: SshAuthenticatedResponse = response.json().await?;
+        let body_text = response.text().await?;
+        info!("[API] ssh_authenticated response: {}", body_text);
+
+        let auth_response: SshAuthenticatedResponse = serde_json::from_str(&body_text)?;
         debug!(
             "Authenticated: instance_id={}, forwarding={}",
             auth_response.instance_id, auth_response.tcp_forwarding_allowed

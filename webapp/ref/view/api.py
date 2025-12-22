@@ -389,6 +389,11 @@ def api_ssh_authenticated():
         'pubkey': pubkey
     }
     """
+    import traceback
+
+    log.info("[API] api_ssh_authenticated called")
+    print("[API] api_ssh_authenticated called", flush=True)
+
     content = request.get_json(force=True, silent=True)
     if not content:
         log.warning("Received provision request without JSON body")
@@ -416,12 +421,17 @@ def api_ssh_authenticated():
         return error_response("Invalid request")
 
     pubkey = pubkey.strip()
+    log.info(f"[API] pubkey (first 60 chars): {pubkey[:60]}...")
+    print(f"[API] pubkey (first 60 chars): {pubkey[:60]}...", flush=True)
 
     # The user name used for authentication
     name = content.get("name", None)
     if not name:
         log.warning("Missing name")
         return error_response("Invalid request")
+
+    log.info(f"[API] name={name}")
+    print(f"[API] name={name}", flush=True)
 
     # name is user provided, make sure it is valid UTF8.
     # If its not, sqlalchemy will raise an unicode error.
@@ -436,12 +446,25 @@ def api_ssh_authenticated():
 
     # Request a new instance using the provided arguments.
     try:
+        log.info("[API] Calling process_instance_request...")
+        print("[API] Calling process_instance_request...", flush=True)
         _, instance = process_instance_request(name, pubkey)
+        log.info(f"[API] process_instance_request returned instance={instance}")
+        print(
+            f"[API] process_instance_request returned instance={instance}", flush=True
+        )
     except ApiRequestError as e:
         # FIXME: This causes RecursionError: maximum recursion depth exceeded while getting the str of an object
         # fix it!
         # log.debug(f'Request failed: {e}')
+        log.warning("[API] ApiRequestError: returning error response")
+        print("[API] ApiRequestError: returning error response", flush=True)
         return e.response
+    except Exception as e:
+        log.error(f"[API] Unexpected exception in api_ssh_authenticated: {e}")
+        print(f"[API] Unexpected exception in api_ssh_authenticated: {e}", flush=True)
+        traceback.print_exc()
+        raise
 
     # NOTE: Since we committed in request_instance(), we do not hold the lock anymore.
     ret = {
