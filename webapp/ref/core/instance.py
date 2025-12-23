@@ -781,7 +781,7 @@ class InstanceManager:
         # i.e., docker-compose down -> docker-compose up
         ssh_to_entry_network.reload()
         containers = ssh_to_entry_network.containers
-        if ssh_proxy_container not in containers:
+        if containers is None or ssh_proxy_container not in containers:
             return False
         if web_container not in containers:
             return False
