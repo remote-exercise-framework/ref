@@ -148,6 +148,14 @@ jobs:
           path: tests/coverage_reports/
           retention-days: 7
 
+      - name: Generate failure log summary
+        if: failure()
+        working-directory: tests
+        run: |
+          if [ -d "failure_logs" ]; then
+            uv run python summarize_logs.py || true
+          fi
+
       - name: Upload failure logs
         uses: actions/upload-artifact@v4
         if: failure()

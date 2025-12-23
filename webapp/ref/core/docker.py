@@ -407,7 +407,7 @@ class DockerClient:
         used = set()
         for network in self.client.networks.list():
             try:
-                ipam_config = network.attrs.get("IPAM", {}).get("Config") or []
+                ipam_config = (network.attrs.get("IPAM") or {}).get("Config") or []
                 for config in ipam_config:
                     subnet_str = config.get("Subnet")
                     if subnet_str:
