@@ -68,8 +68,6 @@ Rust-based SSH proxy routing student connections to their containers.
 
 **Stack:** Rust + russh + tokio
 
-See `ssh-reverse-proxy/docs/SSH_PROXY_ARCHITECTURE.md` for detailed implementation.
-
 ### 4. ref-utils (`ref-docker-base/ref-utils/`)
 
 Python library for exercise submission testing, installed in all containers.
