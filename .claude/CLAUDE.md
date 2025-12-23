@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `README.md` - Project overview and setup instructions
 - `EXERCISES.md` - Exercise creation and submission testing
 - `docs/ARCHITECTURE.md` - System architecture and components
+- `.claude/CONTEXT.md` - Ongoing work and recent changes (create if missing)
 
 ## Build and Run Commands
 
