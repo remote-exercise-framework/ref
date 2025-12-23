@@ -494,6 +494,17 @@ class InstanceManager:
         print(f"[INSTANCE] SSH proxy container: {ssh_proxy_container}", flush=True)
         print(f"[INSTANCE] Web container: {web_container}", flush=True)
 
+        if not ssh_proxy_container:
+            raise RuntimeError(
+                f"SSH proxy container '{ssh_proxy_name}' not found. "
+                "The container may still be starting or has been removed."
+            )
+        if not web_container:
+            raise RuntimeError(
+                f"Web container '{web_name}' not found. "
+                "The container may still be starting or has been removed."
+            )
+
         # Create a network that connects the entry service with the SSH reverse proxy.
         entry_to_ssh_network_name = f"{current_app.config['DOCKER_RESSOURCE_PREFIX']}{self.instance.exercise.short_name}-v{self.instance.exercise.version}-ssh-to-entry-{self.instance.id}"
 
@@ -770,10 +781,12 @@ class InstanceManager:
         ssh_proxy_container = self.dc.container(
             current_app.config["SSH_REVERSE_PROXY_CONTAINER_NAME"]
         )
-        assert ssh_proxy_container
+        if not ssh_proxy_container:
+            return False
 
         web_container = self.dc.container(current_app.config["WEB_CONTAINER_NAME"])
-        assert web_container
+        if not web_container:
+            return False
 
         # Check if the SSH reverse proxy and web containers are connected to our network.
         # This might not be the case if they were removed and restarted with
