@@ -45,6 +45,7 @@ from helpers.ref_instance import (  # noqa: E402
     REFInstanceManager,
     cleanup_docker_resources_by_prefix,
 )
+from summarize_logs import generate_summary  # noqa: E402
 from test_config import generate_test_prefix  # noqa: E402
 
 # =============================================================================
@@ -941,6 +942,14 @@ def pytest_sessionstart(session: Session) -> None:
         except Exception as e:
             print(f"[REF E2E] Warning: Failed to remove {coverage_file.name}: {e}")
 
+    # Clean up failure logs from previous test runs
+    if FAILURE_LOG_DIR.exists():
+        try:
+            shutil.rmtree(FAILURE_LOG_DIR)
+            print("[REF E2E] Cleared failure logs from previous run")
+        except Exception as e:
+            print(f"[REF E2E] Warning: Failed to clear failure logs: {e}")
+
 
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
     """
@@ -951,6 +960,16 @@ def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
     # Combine coverage from all sources (unit tests + e2e container coverage)
     print("\n[Coverage] Combining all coverage data...")
     combine_all_coverage()
+
+    # Generate failure log summary if there were any failures
+    if exitstatus != 0:
+        failure_logs_dir = Path(__file__).parent / "failure_logs"
+        if failure_logs_dir.exists() and any(failure_logs_dir.iterdir()):
+            print("\n[REF E2E] Generating failure log summary...")
+            summary = generate_summary(failure_logs_dir)
+            output_path = failure_logs_dir / "SUMMARY.txt"
+            output_path.write_text(summary)
+            print(f"[REF E2E] Summary written to: {output_path}")
 
     # Final cleanup pass for resources
     if os.environ.get("REF_CLEANUP_ON_EXIT", "1") == "1":

@@ -202,3 +202,15 @@ These approaches hide the underlying problem rather than fixing it. Race conditi
 
 - Do not include Claude as author or co-author in commit messages.
 - Do not include historical context like "this fixes the failing test" or "this addresses the previous issue". Describe what the change does, not why it was needed.
+
+## Test Log Summary
+
+After test failures, a summary is automatically generated at `tests/failure_logs/SUMMARY.txt`. To regenerate manually:
+
+```bash
+cd tests && python3 summarize_logs.py
+```
+
+**Maintaining the pattern list:** The `ERROR_PATTERNS` dict in `tests/summarize_logs.py` defines which errors are detected. Keep this list accurate:
+- **Add patterns** for error types that appear in logs but are missing from the summary
+- **Remove patterns** that trigger false positives (matching non-error text)
