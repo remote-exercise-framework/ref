@@ -213,7 +213,10 @@ class DockerClient:
         if not network:
             return []
 
-        return network.attrs["Containers"].keys()
+        containers = network.attrs.get("Containers")
+        if containers is None:
+            return []
+        return containers.keys()
 
     def get_connected_networks(
         self, container: Union[str, docker.models.containers.Container]
@@ -305,7 +308,10 @@ class DockerClient:
         network = self.network(network, raise_on_not_found=True)
 
         network.reload()
-        for k, v in network.attrs["Containers"].items():
+        containers = network.attrs.get("Containers")
+        if containers is None:
+            return None
+        for k, v in containers.items():
             if k == container.id:
                 return v["IPv4Address"]
         return None
@@ -401,7 +407,7 @@ class DockerClient:
         used = set()
         for network in self.client.networks.list():
             try:
-                ipam_config = network.attrs.get("IPAM", {}).get("Config", [])
+                ipam_config = network.attrs.get("IPAM", {}).get("Config") or []
                 for config in ipam_config:
                     subnet_str = config.get("Subnet")
                     if subnet_str:
@@ -444,23 +450,48 @@ class DockerClient:
                 random.choices(string.ascii_uppercase, k=10)
             )
 
-        # Allocate a /29 subnet from our pool
-        subnet = self._allocate_subnet()
-        if subnet is None:
-            raise RuntimeError(
-                "No available subnet in instance network pool. "
-                "Consider cleaning up unused networks."
+        # Retry loop to handle race conditions when multiple processes
+        # try to allocate the same subnet concurrently
+        max_retries = 10
+        last_error = None
+
+        for attempt in range(max_retries):
+            # Allocate a /29 subnet from our pool
+            subnet = self._allocate_subnet()
+            if subnet is None:
+                raise RuntimeError(
+                    "No available subnet in instance network pool. "
+                    "Consider cleaning up unused networks."
+                )
+
+            # First usable host is the gateway
+            gateway = str(list(subnet.hosts())[0])
+
+            ipam_pool = IPAMPool(subnet=str(subnet), gateway=gateway)
+            ipam_config = IPAMConfig(pool_configs=[ipam_pool])
+
+            log.debug(
+                f"Creating network {name} with subnet {subnet} (attempt {attempt + 1})"
             )
+            try:
+                return self.client.networks.create(
+                    name, driver=driver, internal=internal, ipam=ipam_config
+                )
+            except errors.APIError as e:
+                # Check if this is a subnet overlap error (race condition)
+                if "Pool overlaps" in str(e):
+                    log.warning(
+                        f"Subnet {subnet} was allocated by another process, retrying..."
+                    )
+                    last_error = e
+                    continue
+                # Re-raise other API errors
+                raise
 
-        # First usable host is the gateway
-        gateway = str(list(subnet.hosts())[0])
-
-        ipam_pool = IPAMPool(subnet=str(subnet), gateway=gateway)
-        ipam_config = IPAMConfig(pool_configs=[ipam_pool])
-
-        log.debug(f"Creating network {name} with subnet {subnet}")
-        return self.client.networks.create(
-            name, driver=driver, internal=internal, ipam=ipam_config
+        # All retries exhausted
+        raise RuntimeError(
+            f"Failed to allocate subnet after {max_retries} attempts. "
+            f"Last error: {last_error}"
         )
 
     def network(self, network_id, raise_on_not_found=False):
