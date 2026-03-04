@@ -1013,14 +1013,13 @@ fn spawn_key_refresh_task(
             match api_client.get_keys().await {
                 Ok(keys) => {
                     let mut cache = valid_keys.lock().await;
-                    let old_count = cache.len();
-                    *cache = keys;
-                    if cache.len() != old_count {
+                    if *cache != keys {
                         info!(
-                            "Key refresh: {} -> {} keys",
-                            old_count,
-                            cache.len()
+                            "Key cache updated: {} -> {} keys",
+                            cache.len(),
+                            keys.len()
                         );
+                        *cache = keys;
                     }
                 }
                 Err(e) => {
