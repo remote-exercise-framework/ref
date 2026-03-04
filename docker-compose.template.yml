@@ -126,6 +126,7 @@ services:
             - RUST_LOG=ref_ssh_proxy=info,russh=warn
         volumes:
             - ./container-keys:/keys:ro
+            - ./data/ssh-proxy:/data
     {% if not testing %}
         ports:
             - "${SSH_HOST_PORT:-2222}:2222"
