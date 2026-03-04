@@ -111,6 +111,10 @@ services:
     ssh-reverse-proxy:
         init: true
         hostname: ssh-reverse-proxy
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
         build:
             context: ./ssh-reverse-proxy
             dockerfile: Dockerfile
