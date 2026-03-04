@@ -1088,10 +1088,10 @@ pub async fn run_server(config: Config) -> Result<()> {
         }
     }
 
-    // Spawn background task to periodically refresh keys (every 2 seconds)
+    // Spawn background task to periodically refresh keys (every 60 seconds)
     eprintln!("[SSH-PROXY] run_server: Spawning key refresh task...");
     std::io::stderr().flush().ok();
-    spawn_key_refresh_task(api_client, Arc::clone(&server.valid_keys), 2);
+    spawn_key_refresh_task(api_client, Arc::clone(&server.valid_keys), 60);
 
     // Load host key
     let key_path = &config.server.host_key_path;
