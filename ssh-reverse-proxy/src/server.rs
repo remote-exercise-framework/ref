@@ -4,7 +4,7 @@ use crate::api::ApiClient;
 use crate::channel::{ChannelForwarder, ContainerEvent, DirectTcpIpForwarder, RemoteForwardManager, ShellForwarder, X11ForwardState, channel_msg_to_event};
 use russh::ChannelReadHalf;
 use crate::config::Config;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use russh::keys::PrivateKey;
 use russh::server::{self, Auth, Handle, Msg, Server, Session};
 use russh::{Channel, ChannelId, CryptoVec};
@@ -258,6 +258,9 @@ impl SshConnection {
                     break;
                 }
             }
+            // Ensure the channel is always closed when the container channel ends
+            let _ = session_handle.eof(client_channel_id).await;
+            let _ = session_handle.close(client_channel_id).await;
             debug!("Event forwarder task ended for channel {:?}", client_channel_id);
         });
     }
@@ -564,11 +567,15 @@ impl server::Handler for SshConnection {
             ctx.forwarder = Some(Box::new(forwarder));
         }
 
-        // Send welcome message if we have one
-        if let Some(ref welcome) = self.state.welcome_message {
-            // Note: The welcome message will appear after the shell prompt
-            // because the container is now connected
-            debug!("Welcome message available: {}", welcome.len());
+        // Send welcome message for interactive sessions (PTY requested)
+        let has_pty = self.state.channels.get(&channel_id)
+            .map(|ctx| ctx.pty_params.is_some())
+            .unwrap_or(false);
+        if has_pty {
+            if let Some(ref welcome) = self.state.welcome_message {
+                let msg = format!("{}\r\n", welcome.replace('\n', "\r\n"));
+                session.data(channel_id, CryptoVec::from_slice(msg.as_bytes()))?;
+            }
         }
 
         info!(
@@ -1092,22 +1099,29 @@ pub async fn run_server(config: Config) -> Result<()> {
     std::io::stderr().flush().ok();
     spawn_key_refresh_task(api_client, Arc::clone(&server.valid_keys), 60);
 
-    // Load host key
+    // Load or generate host key (persisted across restarts)
     let key_path = &config.server.host_key_path;
     let key = if key_path.exists() {
         eprintln!("[SSH-PROXY] run_server: Loading host key from {:?}", key_path);
         std::io::stderr().flush().ok();
-        info!("Loading host key from {:?}", key_path);
-        russh::keys::PrivateKey::read_openssh_file(key_path)?
+        russh::keys::PrivateKey::read_openssh_file(key_path)
+            .context(format!("Failed to load host key from {:?}", key_path))?
     } else {
-        eprintln!("[SSH-PROXY] run_server: Generating new host key");
+        eprintln!("[SSH-PROXY] run_server: Generating new host key (path {:?} does not exist)", key_path);
         std::io::stderr().flush().ok();
-        info!("Generating new host key");
         let key = russh::keys::PrivateKey::random(
             &mut rand::thread_rng(),
             russh::keys::Algorithm::Ed25519,
-        )?;
-        // TODO: Save for persistence
+        )
+        .context("Failed to generate host key")?;
+        if let Some(parent) = key_path.parent() {
+            std::fs::create_dir_all(parent)
+                .context(format!("Failed to create host key directory {:?}", parent))?;
+        }
+        key.write_openssh_file(key_path, russh::keys::ssh_key::LineEnding::LF)
+            .context(format!("Failed to save host key to {:?}", key_path))?;
+        eprintln!("[SSH-PROXY] run_server: Saved host key to {:?}", key_path);
+        std::io::stderr().flush().ok();
         key
     };
 

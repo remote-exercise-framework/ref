@@ -79,7 +79,7 @@ impl Config {
                     .unwrap_or_else(|_| "0.0.0.0:2222".to_string()),
                 host_key_path: std::env::var("SSH_HOST_KEY_PATH")
                     .map(PathBuf::from)
-                    .unwrap_or_else(|_| PathBuf::from("/keys/host_key")),
+                    .unwrap_or_else(|_| PathBuf::from("/data/host_key")),
             },
             api: ApiConfig {
                 base_url: std::env::var("API_BASE_URL")
