@@ -53,14 +53,11 @@ def exercise_build(exercise_id):
         flash.success("Container already build")
         return redirect_to_next()
     else:
-        # Start new build
+        # Start new build. build() handles setting BUILDING status,
+        # deleting old images, and committing before spawning the thread.
         current_app.logger.info(
-            f"Starting build for exercise {exercise}. Setting state to  {ExerciseBuildStatus.BUILDING}"
+            f"Starting build for exercise {exercise}."
         )
-        exercise.build_job_status = ExerciseBuildStatus.BUILDING
-        exercise.build_job_result = None
-        db.session.add(exercise)
-        db.session.commit()
         flash.info("Build started...")
         mgr.build()
         return redirect_to_next()

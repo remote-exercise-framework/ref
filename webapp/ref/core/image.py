@@ -460,6 +460,24 @@ class ExerciseImageManager:
                     f"[BUILD] Exercise loaded: {exercise.short_name}, "
                     f"template_path={exercise.template_path}"
                 )
+                # Expunge the exercise and all related objects so they become
+                # fully detached Python objects. This prevents any attribute
+                # access during the long-running Docker build from triggering
+                # a lazy load, which would open a new transaction and hold
+                # the database advisory lock for the entire build duration.
+                #
+                # We also manually wire up back-references since joinedload
+                # only populates forward relationships, not reverse ones.
+                entry_service = exercise.entry_service
+                services = list(exercise.services)
+                app.db.session.expunge(exercise)
+                if entry_service:
+                    app.db.session.expunge(entry_service)
+                    entry_service.exercise = exercise
+                for svc in services:
+                    app.db.session.expunge(svc)
+                    svc.exercise = exercise
+                app.db.session.commit()
                 ExerciseImageManager.__run_build(app, exercise)
             _log_build(f"[BUILD] Build thread finished for exercise_id={exercise_id}")
         except Exception as e:
@@ -534,7 +552,7 @@ class ExerciseImageManager:
             exercise.build_job_status = ExerciseBuildStatus.FINISHED
 
         _log_build("[BUILD] Committing build result to DB...")
-        app.db.session.add(exercise)
+        exercise = app.db.session.merge(exercise)
         app.db.session.commit()
         _log_build("[BUILD] Build result committed to DB")
 
@@ -556,6 +574,17 @@ class ExerciseImageManager:
         # instance issues.
         exercise_id = self.exercise.id
 
+        # Set BUILDING status after delete_images (which sets NOT_BUILD),
+        # then commit to release the database advisory lock before starting
+        # the build thread. The thread needs to acquire this lock to access
+        # the database, so we must release it first or the thread will block
+        # until the caller's transaction completes.
+        from ref import db
+
+        self.exercise.build_job_status = ExerciseBuildStatus.BUILDING
+        self.exercise.build_job_result = None
+        db.session.commit()
+
         _log_build(f"[BUILD] Starting build thread for exercise_id={exercise_id}")
         t = Thread(
             target=ExerciseImageManager.__run_build_by_id,
@@ -565,12 +594,6 @@ class ExerciseImageManager:
 
         if wait:
             _log_build("[BUILD] Waiting for build thread to complete...")
-            # Commit the current transaction to release the database advisory lock.
-            # The build thread needs to acquire this lock to access the database,
-            # so we must release it before joining or we'll deadlock.
-            from ref import db
-
-            db.session.commit()
             t.join()
             _log_build("[BUILD] Build thread completed")
 
