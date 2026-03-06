@@ -77,25 +77,31 @@
 
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
+        <div style="position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 1050; width: 80%; max-width: 800px;">
         {% for category, message in messages %}
             {% if category == "error" %}
-                <div class="alert alert-danger" style="margin: 1px;" role="alert">
+                <div class="alert alert-danger alert-dismissible fade show" style="margin: 1px;" role="alert">
                 {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </div>
             {% elif category == 'warning' %}
-                <div class="alert alert-warning" role="alert">
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
                     {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </div>
             {% elif category == 'success' %}
-                <div class="alert alert-success" role="alert">
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
                     {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </div>
             {% elif category == 'info' %}
-            <div class="alert alert-primary" role="alert">
-                {{ message }}
-            </div>
+                <div class="alert alert-primary alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
             {% endif %}
         {% endfor %}
+        </div>
   {% endif %}
 {% endwith %}
 
