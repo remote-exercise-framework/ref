@@ -15,6 +15,7 @@ from ref.core import (
     ExerciseImageManager,
     InconsistentStateError,
     InstanceManager,
+    admin_required,
     utc_datetime_to_local_tz,
     datetime_to_string,
 )
@@ -107,7 +108,16 @@ def start_and_return_instance(
     exercise: Exercise = instance.exercise
 
     # Message that is printed before the user is dropped into the container shell.
-    welcome_message = ""
+    # Include the SSH welcome header and greeting (previously displayed by ssh-wrapper).
+    header = SystemSettingsManager.SSH_WELCOME_MSG.value or ""
+    msg_of_the_day = SystemSettingsManager.SSH_MESSAGE_OF_THE_DAY.value
+    if msg_of_the_day:
+        header += f"\n{ansi.green(msg_of_the_day)}"
+
+    user_name = requesting_user.full_name
+    greeting = f"Hello {user_name}!\n[+] Connecting to task \"{exercise.short_name}\"..."
+
+    welcome_message = f"{header}\n{greeting}\n"
 
     if not instance.is_submission():
         latest_submission = instance.get_latest_submission()
