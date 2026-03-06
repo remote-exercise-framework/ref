@@ -283,8 +283,15 @@ def exercise_view_all():
 def exercise_delete(exercise_id):
     exercise = Exercise.query.filter(Exercise.id == exercise_id).first()
     if not exercise:
-        flash.error(f"Unknown exercise ID {exercise_id}")
-        abort(400)
+        # Exercise already deleted. This can happen when a concurrent request was blocked
+        # on the global DB advisory lock while the first request performed slow Docker
+        # operations (container/image removal) and then deleted the exercise.
+        return redirect_to_next()
+
+    # TODO: The slow Docker operations (instance removal, image deletion) hold the global
+    # DB lock for the entire duration, blocking all other requests. Moving them to a
+    # background thread would help, but introduces challenges keeping DB and Docker state
+    # in sync.
 
     instances = exercise.instances
     if instances:
