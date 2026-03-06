@@ -13,6 +13,7 @@ from werkzeug.exceptions import (
 )
 
 from ref.core import InconsistentStateError, failsafe
+from ref.core.util import DatabaseLockTimeoutError
 
 error_handlers = []
 
@@ -101,6 +102,21 @@ def internal_error(_, e):
 
     if isinstance(e, (AssertionError, InconsistentStateError)):
         failsafe()
+
+    # Roll back the session if it's in a failed state (e.g., after a database
+    # lock timeout). Without this, rendering the error template would fail
+    # because base.html queries the DB for settings like COURSE_NAME.
+    orig_exception = e
+    while orig_exception is not None:
+        if isinstance(orig_exception, DatabaseLockTimeoutError):
+            try:
+                from ref import db
+
+                db.session.rollback()
+            except Exception:
+                pass
+            break
+        orig_exception = getattr(orig_exception, "__cause__", None)
 
     text = f"Internal Error: If the problem persists, please contact the server administrator and provide the following error code {code}"
     return render_error_template(text, InternalServerError.code)

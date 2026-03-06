@@ -131,8 +131,10 @@ def lock_db(connection: sqlalchemy.engine.Connection, readonly=False):
                 "Another request may be holding the lock for too long."
             ) from e
         raise
-    finally:
-        # Reset statement timeout to default (0 = no limit)
+    else:
+        # Reset statement timeout to default (0 = no limit).
+        # Only do this on success — if the lock timed out, the transaction is
+        # in a failed state and any further SQL would raise InFailedSqlTransaction.
         connection.execute(sqlalchemy.text("SET LOCAL statement_timeout = 0;"))
 
     elapsed = time.monotonic() - start_time
