@@ -591,7 +591,6 @@ def api_getkeys():
         keys.append(s.pub_key)
 
     resp = {"keys": keys}
-    log.info(f"Returning {len(keys)} public-keys in total.")
     return ok_response(resp)
 
 
@@ -903,6 +902,14 @@ def api_instance_info():
     ret = ret.rstrip()
 
     return ok_response(ret)
+
+
+@refbp.route("/api/build-status")
+@admin_required
+def api_build_status():
+    exercises = Exercise.query.all()
+    statuses = {str(e.id): e.build_job_status.value for e in exercises}
+    return jsonify(statuses)
 
 
 # @refbp.route('/api/instance/diff', methods=('GET', 'POST'))

@@ -39,7 +39,7 @@ Exercises
                         <td>{{ e.short_name }}</td>
                         <td>{{ e.version }}</td>
                         <td>{{ e.max_grading_points }}</td>
-                        <td>{{ e.build_job_status.value }}</td>
+                        <td data-exercise-id="{{ e.id }}" data-build-status="{{ e.build_job_status.value }}">{{ e.build_job_status.value }}</td>
                         <td>
                             {{ e.active_instances|length }} <br> {{ e.submission_heads()|length }} ({{ e.submissions()|length }})
                         </td>
@@ -82,6 +82,45 @@ Exercises
         {% endfor %}
     </div>
 {% endfor %}
+
+<script>
+(function() {
+    var cells = document.querySelectorAll('td[data-build-status]');
+    var initial = {};
+    var hasBuilding = false;
+    cells.forEach(function(td) {
+        var id = td.getAttribute('data-exercise-id');
+        var status = td.getAttribute('data-build-status');
+        initial[id] = status;
+        if (status === 'BUILDING') hasBuilding = true;
+    });
+
+    // Restore scroll position after reload (defer until page is fully laid out)
+    var savedScroll = sessionStorage.getItem('exerciseListScroll');
+    if (savedScroll !== null) {
+        sessionStorage.removeItem('exerciseListScroll');
+        var scrollY = parseInt(savedScroll);
+        window.addEventListener('load', function() {
+            window.scrollTo(0, scrollY);
+        });
+    }
+
+    if (!hasBuilding) return;
+
+    setInterval(function() {
+        axios.get('/api/build-status').then(function(response) {
+            var statuses = response.data;
+            for (var id in initial) {
+                if (statuses[id] && statuses[id] !== initial[id]) {
+                    sessionStorage.setItem('exerciseListScroll', window.scrollY);
+                    location.reload();
+                    return;
+                }
+            }
+        });
+    }, 3000);
+})();
+</script>
 
 {% if importable|length %}
 <div class="card mb-5">
