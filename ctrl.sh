@@ -330,7 +330,36 @@ function build {
     )
 }
 
+function check_submodule_sync {
+    # Check if submodules match the commits tracked by the main repo
+    local out_of_sync=()
+    while IFS= read -r line; do
+        # git submodule status prefixes with '-' (not init), '+' (wrong commit), or ' ' (ok)
+        if [[ "$line" == +* ]]; then
+            # Extract submodule path (second field)
+            local path
+            path=$(echo "$line" | awk '{print $2}')
+            out_of_sync+=("$path")
+        fi
+    done < <(git submodule status --recursive)
+
+    if [[ ${#out_of_sync[@]} -gt 0 ]]; then
+        warning "The following submodules do not match the commits tracked by the repository:"
+        for sm in "${out_of_sync[@]}"; do
+            warning "  - $sm"
+        done
+        read -r -p "$(txt bold)$(txt yellow)[?] Update submodules to match? [Y/n] $(txt reset)" answer
+        if [[ -z "$answer" || "$answer" =~ ^[Yy] ]]; then
+            info "=> Updating submodules"
+            git submodule update --init --recursive
+        else
+            warning "Continuing with mismatched submodules."
+        fi
+    fi
+}
+
 function up {
+    check_submodule_sync
     export REAL_HOSTNAME="$(hostname)"
     export DEBUG=false
     export DISABLE_RESPONSE_CACHING=false
