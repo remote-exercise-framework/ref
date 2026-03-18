@@ -14,7 +14,7 @@ import requests
 from itsdangerous import TimedSerializer
 
 from ref_utils import TaskTestResult, print_err, print_ok, print_warn
-from ref_utils.decorator import run_tests
+from ref_utils.decorator import run_tests, suppress_run_tests
 
 with open("/etc/key", "rb") as f:
     KEY = f.read()
@@ -127,8 +127,12 @@ def _run_tests(
         print_warn("[+] No testsuite found! Skipping tests..")
         return "No testsuite found! Skipping tests..", []
 
-    # Load submission_tests as a module (this registers tests via decorators)
+    # Load submission_tests as a module (this registers tests via decorators).
+    # Suppress run_tests() during import to prevent double execution, since
+    # some scripts call rf.run_tests() at module level.
+    suppress_run_tests(True)
     _load_submission_tests_module()
+    suppress_run_tests(False)
 
     # Capture stdout/stderr during test execution
     from io import StringIO
