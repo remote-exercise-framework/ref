@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from flask_bcrypt import check_password_hash, generate_password_hash
 from flask_login import UserMixin
-from sqlalchemy import ForeignKey, LargeBinary, PickleType, Text
+from sqlalchemy import Boolean, ForeignKey, LargeBinary, PickleType, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ref import db
@@ -16,12 +16,29 @@ if TYPE_CHECKING:
     from .instance import Instance
 
 
+class GroupNameList(CommonDbOpsMixin, ModelToStringMixin, db.Model):
+    __to_str_fields__ = ["id", "name"]
+    __tablename__ = "group_name_list"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(Text, unique=True)
+    enabled_for_registration: Mapped[bool] = mapped_column(Boolean, default=False)
+    names: Mapped[List[str]] = mapped_column(PickleType)
+
+
 class UserGroup(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     __to_str_fields__ = ["id", "name"]
     __tablename__ = "user_group"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(Text, unique=True)
+
+    source_list_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("group_name_list.id")
+    )
+    source_list: Mapped[Optional["GroupNameList"]] = relationship(
+        "GroupNameList", foreign_keys=[source_list_id]
+    )
 
     users: Mapped[List["User"]] = relationship(
         "User", back_populates="group", lazy=True, passive_deletes="all"

@@ -51,7 +51,11 @@ def group_view_users(group_id):
 
     students = User.query.order_by(User.id).all()
     students = [s for s in students if s.group and s.group.id == group_id]
-    return render_template("student_view_all.html", students=students)
+    return render_template(
+        "student_view_all.html",
+        students=students,
+        max_group_size=SystemSettingsManager.GROUP_SIZE.value,
+    )
 
 
 # @refbp.route('/admin/group/view/<int:user_id>', methods=('GET', 'POST'))

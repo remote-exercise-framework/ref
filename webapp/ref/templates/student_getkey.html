@@ -52,9 +52,26 @@ function copy_text(id) {
                 </div>
 
                 {% if groups_enabled %}
-                <div class="col-md-6">
+                <div class="col-md-12">
                     <div class="form-group">
-                        {{ wtf_utils.render_select_or_string_field(form.group_name) }}
+                        <label for="{{ form.group_name.id }}">{{ form.group_name.label }}</label>
+                        <input class="form-control"
+                               name="{{ form.group_name.id }}"
+                               id="{{ form.group_name.id }}"
+                               type="text"
+                               value="{{ form.group_name.data or '' }}"
+                               list="{{ form.group_name.id }}_list"
+                               placeholder="Pick a group or type an existing one" />
+                        <datalist id="{{ form.group_name.id }}_list">
+                            {% for c in group_choices if not c.full %}
+                            <option value="{{ c.name }}">{{ c.name }} ({{ c.count }}/{{ c.max }})</option>
+                            {% endfor %}
+                        </datalist>
+                        {% if form.group_name.errors %}
+                            {% for e in form.group_name.errors %}
+                            <div class="alert alert-danger" role="alert">{{ e }}</div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
                 </div>
                 {% endif %}

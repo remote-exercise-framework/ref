@@ -16,6 +16,10 @@ from .grading import grading_view_exercise as grading_view_exercise
 from .grading import grading_view_submission as grading_view_submission
 from .graph import graph as graph
 from .group import group_view_all as group_view_all
+from .group_names import group_names_create as group_names_create
+from .group_names import group_names_delete as group_names_delete
+from .group_names import group_names_edit as group_names_edit
+from .group_names import group_names_view_all as group_names_view_all
 from .instances import instance_delete as instance_delete
 from .instances import instance_stop as instance_stop
 from .instances import instances_by_user_id as instances_by_user_id

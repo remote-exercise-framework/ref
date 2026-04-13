@@ -413,6 +413,61 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
 
         return ret
 
+    @staticmethod
+    def _group_key(user) -> tuple:
+        """Return a unique bucket key for a user: the group id if set,
+        otherwise a per-user sentinel so ungrouped users stay in their own
+        bucket."""
+        if user.group_id is not None:
+            return ("g", user.group_id)
+        return ("u", user.id)
+
+    def submission_heads_by_group(self) -> List["Submission"]:
+        """
+        Returns the most recent submission for this exercise for each
+        user-group. Users without a group each form their own bucket.
+        Does not consider submissions from other exercise versions.
+        """
+        from .instance import Instance
+
+        instances_per_group = defaultdict(list)
+        instances = Instance.query.filter(
+            Instance.exercise == self,
+            Instance.submission != None,  # noqa: E711
+        ).all()
+
+        for instance in instances:
+            instances_per_group[Exercise._group_key(instance.user)] += [instance]
+
+        most_recent_instances = []
+        for _, group_instances in instances_per_group.items():
+            most_recent_instances += [max(group_instances, key=lambda e: e.creation_ts)]
+        return [e.submission for e in most_recent_instances if e.submission]
+
+    def submission_heads_by_group_global(self) -> List["Submission"]:
+        """
+        Same as submission_heads_by_group(), except only submissions that have
+        no newer submission (from a more recent exercise version) by the same
+        group are returned.
+        """
+        submissions = []
+        own_submissions = self.submission_heads_by_group()
+        for exercise in [self] + self.successors():
+            submissions += exercise.submission_heads_by_group()
+
+        seen_groups = set()
+        ret = []
+
+        for submission in submissions[::-1]:
+            key = Exercise._group_key(submission.submitted_instance.user)
+            if key in seen_groups:
+                continue
+            seen_groups.add(key)
+            if submission in own_submissions:
+                ret += [submission]
+
+        return ret
+
     @property
     def active_instances(self) -> List["Instance"]:
         """

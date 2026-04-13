@@ -46,6 +46,17 @@ User Edit
                 </div>
                 <div class="col-md-7"></div>
                 <div class="col-md-12">
+                    <label for="{{ form.group.id }}">{{ form.group.label }}</label>
+                    <div class="form-group">
+                        {{ form.group() }}
+                        {% if form.group.errors %}
+                            {% for e in form.group.errors %}
+                                <div class="alert alert-danger" role="alert">{{ e }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-12">
                     <div class="form-group">
                         {{ wtf_utils.render_textarea(form.pubkey) }}
                     </div>

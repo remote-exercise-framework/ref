@@ -5,7 +5,7 @@ import datetime
 from flask import current_app
 
 from ref.model.enums import UserAuthorizationGroups
-from ref.model.user import User
+from ref.model.user import User, UserGroup
 
 from .instance import InstanceManager
 
@@ -23,6 +23,7 @@ class UserManager:
         password: str,
         pub_key: str | None = None,
         priv_key: str | None = None,
+        group: UserGroup | None = None,
     ) -> User:
         """
         Create a new student user.
@@ -36,6 +37,7 @@ class UserManager:
             password: Plain-text password (will be hashed)
             pub_key: Optional SSH public key
             priv_key: Optional SSH private key
+            group: Optional UserGroup to attach the new user to
 
         Returns:
             The created User object (not yet in session)
@@ -49,6 +51,8 @@ class UserManager:
         user.priv_key = priv_key
         user.registered_date = datetime.datetime.utcnow()
         user.auth_groups = [UserAuthorizationGroups.STUDENT]
+        if group is not None:
+            user.group = group
         return user
 
     @staticmethod

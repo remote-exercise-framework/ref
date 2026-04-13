@@ -13,6 +13,7 @@ from .instance import SubmissionTestResult as SubmissionTestResult
 from .instance import SubmissionExtendedTestResult as SubmissionExtendedTestResult
 from .settings import SystemSetting as SystemSetting
 from .settings import SystemSettingsManager as SystemSettingsManager
+from .user import GroupNameList as GroupNameList
 from .user import User as User
 from .user import UserGroup as UserGroup
 from .enums import ExerciseBuildStatus as ExerciseBuildStatus

@@ -84,6 +84,9 @@ class SystemSettingsManager:
     COURSE_NAME = Setting("COURSE_NAME", str, "OS-Security")
     COURSE_OF_STUDY = Setting("COURSE_OF_STUDY", list, ["A"])
 
+    GROUPS_ENABLED = Setting("GROUPS_ENABLED", bool, False)
+    GROUP_SIZE = Setting("GROUP_SIZE", int, 1)
+
     SSH_HOSTNAME = Setting("SSH_HOSTNAME", str, "127.0.0.1")
     SSH_PORT = Setting("SSH_PORT", str, "22")
 

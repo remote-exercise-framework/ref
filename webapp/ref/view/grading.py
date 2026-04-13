@@ -80,7 +80,10 @@ def grading_view_exercise(exercise_id):
         flash.error(f"Unknown exercise ID {exercise_id}")
         return redirect_to_next()
 
-    submissions = exercise.submission_heads_global()
+    if SystemSettingsManager.GROUPS_ENABLED.value:
+        submissions = exercise.submission_heads_by_group_global()
+    else:
+        submissions = exercise.submission_heads_global()
 
     return render_template(
         "grading_view_exercise.html", exercise=exercise, submissions=submissions

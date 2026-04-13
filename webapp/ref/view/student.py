@@ -24,6 +24,7 @@ from wtforms import (
     Form,
     IntegerField,
     PasswordField,
+    SelectField,
     SelectMultipleField,
     StringField,
     SubmitField,
@@ -37,7 +38,7 @@ from ref.core.logging import get_logger
 from ref.core.util import (
     redirect_to_next,
 )
-from ref.model import SystemSettingsManager, User
+from ref.model import GroupNameList, SystemSettingsManager, User, UserGroup
 from ref.model.enums import UserAuthorizationGroups
 
 PASSWORD_MIN_LEN = 8
@@ -143,6 +144,12 @@ class EditUserForm(Form):
         "Authorization Groups",
         choices=[(e.value, e.value) for e in UserAuthorizationGroups],
     )
+    group = SelectField(
+        "Group",
+        choices=[],
+        validate_choice=False,
+        default="",
+    )
     password = PasswordField("Password", default="")
     password_rep = PasswordField("Password (Repeat)", default="")
     is_admin = BooleanField("Is Admin?")
@@ -179,6 +186,12 @@ class GetKeyForm(Form):
     pubkey = StringFieldDefaultEmpty(
         "Public SSH Key (if empty, an Ed25519 key-pair is generated for you)",
         validators=[validate_pubkey],
+    )
+    group_name = SelectField(
+        "Group Name",
+        choices=[],
+        validate_choice=False,
+        default="",
     )
     submit = SubmitField("Get Key")
 
@@ -277,6 +290,37 @@ def student_getkey():
 
     form = GetKeyForm(request.form)
 
+    groups_enabled = SystemSettingsManager.GROUPS_ENABLED.value
+    max_group_size = SystemSettingsManager.GROUP_SIZE.value
+    allowed_names: dict[str, GroupNameList] = {}
+    group_choices: list[dict] = []
+    if groups_enabled:
+        for lst in GroupNameList.query.filter(
+            GroupNameList.enabled_for_registration.is_(True)
+        ).all():
+            for n in lst.names or []:
+                allowed_names.setdefault(n, lst)
+        form.group_name.choices = [(n, n) for n in allowed_names]
+
+        # Per-name current occupancy for the datalist hints.
+        existing_groups = {
+            g.name: g
+            for g in UserGroup.query.filter(
+                UserGroup.name.in_(allowed_names.keys())
+            ).all()
+        }
+        for name in allowed_names:
+            existing = existing_groups.get(name)
+            count = len(existing.users) if existing else 0
+            group_choices.append(
+                {
+                    "name": name,
+                    "count": count,
+                    "max": max_group_size,
+                    "full": count >= max_group_size,
+                }
+            )
+
     pubkey = None
     privkey = None
     signed_mat = None
@@ -291,6 +335,9 @@ def student_getkey():
             pubkey=pubkey,
             privkey=privkey,
             signed_mat=signed_mat,
+            groups_enabled=groups_enabled,
+            group_choices=group_choices,
+            max_group_size=max_group_size,
         )
 
     if regestration_enabled and form.submit.data and form.validate():
@@ -341,6 +388,41 @@ def student_getkey():
                 Encoding.PEM, PrivateFormat.OpenSSH, NoEncryption()
             ).decode()
 
+        group: UserGroup | None = None
+        if groups_enabled:
+            submitted_name = (form.group_name.data or "").strip()
+            if not submitted_name:
+                form.group_name.errors = list(form.group_name.errors or []) + [
+                    "Please pick a group name."
+                ]
+                return render()
+            if submitted_name not in allowed_names:
+                form.group_name.errors = list(form.group_name.errors or []) + [
+                    "Pick a name from the offered list."
+                ]
+                return render()
+
+            source_list = allowed_names[submitted_name]
+            existing = (
+                UserGroup.query.filter(UserGroup.name == submitted_name)
+                .with_for_update()
+                .one_or_none()
+            )
+            if existing is None:
+                group = UserGroup()
+                group.name = submitted_name
+                group.source_list_id = source_list.id
+                db.session.add(group)
+                db.session.flush()
+            else:
+                if len(existing.users) >= max_group_size:
+                    form.group_name.errors = list(form.group_name.errors or []) + [
+                        f"Group '{submitted_name}' is full ({len(existing.users)} / {max_group_size})."
+                    ]
+                    db.session.rollback()
+                    return render()
+                group = existing
+
         student = UserManager.create_student(
             mat_num=form.mat_num.data,
             first_name=form.firstname.data,
@@ -348,6 +430,7 @@ def student_getkey():
             password=form.password.data,
             pub_key=pubkey,
             priv_key=privkey,
+            group=group,
         )
 
         signer = URLSafeTimedSerializer(
@@ -416,7 +499,11 @@ def student_view_all():
     List all students currently registered.
     """
     students = User.query.order_by(User.id).all()
-    return render_template("student_view_all.html", students=students)
+    return render_template(
+        "student_view_all.html",
+        students=students,
+        max_group_size=SystemSettingsManager.GROUP_SIZE.value,
+    )
 
 
 @refbp.route("/admin/student/view/<int:user_id>")
@@ -445,6 +532,25 @@ def student_edit(user_id):
     if not user:
         flash.error(f"Unknown user ID {user_id}")
         abort(400)
+
+    all_groups = UserGroup.query.order_by(UserGroup.name).all()
+    existing_group_names = {g.name for g in all_groups}
+    enabled_lists = GroupNameList.query.filter(
+        GroupNameList.enabled_for_registration.is_(True)
+    ).all()
+    predefined_names: dict[str, GroupNameList] = {}
+    for lst in enabled_lists:
+        for n in lst.names or []:
+            predefined_names.setdefault(n, lst)
+
+    max_group_size_edit = SystemSettingsManager.GROUP_SIZE.value
+    choices: list[tuple[str, str]] = [("", "— none —")]
+    for g in all_groups:
+        choices.append((g.name, f"{g.name} ({len(g.users)}/{max_group_size_edit})"))
+    for n in predefined_names:
+        if n not in existing_group_names:
+            choices.append((n, f"{n} (new, 0/{max_group_size_edit})"))
+    form.group.choices = choices
 
     if form.submit.data and form.validate():
         # Form was submitted
@@ -481,6 +587,35 @@ def student_edit(user_id):
             user.invalidate_session()
         user.auth_groups = list(new_auth_groups)
 
+        target_name = (form.group.data or "").strip()
+        if target_name == "":
+            user.group = None
+        else:
+            target = (
+                UserGroup.query.filter(UserGroup.name == target_name)
+                .with_for_update()
+                .one_or_none()
+            )
+            if target is None:
+                if target_name not in predefined_names:
+                    form.group.errors = list(form.group.errors or []) + [
+                        "Unknown group"
+                    ]
+                    return render_template("user_edit.html", form=form)
+                target = UserGroup()
+                target.name = target_name
+                target.source_list_id = predefined_names[target_name].id
+                current_app.db.session.add(target)
+                current_app.db.session.flush()
+            moving_in = user.group is None or user.group.id != target.id
+            if moving_in and len(target.users) >= max_group_size_edit:
+                form.group.errors = list(form.group.errors or []) + [
+                    f"Group '{target.name}' is full ({len(target.users)} / {max_group_size_edit})."
+                ]
+                current_app.db.session.rollback()
+                return render_template("user_edit.html", form=form)
+            user.group = target
+
         current_app.db.session.add(user)
         current_app.db.session.commit()
 
@@ -494,6 +629,7 @@ def student_edit(user_id):
         form.surname.data = user.surname
         form.pubkey.data = user.pub_key
         form.auth_group.data = [e.value for e in user.auth_groups]
+        form.group.data = user.group.name if user.group else ""
         # Leave password empty
         form.password.data = ""
         form.password_rep.data = ""
