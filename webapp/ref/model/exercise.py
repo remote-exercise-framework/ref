@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ref import db
 
 from .enums import ExerciseBuildStatus
+from .exercise_config import ExerciseConfig
 from .util import CommonDbOpsMixin, ModelToStringMixin
 
 if TYPE_CHECKING:
@@ -204,24 +205,21 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     # Path to the folder that contains all persisted data of this exercise.
     persistence_path: Mapped[str] = mapped_column(Text, unique=True)
 
-    # Name that identifies the exercise
+    # Name that identifies the exercise. Denormalized from ExerciseConfig for
+    # use in SQLAlchemy queries, Docker resource naming, and SSH routing.
+    # Must be kept in sync with ExerciseConfig.short_name on rename.
     short_name: Mapped[str] = mapped_column(Text)
 
     # Version of the exercise used for updating mechanism.
     version: Mapped[int]
 
-    # Used to group the exercises
-    category: Mapped[Optional[str]] = mapped_column(Text)
-
-    # Instances must be submitted before this point in time.
-    submission_deadline_end: Mapped[Optional[datetime.datetime]]
-
-    submission_deadline_start: Mapped[Optional[datetime.datetime]]
-
-    submission_test_enabled: Mapped[bool]
-
-    # Max point a user can get for this exercise. Might be None.
-    max_grading_points: Mapped[Optional[int]]
+    # FK to shared administrative config (category, deadlines, grading, scoring)
+    config_id: Mapped[int] = mapped_column(
+        ForeignKey("exercise_config.id"), nullable=False
+    )
+    config: Mapped[ExerciseConfig] = relationship(
+        "ExerciseConfig", foreign_keys=[config_id]
+    )
 
     # Is this Exercise version deployed by default in case an instance is requested?
     # At most one exercise with same short_name can have this flag.
@@ -330,6 +328,30 @@ class Exercise(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     def get_exercises(short_name) -> List[Exercise]:
         exercises = Exercise.query.filter(Exercise.short_name == short_name)
         return exercises.all()
+
+    # --- Proxy properties delegating to ExerciseConfig ---
+
+    @property
+    def category(self) -> Optional[str]:
+        return self.config.category
+
+    @property
+    def submission_deadline_start(self) -> Optional[datetime.datetime]:
+        return self.config.submission_deadline_start
+
+    @property
+    def submission_deadline_end(self) -> Optional[datetime.datetime]:
+        return self.config.submission_deadline_end
+
+    @property
+    def submission_test_enabled(self) -> bool:
+        return self.config.submission_test_enabled
+
+    @property
+    def max_grading_points(self) -> Optional[int]:
+        return self.config.max_grading_points
+
+    # --- Deadline helpers (delegate to config) ---
 
     def deadine_passed(self) -> bool:
         assert self.has_deadline(), "Exercise does not have a deadline"

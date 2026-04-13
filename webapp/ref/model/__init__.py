@@ -3,6 +3,7 @@ from .exercise import Exercise as Exercise
 from .exercise import ExerciseEntryService as ExerciseEntryService
 from .exercise import ExerciseService as ExerciseService
 from .exercise import RessourceLimits as RessourceLimits
+from .exercise_config import ExerciseConfig as ExerciseConfig
 from .instance import Grading as Grading
 from .instance import Instance as Instance
 from .instance import InstanceEntryService as InstanceEntryService

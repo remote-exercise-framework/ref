@@ -4,6 +4,14 @@ from collections import defaultdict
 from pathlib import Path
 
 from flask import abort, current_app, redirect, render_template, request, url_for
+from wtforms import (
+    BooleanField,
+    Form,
+    IntegerField,
+    StringField,
+    SubmitField,
+    validators,
+)
 
 from ref import db, refbp
 from ref.core import (
@@ -16,13 +24,25 @@ from ref.core import (
 )
 from ref.core.logging import get_logger
 from ref.core.security import sanitize_path_is_subdir
-from ref.core.util import redirect_to_next
-from ref.model import Exercise
+from ref.core.util import datetime_transmute_into_local, redirect_to_next
+from ref.model import Exercise, ExerciseConfig
 from ref.model.enums import ExerciseBuildStatus
 
 from ref.core import InconsistentStateError
 
 log = get_logger(__name__)
+
+
+class ExerciseConfigForm(Form):
+    short_name = StringField("Short Name", validators=[validators.DataRequired()])
+    category = StringField("Category", validators=[validators.DataRequired()])
+    submission_deadline_start = StringField("Deadline Start")
+    submission_deadline_end = StringField("Deadline End")
+    submission_test_enabled = BooleanField("Submission Tests Enabled")
+    max_grading_points = IntegerField(
+        "Max Grading Points", validators=[validators.Optional()]
+    )
+    submit = SubmitField("Save")
 
 
 @refbp.route("/admin/exercise/build/<int:exercise_id>")
@@ -55,9 +75,7 @@ def exercise_build(exercise_id):
     else:
         # Start new build. build() handles setting BUILDING status,
         # deleting old images, and committing before spawning the thread.
-        current_app.logger.info(
-            f"Starting build for exercise {exercise}."
-        )
+        current_app.logger.info(f"Starting build for exercise {exercise}.")
         flash.info("Build started...")
         mgr.build()
         return redirect_to_next()
@@ -183,13 +201,6 @@ def exercise_do_import(cfg_path):
         flash.warning("Unable to import older version of already existing exercise")
         return render()
 
-    for e in exercise.predecessors():
-        # Make sure all exercises of the same type have the same end deadline
-        e.submission_deadline_end = exercise.submission_deadline_end
-        e.submission_deadline_start = exercise.submission_deadline_start
-        e.max_grading_points = exercise.max_grading_points
-        db.session.add(e)
-
     ExerciseManager.create(exercise)
 
     # Make sure if the REF DB was reset but the docker images where not purged,
@@ -197,7 +208,13 @@ def exercise_do_import(cfg_path):
     image_manager = ExerciseImageManager(exercise)
     image_manager.delete_images(force=True)
 
-    db.session.add_all([exercise.entry_service, exercise])
+    # Persist the exercise and its config. For new exercises, the config is
+    # new and will be inserted. For reimports, the config already exists in
+    # the DB (attached by _from_yaml).
+    to_add = [exercise.entry_service, exercise]
+    if exercise.config.id is None:
+        to_add.append(exercise.config)
+    db.session.add_all(to_add)
     db.session.commit()
 
     return render()
@@ -376,6 +393,132 @@ def exercise_browse(exercise_id):
         abort(400)
 
     return render_template("exercise_file_browser.html", exercise=exercise)
+
+
+@refbp.route("/admin/exercise/config/<string:short_name>/edit", methods=("GET", "POST"))
+@admin_required
+def exercise_edit_config(short_name):
+    """
+    Edit the shared administrative configuration for an exercise.
+    """
+    import datetime as dt
+
+    config = ExerciseConfig.query.filter(
+        ExerciseConfig.short_name == short_name
+    ).one_or_none()
+    if not config:
+        flash.error(f"No configuration found for exercise '{short_name}'")
+        return redirect_to_next()
+
+    form = ExerciseConfigForm(request.form)
+
+    if request.method == "GET":
+        form.short_name.data = config.short_name
+        form.category.data = config.category
+        form.submission_deadline_start.data = (
+            config.submission_deadline_start.strftime("%Y-%m-%dT%H:%M")
+            if config.submission_deadline_start
+            else ""
+        )
+        form.submission_deadline_end.data = (
+            config.submission_deadline_end.strftime("%Y-%m-%dT%H:%M")
+            if config.submission_deadline_end
+            else ""
+        )
+        form.submission_test_enabled.data = config.submission_test_enabled
+        form.max_grading_points.data = config.max_grading_points
+
+    if request.method == "POST" and form.validate():
+        import re
+
+        new_short_name = form.short_name.data.strip()
+        short_name_regex = r"([a-zA-Z0-9._])*"
+        if not re.fullmatch(short_name_regex, new_short_name):
+            flash.error(
+                f'Invalid short name "{new_short_name}" (must match {short_name_regex})'
+            )
+            return render_template(
+                "exercise_config_edit.html", form=form, short_name=short_name
+            )
+
+        # Handle rename
+        if new_short_name != config.short_name:
+            existing = ExerciseConfig.query.filter(
+                ExerciseConfig.short_name == new_short_name
+            ).one_or_none()
+            if existing:
+                flash.error(f'Short name "{new_short_name}" is already in use.')
+                return render_template(
+                    "exercise_config_edit.html", form=form, short_name=short_name
+                )
+
+            # Update all Exercise rows that share this short_name
+            exercises = Exercise.query.filter(
+                Exercise.short_name == config.short_name
+            ).all()
+            for ex in exercises:
+                ex.short_name = new_short_name
+                db.session.add(ex)
+
+            config.short_name = new_short_name
+
+        config.category = form.category.data
+
+        # Parse deadline fields
+        deadline_start = None
+        deadline_end = None
+        start_str = form.submission_deadline_start.data.strip()
+        end_str = form.submission_deadline_end.data.strip()
+
+        if start_str and end_str:
+            try:
+                deadline_start = datetime_transmute_into_local(
+                    dt.datetime.strptime(start_str, "%Y-%m-%dT%H:%M")
+                )
+                deadline_end = datetime_transmute_into_local(
+                    dt.datetime.strptime(end_str, "%Y-%m-%dT%H:%M")
+                )
+            except ValueError:
+                flash.error("Invalid date format.")
+                return render_template(
+                    "exercise_config_edit.html", form=form, short_name=short_name
+                )
+
+            if deadline_start >= deadline_end:
+                flash.error("Deadline start must be before deadline end.")
+                return render_template(
+                    "exercise_config_edit.html", form=form, short_name=short_name
+                )
+        elif start_str or end_str:
+            flash.error("Either set both deadline start and end, or leave both empty.")
+            return render_template(
+                "exercise_config_edit.html", form=form, short_name=short_name
+            )
+
+        config.submission_deadline_start = deadline_start
+        config.submission_deadline_end = deadline_end
+        config.submission_test_enabled = form.submission_test_enabled.data
+        config.max_grading_points = form.max_grading_points.data
+
+        # Validate consistency
+        has_deadline = config.submission_deadline_end is not None
+        has_points = config.max_grading_points is not None
+        if has_deadline != has_points:
+            flash.error(
+                "Either set both deadline and grading points, or leave both empty."
+            )
+            return render_template(
+                "exercise_config_edit.html", form=form, short_name=short_name
+            )
+
+        db.session.add(config)
+        db.session.commit()
+        flash.success(f"Configuration for '{config.short_name}' updated.")
+        return redirect(url_for("ref.exercise_view_all"))
+
+    return render_template(
+        "exercise_config_edit.html", form=form, short_name=short_name
+    )
 
 
 @refbp.route("/admin", methods=("GET", "POST"))

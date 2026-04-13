@@ -336,7 +336,16 @@ def setup_instances(app: Flask):
     from ref.core import InstanceManager
 
     with app.app_context():
-        instances = Instance.query.all()
+        try:
+            instances = Instance.query.all()
+        except Exception:
+            app.db.session.rollback()
+            app.logger.warning(
+                "Failed to query instances on startup. "
+                "Run './ctrl.sh db-upgrade' to apply pending database migrations."
+            )
+            return
+
         for i in instances:
             mgr = InstanceManager(i)
             # raises
@@ -432,9 +441,18 @@ def fix_stuck_exercise_builds(app: Flask):
     with app.app_context():
         from ref.model import Exercise, ExerciseBuildStatus
 
-        stuck = Exercise.query.filter_by(
-            build_job_status=ExerciseBuildStatus.BUILDING
-        ).all()
+        try:
+            stuck = Exercise.query.filter_by(
+                build_job_status=ExerciseBuildStatus.BUILDING
+            ).all()
+        except Exception:
+            app.db.session.rollback()
+            app.logger.warning(
+                "Failed to query exercises on startup. "
+                "Run './ctrl.sh db-upgrade' to apply pending database migrations."
+            )
+            return
+
         if stuck:
             for ex in stuck:
                 ex.build_job_status = ExerciseBuildStatus.NOT_BUILD

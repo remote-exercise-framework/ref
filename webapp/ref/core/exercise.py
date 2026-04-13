@@ -11,6 +11,7 @@ from flask import current_app
 from ref.core.logging import get_logger
 from ref.model import (
     Exercise,
+    ExerciseConfig,
     ExerciseEntryService,
     ExerciseService,
     RessourceLimits,
@@ -90,6 +91,16 @@ class ExerciseManager:
         del yaml_dict[attr_name]
         return ret
 
+    # YAML keys that are now managed via the web interface (ExerciseConfig).
+    # Still parsed for backwards compatibility and first-time import, but
+    # treated as deprecated.
+    _DEPRECATED_ADMIN_KEYS = {
+        "category",
+        "deadline",
+        "submission-test",
+        "grading-points",
+    }
+
     @staticmethod
     def _parse_general_data(exercise: Exercise, cfg, cfg_folder_path):
         """
@@ -108,14 +119,26 @@ class ExerciseManager:
                 f'short-name "{exercise.short_name}" is invalid ({short_name_regex})'
             )
 
-        exercise.category = ExerciseManager._parse_attr(cfg, "category", str)
-
         exercise.version = ExerciseManager._parse_attr(cfg, "version", int)
+
+        # Parse deprecated admin config keys. These are still accepted for
+        # backwards compatibility and used when creating a brand-new ExerciseConfig
+        # (first import). On reimport they are ignored.
+        admin = {}
+        deprecated_found = []
+
+        category = ExerciseManager._parse_attr(
+            cfg, "category", str, required=False, default=None
+        )
+        if category is not None:
+            admin["category"] = category
+            deprecated_found.append("category")
 
         deadline = ExerciseManager._parse_attr(
             cfg, "deadline", dict, required=False, default=None
         )
         if deadline:
+            deprecated_found.append("deadline")
             start = ExerciseManager._parse_attr(
                 deadline, "start", dict, required=False, default=None
             )
@@ -138,44 +161,64 @@ class ExerciseManager:
             end_time = ExerciseManager._parse_attr(
                 end, "time", datetime.time, required=True, default=None
             )
-            exercise.submission_deadline_start = datetime_transmute_into_local(
+            admin["submission_deadline_start"] = datetime_transmute_into_local(
                 datetime.datetime.combine(start_date, start_time)
             )
-            exercise.submission_deadline_end = datetime_transmute_into_local(
+            admin["submission_deadline_end"] = datetime_transmute_into_local(
                 datetime.datetime.combine(end_date, end_time)
             )
 
-        exercise.submission_test_enabled = ExerciseManager._parse_attr(
-            cfg, "submission-test", bool, required=False, default=False
+        submission_test = ExerciseManager._parse_attr(
+            cfg, "submission-test", bool, required=False, default=None
         )
+        if submission_test is not None:
+            admin["submission_test_enabled"] = submission_test
+            deprecated_found.append("submission-test")
+        else:
+            admin["submission_test_enabled"] = False
 
-        if exercise.submission_test_enabled:
+        if admin.get("submission_test_enabled"):
             test_script_path = Path(cfg_folder_path) / "submission_tests"
             if not test_script_path.is_file():
                 raise ExerciseConfigError("Missing submission_tests file!")
 
-        exercise.max_grading_points = ExerciseManager._parse_attr(
+        grading_points = ExerciseManager._parse_attr(
             cfg, "grading-points", int, required=False, default=None
         )
-        if (exercise.max_grading_points is None) != (
-            exercise.submission_deadline_end is None
-        ):
+        if grading_points is not None:
+            admin["max_grading_points"] = grading_points
+            deprecated_found.append("grading-points")
+
+        # Validate admin field consistency
+        has_deadline = "submission_deadline_end" in admin
+        has_points = "max_grading_points" in admin
+        if has_deadline != has_points:
             raise ExerciseConfigError(
-                'Either both or none of "grading-points" and "submission_deadline_end" must be set'
+                'Either both or none of "grading-points" and "deadline" must be set'
             )
 
-        if (exercise.submission_deadline_start is None) != (
-            exercise.submission_deadline_end is None
-        ):
+        has_start = "submission_deadline_start" in admin
+        if has_start != has_deadline:
             raise ExerciseConfigError(
                 "Either both or none of deadline-{start,end} must be set!"
             )
 
-        if exercise.submission_deadline_start is not None:
-            if exercise.submission_deadline_start >= exercise.submission_deadline_end:
+        if has_start and has_deadline:
+            if admin["submission_deadline_start"] >= admin["submission_deadline_end"]:
                 raise ExerciseConfigError(
                     "Deadline start must be smaller then deadline end."
                 )
+
+        # Store parsed admin config for use in _from_yaml
+        exercise._parsed_admin_config = admin
+
+        # Record deprecation warnings
+        if deprecated_found:
+            exercise.warnings.append(
+                f"Config keys [{', '.join(deprecated_found)}] are deprecated "
+                "and now managed via the web interface. They will be ignored on "
+                "reimport. This will become an error in a future release."
+            )
 
         # Set defaults
         exercise.is_default = False
@@ -497,23 +540,10 @@ class ExerciseManager:
         """
         predecessors = exercise.predecessors()
 
+        # Deadline and grading_points checks are no longer needed here since
+        # these fields now live on ExerciseConfig (shared across all versions).
+
         for e in predecessors:
-            if (
-                e.has_graded_submissions()
-                and e.submission_deadline_end != exercise.submission_deadline_end
-            ):
-                raise ExerciseConfigError(
-                    "Changing the deadline of an already graded exercise is not allowed!"
-                )
-
-            if (
-                e.has_graded_submissions()
-                and e.max_grading_points != exercise.max_grading_points
-            ):
-                raise ExerciseConfigError(
-                    "Changing the grading points of an already graded exercise is not allowed!"
-                )
-
             if bool(e.entry_service.readonly) != bool(exercise.entry_service.readonly):
                 raise ExerciseConfigError(
                     "Changeing the readonly flag between versions is not allowed."
@@ -544,6 +574,10 @@ class ExerciseManager:
         # The exercise in that the parsed data is stored.
         exercise = Exercise()
 
+        # Initialize errors/warnings lists for the importable UI.
+        exercise.errors = []
+        exercise.warnings = []
+
         # The folder that contains the .yml file.
         cfg_folder = Path(cfg_path).parent.as_posix()
 
@@ -565,6 +599,26 @@ class ExerciseManager:
 
         # Parse peripheral services configurations (if any)
         ExerciseManager._parse_peripheral_services(exercise, cfg)
+
+        # Look up or create the ExerciseConfig for this short_name.
+        existing_config = ExerciseConfig.query.filter(
+            ExerciseConfig.short_name == exercise.short_name
+        ).one_or_none()
+
+        if existing_config:
+            # Reuse existing config — YAML admin values are ignored.
+            exercise.config = existing_config
+        else:
+            # First import: create ExerciseConfig from parsed YAML values.
+            admin = getattr(exercise, "_parsed_admin_config", {})
+            config = ExerciseConfig()
+            config.short_name = exercise.short_name
+            config.category = admin.get("category")
+            config.submission_deadline_start = admin.get("submission_deadline_start")
+            config.submission_deadline_end = admin.get("submission_deadline_end")
+            config.submission_test_enabled = admin.get("submission_test_enabled", False)
+            config.max_grading_points = admin.get("max_grading_points")
+            exercise.config = config
 
         return exercise
 

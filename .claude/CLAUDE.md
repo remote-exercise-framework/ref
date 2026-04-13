@@ -32,7 +32,7 @@ The test infrastructure (`tests/helpers/ref_instance.py`) automatically sets thi
 ./ctrl.sh down              # Remove containers
 
 # Database migrations
-./ctrl.sh flask-cmd db upgrade
+./ctrl.sh db-upgrade
 
 # View logs
 ./ctrl.sh logs -f
@@ -84,6 +84,9 @@ cd tests && pytest
 
 # Run only unit tests
 cd tests && pytest unit/
+
+# Run only integration tests
+cd tests && pytest integration/
 
 # Run only E2E tests
 cd tests && pytest e2e/
@@ -144,26 +147,27 @@ Use `uv` for all Python dependency management. Each component has its own `pypro
 
 ## Architecture Overview
 
-REF is a containerized platform for hosting programming exercises with isolated student environments.
+REF is a containerized platform for hosting programming exercises with isolated student environments. See `docs/ARCHITECTURE.md` for full details.
 
 ### Components
 
 1. **Web Application** (`webapp/`) - Flask app on port 8000
-   - `ref/view/` - Route handlers
-   - `ref/model/` - SQLAlchemy models
-   - `ref/core/` - Docker operations, exercise building, instance management
+   - `ref/view/` - Route handlers (API, exercises, grading, instances, file browser, visualization, system settings, etc.)
+   - `ref/model/` - SQLAlchemy models (users, groups, exercises, instances, submissions, grades, system settings)
+   - `ref/core/` - Business logic managers (`ExerciseManager`, `InstanceManager`, `ExerciseImageManager`, `UserManager`, `DockerClient`, etc.)
 
 2. **SSH Reverse Proxy** (`ssh-reverse-proxy/`) - Rust-based SSH proxy on port 2222
    - Routes student SSH connections to exercise containers
-   - Uses web API for authentication and provisioning
-   - Supports shell, exec, SFTP, and port forwarding
+   - Uses web API with HMAC-signed requests for authentication and provisioning
+   - Supports shell, exec, SFTP, local/remote port forwarding, and X11 forwarding
 
 3. **Instance Container** (`ref-docker-base/`) - Ubuntu 24.04 with dev tools
-   - Isolated per student/exercise
+   - Isolated per student/exercise under `ref-instances.slice` cgroup
    - SSH server on port 13370
    - Contains `ref-utils` for submission testing
+   - `task`/`_task` scripts for submission testing, `reset-env` for container reset
 
-4. **Database** - PostgreSQL storing users, exercises, instances, submissions
+4. **Database** - PostgreSQL 17.2 storing users, groups, exercises, instances, submissions, grades, system settings
 
 ### Connection Flow
 
@@ -174,11 +178,19 @@ Client (ssh exercise@host -p 2222)
   -> Traffic proxied to container SSH (port 13370)
 ```
 
+### Docker Networks
+
+- `web-host` - Web ↔ Host (HTTP access)
+- `web-and-ssh` - Web ↔ SSH reverse proxy API (internal)
+- `web-and-db` - Web ↔ PostgreSQL (internal)
+- `ssh-and-host` - SSH reverse proxy ↔ Host
+
 ### Data Persistence
 
 - `/data/postgresql-db/` - Database files
 - `/data/data/imported_exercises/` - Exercise definitions
 - `/data/data/persistance/` - User submissions and instance data
+- `/data/ssh-proxy/` - SSH proxy state
 - `/data/log/` - Application logs
 
 ## Code Comments

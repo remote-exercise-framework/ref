@@ -11,13 +11,14 @@ Exercises
 
 {% for category, tasks in categories.items() %}
     <div class="card mb-5">
-        <h4 class="card-header">
+        <h4 class="card-header text-center">
             {{ category }}
         </h4>
     {% for short_name, exercises in tasks.items() %}
         <div class="card">
-            <h4 class="card-header">
-                <div class="text-center"> {{ short_name }} </div>
+            <h4 class="card-header d-flex justify-content-between align-items-center">
+                {{ short_name }}
+                <a role="button" class="btn btn-sm btn-outline-light" href="{{ url_for('ref.exercise_edit_config', short_name=short_name) }}">Edit Config</a>
             </h4>
         </div>
         <table class="table table-hover">
@@ -84,6 +85,15 @@ Exercises
 {% endfor %}
 
 <script>
+function toggleImportWarnings(icon) {
+    var row = icon.closest('tr');
+    var sibling = row.nextElementSibling;
+    while (sibling && sibling.classList.contains('import-warning-row')) {
+        sibling.style.display = sibling.style.display === 'none' ? '' : 'none';
+        sibling = sibling.nextElementSibling;
+    }
+}
+
 (function() {
     var cells = document.querySelectorAll('td[data-build-status]');
     var initial = {};
@@ -139,7 +149,11 @@ Exercises
         <tbody>
     {% for exercise in importable|sort(attribute='category') %}
         <tr>
-                <td>{{ exercise.short_name }}
+                <td>
+                    {{ exercise.short_name }}
+                    {% if exercise.warnings|length %}
+                    <span class="text-warning" style="cursor: pointer;" onclick="toggleImportWarnings(this)" title="Show deprecation warnings">&#9888;</span>
+                    {% endif %}
                 </td>
                 <td>{{ exercise.version }}<br>
                         {% if exercise.is_update() %}
@@ -169,7 +183,7 @@ Exercises
             </tr>
             {% endfor %}
             {% for message in exercise.warnings  %}
-            <tr>
+            <tr class="import-warning-row" style="display: none;">
                 <td colspan="4">
                 <div class="alert alert-warning" role="alert">
                         {{ message }}
