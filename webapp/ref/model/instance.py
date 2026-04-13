@@ -394,6 +394,19 @@ class Submission(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     def is_modified(self) -> bool:
         return self.submitted_instance.is_modified()
 
+    @property
+    def test_passed(self) -> Optional[bool]:
+        if not self.submission_test_results:
+            return None
+        return all(r.success for r in self.submission_test_results)
+
+    @property
+    def test_score(self) -> Optional[float]:
+        scores = [r.score for r in self.submission_test_results if r.score is not None]
+        if not scores:
+            return None
+        return sum(scores)
+
     def successors(self) -> List["Submission"]:
         """
         Get all Submissions that belong to the same origin and have higher
