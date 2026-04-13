@@ -16,9 +16,16 @@ git clone git@github.com:remote-exercise-framework/ref.git
 cd ref
 git submodule update --init --recursive
 
-# Create an environment file used for configuration and adapt the values in settings.env.
-# Make sure to uncomment the settings and to change the password!
-cp template.env settings.env
+# Generate configuration (settings.yaml + settings.env), docker-compose.yml, and
+# container SSH keys. This MUST be run once before the first ./ctrl.sh build.
+# All secrets are generated with a cryptographically secure RNG. The generated
+# settings.yaml file is the canonical configuration; settings.env is rendered
+# from it for docker-compose. The admin password is printed at the end of the
+# run — note it down, it can also be found in settings.yaml.
+#
+# prepare.py refuses to run if settings.yaml already exists, so existing
+# secrets are never silently overwritten.
+./prepare.py
 
 # Build all images. This command will check if your system meets the requirements
 # and will print error messages in case something is not working as expected.
@@ -157,7 +164,7 @@ The webinterface to manage the exercises and users. This endpoint is alow used b
 Hostname: web
 Port: 8000
 User: 0
-Password: See settings.env
+Password: See settings.yaml (admin.password)
 ```
 
 #### Postgres Database
@@ -167,5 +174,5 @@ Hostname: db
 Port: Not expose to the host
 User: ref
 Database name: ref
-Password: See settings.env
+Password: See settings.yaml (secrets.postgres_password)
 ```

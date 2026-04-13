@@ -221,9 +221,34 @@ fi
 
 #Check the .env files used to parametrize the docker-compose file.
 ENV_SETTINGS_FILE="settings.env"
+YAML_SETTINGS_FILE="settings.yaml"
 
-if [[ ! -f $ENV_SETTINGS_FILE ]]; then
-    error "Please copy template.env to $ENV_SETTINGS_FILE and adapt the values"
+# First-run bootstrap: if no configuration exists yet, run prepare.py to
+# generate settings.yaml (with secure random secrets), settings.env,
+# docker-compose.yml, and the container SSH host keys. prepare.py refuses to
+# run if settings.yaml already exists, so this branch only triggers on a
+# fresh setup.
+if [[ ! -f $YAML_SETTINGS_FILE && ! -f $ENV_SETTINGS_FILE ]]; then
+    info "No configuration found, running ./prepare.py for first-run setup"
+    if ! ./prepare.py; then
+        error "Failed to run prepare.py"
+        exit 1
+    fi
+fi
+
+if [[ ! -f $YAML_SETTINGS_FILE || ! -f $ENV_SETTINGS_FILE ]]; then
+    error "Configuration is incomplete: expected both $YAML_SETTINGS_FILE and $ENV_SETTINGS_FILE."
+    error "Delete any leftover file and re-run ./prepare.py to regenerate from scratch."
+    exit 1
+fi
+
+if [[ ! -f "docker-compose.yml" ]]; then
+    error "docker-compose.yml is missing. Delete $YAML_SETTINGS_FILE and re-run ./prepare.py to regenerate it."
+    exit 1
+fi
+
+if [[ ! -f "container-keys/root_key" || ! -f "container-keys/user_key" ]]; then
+    error "Container SSH keys are missing. Delete $YAML_SETTINGS_FILE and re-run ./prepare.py to regenerate them."
     exit 1
 fi
 
@@ -287,11 +312,6 @@ else
     fi
 fi
 
-# Generate docker-compose files and generate keys.
-if ! ./prepare.py; then
-    error "Failed to run prepare.py"
-    exit 1
-fi
 
 function update {
     (
