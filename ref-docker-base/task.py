@@ -13,7 +13,14 @@ from dataclasses import asdict
 import requests
 from itsdangerous import TimedSerializer
 
-from ref_utils import TaskTestResult, print_err, print_ok, print_warn
+from ref_utils import (
+    InstanceInfoError,
+    TaskTestResult,
+    get_instance_info,
+    print_err,
+    print_ok,
+    print_warn,
+)
 from ref_utils.decorator import run_tests, suppress_run_tests
 
 with open("/etc/key", "rb") as f:
@@ -228,11 +235,17 @@ def cmd_id(_):
 
 
 def cmd_info(_):
-    req = {}
-    req = finalize_request(req)
-    res = requests.post("http://ssh-reverse-proxy:8000/api/instance/info", json=req)
-    _, info = handle_response(res)
-    print(info)
+    try:
+        info = get_instance_info()
+    except InstanceInfoError as e:
+        print_err(f"[!] {e}")
+        exit(1)
+
+    type_ = "Submission" if info.is_submission else "Instance"
+    print(f"Type     : {type_}")
+    print(f"User     : {info.user_full_name}")
+    print(f"Exercise : {info.exercise_short_name}")
+    print(f"Version  : {info.exercise_version}")
 
 
 def main():

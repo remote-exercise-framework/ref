@@ -115,7 +115,7 @@ def start_and_return_instance(
         header += f"\n{ansi.green(msg_of_the_day)}"
 
     user_name = requesting_user.full_name
-    greeting = f"Hello {user_name}!\n[+] Connecting to task \"{exercise.short_name}\"..."
+    greeting = f'Hello {user_name}!\n[+] Connecting to task "{exercise.short_name}"...'
 
     welcome_message = f"{header}\n{greeting}\n"
 
@@ -889,17 +889,18 @@ def api_instance_info():
         return error_response("Invalid request")
 
     exercise = instance.exercise
+    user = instance.user
 
-    ret = ""
-    type_ = "Submission" if instance.submission else "Instance"
-    user_name = instance.user.full_name
-
-    ret += f"Type     : {type_}\n"
-    ret += f"User     : {user_name}\n"
-    ret += f"Exercise : {exercise.short_name}\n"
-    ret += f"Version  : {exercise.version}\n"
-
-    ret = ret.rstrip()
+    ret = {
+        "instance_id": instance.id,
+        "is_submission": bool(instance.submission),
+        "user_full_name": user.full_name,
+        "user_mat_num": user.mat_num,
+        "is_admin": bool(user.is_admin),
+        "is_grading_assistant": bool(user.is_grading_assistant),
+        "exercise_short_name": exercise.short_name,
+        "exercise_version": exercise.version,
+    }
 
     return ok_response(ret)
 
