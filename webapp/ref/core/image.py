@@ -448,6 +448,7 @@ class ExerciseImageManager:
                 exercise = Exercise.query.options(
                     joinedload(Exercise.entry_service),
                     joinedload(Exercise.services),
+                    joinedload(Exercise.config),
                 ).get(exercise_id)
                 if exercise is None:
                     _log_build(
@@ -470,6 +471,7 @@ class ExerciseImageManager:
                 # only populates forward relationships, not reverse ones.
                 entry_service = exercise.entry_service
                 services = list(exercise.services)
+                config = exercise.config
                 app.db.session.expunge(exercise)
                 if entry_service:
                     app.db.session.expunge(entry_service)
@@ -477,6 +479,7 @@ class ExerciseImageManager:
                 for svc in services:
                     app.db.session.expunge(svc)
                     svc.exercise = exercise
+                app.db.session.expunge(config)
                 app.db.session.commit()
                 ExerciseImageManager.__run_build(app, exercise)
             _log_build(f"[BUILD] Build thread finished for exercise_id={exercise_id}")
