@@ -61,6 +61,29 @@ System Settings
                     {{ wtf_utils.render_field(general_settings_form.telegram_logger_channel_id, "text") }}
                 </div>
             </div>
+            <div class="col-md-12">
+                <div class="form-group">
+                    {{ wtf_utils.render_field(general_settings_form.scoreboard_enabled, "checkbox") }}
+                </div>
+            </div>
+            <div class="col-md-12">
+                <label for="{{ general_settings_form.scoreboard_view.id }}">{{ general_settings_form.scoreboard_view.label }}</label>
+                <div class="form-group">
+                    {{ general_settings_form.scoreboard_view() }}
+                </div>
+            </div>
+            <div class="col-md-12">
+                <label for="{{ general_settings_form.scoreboard_ranking_mode.id }}">{{ general_settings_form.scoreboard_ranking_mode.label }}</label>
+                <div class="form-group">
+                    {{ general_settings_form.scoreboard_ranking_mode() }}
+                </div>
+            </div>
+            <div class="col-md-12">
+                <label for="{{ general_settings_form.landing_page.id }}">{{ general_settings_form.landing_page.label }}</label>
+                <div class="form-group">
+                    {{ general_settings_form.landing_page() }}
+                </div>
+            </div>
 
                 {{ general_settings_form.csrf_token }}
                 {{ wtf_utils.render_submit(general_settings_form.submit) }}

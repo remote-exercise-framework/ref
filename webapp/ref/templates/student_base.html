@@ -22,18 +22,17 @@
 
 </head>
 
-<body>
+<body class="{% block body_class %}{% endblock %}">
     {%  if error_message %}
         <div class="alert alert-danger" role="alert">
         {{ error_message }}
         </div>
     {% endif %}
 
-    <div class="jumbotron public-banner">
-        <div class="container">
-            <h1>{{ settings.COURSE_NAME.value  }}</h1>
-        </div>
-    </div>
+    {% block student_nav %}
+    {% include "_navbar.html" %}
+    {% endblock %}
+
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -60,27 +59,15 @@
     {% endwith %}
 
 
-    <div class="container mb-4">
-        <div class="row">
-            <div class="col-lg-6 col-md-9">
-                <ul class="nav nav-tabs justify-content-end">
-                    <li class="nav-item">
-                        <a class="nav-link {% if route_name == 'get_key' %} active {% endif %}" href="{{ url_for('ref.student_getkey') }}">Get Key</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if route_name == 'restore_key' %} active {% endif %}" href="{{ url_for('ref.student_restorekey') }}">Restore Key</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('ref.login') }}">Login</a>
-                    </li>
-                </ul>
-            </div>
+
+    {% block content_container %}
+    <div class="container d-flex align-items-center justify-content-center"
+         style="min-height: calc(100vh - 56px); padding-top: 2rem; padding-bottom: 2rem;">
+        <div class="w-100">
+            {% block content %}{% endblock %}
         </div>
     </div>
-
-    <div class="container">
-        {% block content %}{% endblock %}
-    </div>
+    {% endblock %}
 
     <script>
         $(document).ready(function() {

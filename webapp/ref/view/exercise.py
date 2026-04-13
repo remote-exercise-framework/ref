@@ -1,3 +1,4 @@
+import json
 import subprocess
 import urllib
 from collections import defaultdict
@@ -6,10 +7,13 @@ from pathlib import Path
 from flask import abort, current_app, redirect, render_template, request, url_for
 from wtforms import (
     BooleanField,
+    FloatField,
     Form,
     IntegerField,
+    SelectField,
     StringField,
     SubmitField,
+    TextAreaField,
     validators,
 )
 
@@ -21,6 +25,7 @@ from ref.core import (
     admin_required,
     flash,
     InstanceManager,
+    validate_scoring_policy,
 )
 from ref.core.logging import get_logger
 from ref.core.security import sanitize_path_is_subdir
@@ -33,6 +38,14 @@ from ref.core import InconsistentStateError
 log = get_logger(__name__)
 
 
+SCORING_MODE_CHOICES = [
+    ("none", "No scoring policy"),
+    ("linear", "Linear (raw [0..1] → [0..max_points])"),
+    ("threshold", "Threshold (all or nothing)"),
+    ("tiered", "Tiered (stepped milestones)"),
+]
+
+
 class ExerciseConfigForm(Form):
     short_name = StringField("Short Name", validators=[validators.DataRequired()])
     category = StringField("Category", validators=[validators.DataRequired()])
@@ -42,7 +55,77 @@ class ExerciseConfigForm(Form):
     max_grading_points = IntegerField(
         "Max Grading Points", validators=[validators.Optional()]
     )
+
+    scoring_mode = SelectField("Scoring Mode", choices=SCORING_MODE_CHOICES)
+    scoring_max_points = FloatField("Max Points", validators=[validators.Optional()])
+    scoring_min_raw = FloatField("Lower bound", validators=[validators.Optional()])
+    scoring_max_raw = FloatField("Upper bound", validators=[validators.Optional()])
+    scoring_threshold = FloatField("Threshold", validators=[validators.Optional()])
+    scoring_points = FloatField("Points", validators=[validators.Optional()])
+    scoring_tiers_json = TextAreaField("Tiers JSON", validators=[validators.Optional()])
+    scoring_baseline = FloatField("Baseline", validators=[validators.Optional()])
+
     submit = SubmitField("Save")
+
+
+def _scoring_policy_from_form(
+    form: "ExerciseConfigForm",
+) -> tuple[dict | None, list[str]]:
+    """Build a scoring policy dict from form fields, or (None, errors)."""
+    mode = form.scoring_mode.data or "none"
+    if mode == "none":
+        policy: dict = {}
+    elif mode == "linear":
+        policy = {"mode": "linear", "max_points": form.scoring_max_points.data}
+        if form.scoring_min_raw.data is not None:
+            policy["min_raw"] = form.scoring_min_raw.data
+        if form.scoring_max_raw.data is not None:
+            policy["max_raw"] = form.scoring_max_raw.data
+    elif mode == "threshold":
+        policy = {
+            "mode": "threshold",
+            "threshold": form.scoring_threshold.data,
+            "points": form.scoring_points.data,
+        }
+    elif mode == "tiered":
+        raw = (form.scoring_tiers_json.data or "").strip()
+        if not raw:
+            return None, ["tiered mode requires a non-empty `tiers` list."]
+        try:
+            tiers = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            return None, [f"`tiers` is not valid JSON: {exc.msg}"]
+        policy = {"mode": "tiered", "tiers": tiers}
+    else:
+        return None, [f"unknown scoring mode {mode!r}."]
+
+    if form.scoring_baseline.data is not None:
+        policy["baseline"] = form.scoring_baseline.data
+
+    errors = validate_scoring_policy(policy)
+    if errors:
+        return None, errors
+    return (policy or None), []
+
+
+def _populate_scoring_form(form: "ExerciseConfigForm", policy: dict | None) -> None:
+    """Fill scoring form fields from a stored policy dict (or its absence)."""
+    if not policy:
+        form.scoring_mode.data = "none"
+        return
+    mode = policy.get("mode") or "none"
+    form.scoring_mode.data = mode
+    if mode == "linear":
+        form.scoring_max_points.data = policy.get("max_points")
+        form.scoring_min_raw.data = policy.get("min_raw")
+        form.scoring_max_raw.data = policy.get("max_raw")
+    elif mode == "threshold":
+        form.scoring_threshold.data = policy.get("threshold")
+        form.scoring_points.data = policy.get("points")
+    elif mode == "tiered":
+        form.scoring_tiers_json.data = json.dumps(policy.get("tiers") or [], indent=2)
+    if "baseline" in policy:
+        form.scoring_baseline.data = policy.get("baseline")
 
 
 @refbp.route("/admin/exercise/build/<int:exercise_id>")
@@ -427,6 +510,7 @@ def exercise_edit_config(short_name):
         )
         form.submission_test_enabled.data = config.submission_test_enabled
         form.max_grading_points.data = config.max_grading_points
+        _populate_scoring_form(form, config.scoring_policy)
 
     if request.method == "POST" and form.validate():
         import re
@@ -499,6 +583,15 @@ def exercise_edit_config(short_name):
         config.submission_deadline_end = deadline_end
         config.submission_test_enabled = form.submission_test_enabled.data
         config.max_grading_points = form.max_grading_points.data
+
+        scoring_policy, scoring_errors = _scoring_policy_from_form(form)
+        if scoring_errors:
+            for err in scoring_errors:
+                flash.error(err)
+            return render_template(
+                "exercise_config_edit.html", form=form, short_name=short_name
+            )
+        config.scoring_policy = scoring_policy
 
         # Validate consistency
         has_deadline = config.submission_deadline_end is not None

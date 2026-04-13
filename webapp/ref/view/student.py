@@ -33,13 +33,19 @@ from wtforms import (
 )
 
 from ref import db, limiter, refbp
-from ref.core import UserManager, admin_required, flash
+from ref.core import UserManager, admin_required, flash, resolve_scoreboard_view
 from ref.core.logging import get_logger
 from ref.core.util import (
     redirect_to_next,
 )
 from ref.model import GroupNameList, SystemSettingsManager, User, UserGroup
 from ref.model.enums import UserAuthorizationGroups
+
+LANDING_PAGE_ROUTES = {
+    "registration": "ref.student_getkey",
+    "scoreboard": "ref.student_scoreboard",
+    "chooser": "ref.student_landing",
+}
 
 PASSWORD_MIN_LEN = 8
 PASSWORD_SECURITY_LEVEL = 3
@@ -664,11 +670,52 @@ def student_delete(user_id):
     return redirect_to_next()
 
 
+@refbp.route("/scoreboard", methods=("GET",))
+@limiter.limit("60 per minute")
+def student_scoreboard():
+    """
+    Public scoreboard landing page. Returns 404 when the scoreboard is
+    disabled to avoid leaking the feature's existence. The active view is
+    selected via ``SystemSettingsManager.SCOREBOARD_VIEW`` — each view is a
+    self-contained template at ``templates/scoreboard/<view>.html``.
+    """
+    if not SystemSettingsManager.SCOREBOARD_ENABLED.value:
+        abort(404)
+    view = resolve_scoreboard_view(SystemSettingsManager.SCOREBOARD_VIEW.value)
+    return render_template(
+        f"scoreboard/{view}.html",
+        scoreboard_view=view,
+        route_name="scoreboard",
+    )
+
+
+@refbp.route("/landing", methods=("GET",))
+@limiter.limit("60 per minute")
+def student_landing():
+    """
+    Simple chooser page that lets visitors pick between registering for
+    the course and viewing the public scoreboard. The scoreboard option
+    is only shown when it is enabled.
+    """
+    return render_template(
+        "student_landing.html",
+        scoreboard_enabled=bool(SystemSettingsManager.SCOREBOARD_ENABLED.value),
+        route_name="landing",
+    )
+
+
 @refbp.route("/student/")
 @refbp.route("/student")
 @refbp.route("/")
 def student_default_routes():
     """
-    Redirect some urls to the key retrival form.
+    Redirect visitors of "/" to the configured landing page.
+    Falls back to the key retrieval form when the configured page is
+    unavailable (e.g. scoreboard selected but disabled).
     """
-    return redirect(url_for("ref.student_getkey"))
+    target = SystemSettingsManager.LANDING_PAGE.value
+    # The scoreboard cannot be the landing page while it is disabled.
+    if target == "scoreboard" and not SystemSettingsManager.SCOREBOARD_ENABLED.value:
+        target = "registration"
+    endpoint = LANDING_PAGE_ROUTES.get(target, "ref.student_getkey")
+    return redirect(url_for(endpoint))

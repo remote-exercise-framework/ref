@@ -1,0 +1,80 @@
+{% extends "student_base.html" %}
+
+{% block title %}
+{{ settings.COURSE_NAME.value }} — Scoreboard
+{% endblock %}
+
+{% block body_class %}sb-active{% endblock %}
+
+{% block head %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scoreboard.css') }}">
+
+<script src="{{ url_for('static', filename='vendor/chart.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chartjs-plugin-annotation.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/moment.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chartjs-adapter-moment.min.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/scoreboard/default.js') }}"></script>
+{% endblock %}
+
+{% block content_container %}
+<div class="sb-wrap">
+    <header class="sb-header">
+        <div class="sb-eyebrow">
+            <span class="sb-live"><span class="sb-dot"></span>LIVE</span>
+            <span class="sb-course">{{ settings.COURSE_NAME.value }}</span>
+            <span class="sb-sep">//</span>
+            <span id="sb-ranking-mode" class="sb-mode"></span>
+        </div>
+        <h1 class="sb-title">SCOREBOARD</h1>
+    </header>
+
+    <section class="sb-section">
+        <div class="sb-section-head">
+            <h2 class="sb-section-title">[ highscores ]</h2>
+            <ul class="sb-tabs" id="highscore-assignment-tabs"></ul>
+        </div>
+        <div id="highscore-assignments"></div>
+    </section>
+
+    <section class="sb-section">
+        <div class="sb-section-head">
+            <h2 class="sb-section-title">[ ranking ]</h2>
+        </div>
+        <div class="sb-panel">
+            <table class="sb-table">
+                <thead>
+                    <tr>
+                        <th class="sb-col-rank">#</th>
+                        <th>Team</th>
+                        <th>Badges</th>
+                        <th class="sb-col-points">Points</th>
+                    </tr>
+                </thead>
+                <tbody id="ranking-table-body">
+                    <tr class="sb-empty"><td colspan="4">// awaiting submissions</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="sb-section">
+        <div class="sb-section-head">
+            <h2 class="sb-section-title">[ points over time ]</h2>
+        </div>
+        <div class="sb-panel sb-chart-wrap">
+            <canvas id="scoreChart"></canvas>
+        </div>
+    </section>
+
+    <section class="sb-section">
+        <div class="sb-section-head">
+            <h2 class="sb-section-title">[ challenges ]</h2>
+            <ul class="sb-tabs" id="challenges-assignment-tabs"></ul>
+        </div>
+        <div id="challenges-root"></div>
+    </section>
+</div>
+{% endblock %}

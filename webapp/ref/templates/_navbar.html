@@ -1,0 +1,83 @@
+<nav class="navbar navbar-expand-lg navbar-dark sticky-top"
+     style="background-color: #343a40; z-index: 1050;">
+    <a class="navbar-brand d-flex align-items-center" href="{{ url_for('ref.student_default_routes') }}">
+        <img src="{{ url_for('static', filename='navbar_logo.png') }}" height="30" alt="" class="mr-2">
+        {{ settings.COURSE_NAME.value }}
+    </a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#mainNavbar"
+            aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNavbar">
+        <ul class="navbar-nav mr-auto">
+            <li class="nav-item {% if route_name == 'get_key' %}active{% endif %}">
+                <a class="nav-link" href="{{ url_for('ref.student_getkey') }}">Registration</a>
+            </li>
+            <li class="nav-item {% if route_name == 'restore_key' %}active{% endif %}">
+                <a class="nav-link" href="{{ url_for('ref.student_restorekey') }}">Restore Key</a>
+            </li>
+            {% if settings.SCOREBOARD_ENABLED.value %}
+            <li class="nav-item {% if route_name == 'scoreboard' %}active{% endif %}">
+                <a class="nav-link" href="{{ url_for('ref.student_scoreboard') }}">Scoreboard</a>
+            </li>
+            {% endif %}
+
+            {% if current_user.is_authenticated and current_user.is_admin %}
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button"
+                   data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Admin
+                </a>
+                <div class="dropdown-menu" aria-labelledby="adminDropdown">
+                    <a class="dropdown-item" href="{{ url_for('ref.student_view_all') }}">Users</a>
+                    <a class="dropdown-item" href="{{ url_for('ref.exercise_view_all') }}">Exercises</a>
+                    <a class="dropdown-item" href="{{ url_for('ref.instances_view_all') }}">Instances</a>
+                    <a class="dropdown-item" href="{{ url_for('ref.submissions_view_all') }}">Submissions</a>
+                </div>
+            </li>
+            {% endif %}
+
+            {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_grading_assistant) %}
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="gradingDropdown" role="button"
+                   data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Grading
+                </a>
+                <div class="dropdown-menu" aria-labelledby="gradingDropdown">
+                    <a class="dropdown-item" href="{{ url_for('ref.grading_view_all') }}">View All</a>
+                    <a class="dropdown-item" href="{{ url_for('ref.grading_search') }}">Search</a>
+                </div>
+            </li>
+            {% endif %}
+
+            {% if current_user.is_authenticated and current_user.is_admin %}
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="systemDropdown" role="button"
+                   data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    System
+                </a>
+                <div class="dropdown-menu" aria-labelledby="systemDropdown">
+                    <a class="dropdown-item" href="{{ url_for('ref.view_system_settings') }}">Settings</a>
+                    <a class="dropdown-item" href="{{ url_for('ref.group_names_view_all') }}">Group Names</a>
+                    <a class="dropdown-item" href="{{ url_for('ref.group_view_all') }}">Groups</a>
+                    <a class="dropdown-item" href="{{ url_for('ref.graph') }}">Containers & Networks</a>
+                </div>
+            </li>
+            {% endif %}
+        </ul>
+        <ul class="navbar-nav ml-auto">
+            {% if current_user.is_authenticated %}
+            <li class="nav-item">
+                <span class="navbar-text mr-3">{{ current_user.first_name }} {{ current_user.surname }}</span>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('ref.logout') }}">Logout</a>
+            </li>
+            {% else %}
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('ref.login') }}">Login</a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+</nav>

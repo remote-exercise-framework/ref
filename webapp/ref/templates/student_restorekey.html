@@ -19,7 +19,7 @@ Key Generation
 
     <form method="POST">
         {{ form.csrf_token }}
-        <div class="row">
+        <div class="row justify-content-center">
             <div class="col-lg-6 col-md-9">
                 <div class="form-group">
                     {{ wtf_utils.render_field(form.mat_num, "number") }}

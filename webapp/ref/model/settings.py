@@ -101,3 +101,15 @@ class SystemSettingsManager:
     SSH_MESSAGE_OF_THE_DAY = Setting("SSH_MESSAGE_OF_THE_DAY", str, None)
 
     TIMEZONE = Setting("TIMEZONE", str, "Europe/Berlin")
+
+    # Public scoreboard toggle, active visual view, and ranking strategy.
+    # See ref/core/scoring.py for the set of valid ids for each.
+    SCOREBOARD_ENABLED = Setting("SCOREBOARD_ENABLED", bool, False)
+    SCOREBOARD_VIEW = Setting("SCOREBOARD_VIEW", str, "default")
+    SCOREBOARD_RANKING_MODE = Setting(
+        "SCOREBOARD_RANKING_MODE", str, "f1_time_weighted"
+    )
+
+    # Which page students land on when visiting "/". One of
+    # {"registration", "scoreboard"}.
+    LANDING_PAGE = Setting("LANDING_PAGE", str, "registration")

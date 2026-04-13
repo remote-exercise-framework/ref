@@ -44,12 +44,197 @@ Edit Exercise: {{ short_name }}
                 </div>
             </div>
 
-            <div class="row mt-4">
+            <hr>
+            <h5>Scoring Policy</h5>
+            <p class="text-muted">
+                How raw submission scores are translated into scoreboard
+                points for this exercise.
+            </p>
+
+            <div class="row mb-3">
                 <div class="col-md-6">
+                    <label for="{{ form.scoring_mode.id }}">{{ form.scoring_mode.label.text }}</label>
+                    {{ form.scoring_mode(class_="form-control") }}
+                </div>
+                <div class="col-md-6">
+                    {{ wtf_utils.render_field(form.scoring_baseline, "number") }}
+                </div>
+            </div>
+
+            <div class="alert alert-info scoring-fields" data-mode="none">
+                No scoring policy: raw submission scores are shown verbatim
+                and no scoreboard points are awarded.
+            </div>
+
+            <div class="scoring-fields" data-mode="linear">
+                <div class="alert alert-secondary">
+                    <strong>Linear:</strong> raw score linearly mapped from
+                    <code>[Lower bound … Upper bound]</code> to
+                    <code>[0 … Max Points]</code>. Raws below the
+                    <em>Lower bound</em> award 0, raws above the
+                    <em>Upper bound</em> clamp to <em>Max Points</em>.
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Max Points</strong> — points awarded at the <em>Upper bound</em>.</li>
+                        <li><strong>Lower bound</strong> — raw value below which nothing is awarded. Default <code>0</code>.</li>
+                        <li><strong>Upper bound</strong> — raw value at which full points are reached. Default <code>1</code>.</li>
+                    </ul>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        {{ wtf_utils.render_field(form.scoring_max_points, "number") }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ wtf_utils.render_field(form.scoring_min_raw, "number") }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ wtf_utils.render_field(form.scoring_max_raw, "number") }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="scoring-fields" data-mode="threshold">
+                <div class="alert alert-secondary">
+                    <strong>Threshold:</strong> binary all-or-nothing.
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Threshold</strong> — minimum raw score that awards any points.</li>
+                        <li><strong>Points</strong> — awarded once the threshold is reached; zero otherwise.</li>
+                    </ul>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        {{ wtf_utils.render_field(form.scoring_threshold, "number") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ wtf_utils.render_field(form.scoring_points, "number") }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="scoring-fields" data-mode="tiered">
+                <div class="alert alert-secondary">
+                    <strong>Tiered:</strong> stepped milestones. The
+                    transformed score is the <em>highest</em> <strong>Points</strong>
+                    value whose <strong>Above</strong> threshold the raw score
+                    meets. Tiers can be listed in any order.
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Above</strong> — minimum raw score required to reach this tier.</li>
+                        <li><strong>Points</strong> — points awarded when this tier is the highest one met.</li>
+                    </ul>
+                </div>
+
+                <div id="scoring-tiers-rows"></div>
+                <div class="mb-3">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="scoring-tiers-add">
+                        + Add tier
+                    </button>
+                </div>
+                <!-- Hidden JSON field — the single source of truth that the server
+                     reads. The dynamic rows above are kept in sync with it. -->
+                <div style="display: none;">
+                    {{ form.scoring_tiers_json(id=form.scoring_tiers_json.id) }}
+                </div>
+            </div>
+
+            <div class="row mt-4 justify-content-center">
+                <div class="col-md-auto text-center">
                     {{ wtf_utils.render_submit(form.submit) }}
                 </div>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+(function () {
+    var select = document.getElementById("{{ form.scoring_mode.id }}");
+    var groups = document.querySelectorAll(".scoring-fields");
+    function sync() {
+        var mode = select.value;
+        groups.forEach(function (g) {
+            g.style.display = (g.dataset.mode === mode) ? "" : "none";
+        });
+    }
+    if (select) {
+        select.addEventListener("change", sync);
+        sync();
+    }
+
+    // --- Tiered mode: dynamic row editor backed by the hidden JSON field ---
+    var tiersInput = document.getElementById("{{ form.scoring_tiers_json.id }}");
+    var rowsHost = document.getElementById("scoring-tiers-rows");
+    var addBtn = document.getElementById("scoring-tiers-add");
+
+    function readTiers() {
+        if (!tiersInput || !tiersInput.value.trim()) return [];
+        try {
+            var parsed = JSON.parse(tiersInput.value);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function writeTiers() {
+        var tiers = [];
+        rowsHost.querySelectorAll(".scoring-tier-row").forEach(function (row) {
+            var above = parseFloat(row.querySelector(".tier-above").value);
+            var points = parseFloat(row.querySelector(".tier-points").value);
+            if (isFinite(above) && isFinite(points)) {
+                tiers.push({ above: above, points: points });
+            }
+        });
+        tiersInput.value = JSON.stringify(tiers);
+    }
+
+    function makeRow(above, points) {
+        var row = document.createElement("div");
+        row.className = "row mb-2 align-items-end scoring-tier-row";
+        row.innerHTML =
+            '<div class="col-md-5">' +
+              '<label class="form-label mb-1">Above</label>' +
+              '<input type="number" step="any" class="form-control tier-above" value="' +
+                (above !== undefined && above !== null ? above : "") + '">' +
+            '</div>' +
+            '<div class="col-md-5">' +
+              '<label class="form-label mb-1">Points</label>' +
+              '<input type="number" step="any" class="form-control tier-points" value="' +
+                (points !== undefined && points !== null ? points : "") + '">' +
+            '</div>' +
+            '<div class="col-md-2">' +
+              '<button type="button" class="btn btn-outline-danger btn-sm tier-remove">Remove</button>' +
+            '</div>';
+        row.querySelector(".tier-above").addEventListener("input", writeTiers);
+        row.querySelector(".tier-points").addEventListener("input", writeTiers);
+        row.querySelector(".tier-remove").addEventListener("click", function () {
+            row.remove();
+            writeTiers();
+        });
+        return row;
+    }
+
+    function renderTiers() {
+        if (!rowsHost) return;
+        rowsHost.innerHTML = "";
+        var tiers = readTiers();
+        if (tiers.length === 0) {
+            rowsHost.appendChild(makeRow("", ""));
+        } else {
+            tiers.forEach(function (t) {
+                rowsHost.appendChild(makeRow(t.above, t.points));
+            });
+        }
+        writeTiers();
+    }
+
+    if (addBtn) {
+        addBtn.addEventListener("click", function () {
+            rowsHost.appendChild(makeRow("", ""));
+            writeTiers();
+        });
+    }
+    if (rowsHost && tiersInput) {
+        renderTiers();
+    }
+})();
+</script>
 {% endblock %}
