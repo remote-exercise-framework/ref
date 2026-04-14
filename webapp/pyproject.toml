@@ -21,7 +21,6 @@ dependencies = [
     "flask-migrate==4.1.0",
     "flask-moment==1.0.6",
     "fuzzywuzzy==0.18.0",
-    "PySocks @ git+https://github.com/nbars/PySocks.git@hack_unix_domain_socket_file_support",
     "gunicorn==23.0.0",
     "hypothesis==6.124.7",
     "importlib-metadata==8.6.1",
