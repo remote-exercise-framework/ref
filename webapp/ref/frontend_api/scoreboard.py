@@ -1,8 +1,8 @@
 """Public scoreboard JSON consumed by the Vue frontend.
 
 Two endpoints. ``/api/scoreboard/config`` describes every assignment +
-challenge and the active ranking strategy. ``/api/scoreboard/submissions``
-returns team-grouped, scoring-policy-transformed submission scores.
+challenge. ``/api/scoreboard/submissions`` returns team-grouped,
+scoring-policy-transformed submission scores with a per-task breakdown.
 
 Both are gated behind ``SYSTEM_SETTING.SCOREBOARD_ENABLED`` and return 404
 when the scoreboard is turned off (avoids leaking the feature's existence).
@@ -12,12 +12,12 @@ import typing as ty
 from collections import defaultdict
 
 from flask import abort, jsonify
+from sqlalchemy.orm import selectinload
 
 from ref import db, limiter, refbp
 from ref.core import (
-    apply_scoring,
     datetime_to_string,
-    resolve_ranking_mode,
+    score_submission,
     team_identity,
 )
 from ref.core.logging import get_logger
@@ -32,12 +32,8 @@ def _scoreboard_enabled_or_abort() -> None:
         abort(404)
 
 
-def _policy_max_points(policy: ty.Optional[dict]) -> ty.Optional[float]:
-    """Best-effort "biggest transformed score this policy can award".
-
-    Used by the frontend for axis scaling; falls back to None when the
-    policy doesn't expose an obvious upper bound.
-    """
+def _single_policy_max_points(policy: ty.Optional[dict]) -> ty.Optional[float]:
+    """Biggest transformed score a single task policy can award, or None."""
     if not policy:
         return None
     mode = policy.get("mode")
@@ -64,21 +60,45 @@ def _policy_max_points(policy: ty.Optional[dict]) -> ty.Optional[float]:
     return None
 
 
+def _per_task_max_points(
+    per_task_policies: ty.Optional[dict],
+) -> ty.Optional[float]:
+    """Sum per-task maxima across every configured policy, or None.
+
+    Tasks without a policy (pass-through) or whose policy has no computable
+    upper bound don't contribute. Returns None if nothing is computable at
+    all — the frontend then falls back to data-driven axis scaling.
+    """
+    if not per_task_policies:
+        return None
+    total: float = 0.0
+    any_known = False
+    for policy in per_task_policies.values():
+        maybe = _single_policy_max_points(policy)
+        if maybe is not None:
+            total += maybe
+            any_known = True
+    return total if any_known else None
+
+
 @refbp.route("/api/scoreboard/config", methods=("GET",))
 @limiter.limit("120 per minute")
 def api_scoreboard_config():
-    """Metadata for every assignment/challenge plus the active ranking strategy.
+    """Metadata for every assignment/challenge.
 
     Response shape::
 
         {
-          "ranking_mode": "f1_time_weighted",
+          "course_name": "...",
           "assignments": {
             "<assignment name>": {
               "<short_name>": {
                 "start": "DD/MM/YYYY HH:MM:SS",
                 "end":   "DD/MM/YYYY HH:MM:SS",
-                "scoring": { ... raw policy dict ... },
+                "per_task_scoring_policies": {
+                  "<task_name>": { ... policy dict ... },
+                  ...
+                },
                 "max_points": <float or null>
               }
             }
@@ -115,12 +135,12 @@ def api_scoreboard_config():
             continue
         if cfg.short_name not in online_short_names:
             continue
-        policy = cfg.scoring_policy or {}
+        per_task = cfg.per_task_scoring_policies or {}
         assignments[cfg.category][cfg.short_name] = {
             "start": datetime_to_string(cfg.submission_deadline_start),
             "end": datetime_to_string(cfg.submission_deadline_end),
-            "scoring": policy,
-            "max_points": _policy_max_points(policy),
+            "per_task_scoring_policies": per_task,
+            "max_points": _per_task_max_points(per_task),
         }
 
     # Prune assignments that ended up with zero online challenges.
@@ -129,9 +149,6 @@ def api_scoreboard_config():
     return jsonify(
         {
             "course_name": SystemSettingsManager.COURSE_NAME.value,
-            "ranking_mode": resolve_ranking_mode(
-                SystemSettingsManager.SCOREBOARD_RANKING_MODE.value
-            ),
             "assignments": assignments,
         }
     )
@@ -140,21 +157,37 @@ def api_scoreboard_config():
 @refbp.route("/api/scoreboard/submissions", methods=("GET",))
 @limiter.limit("20 per minute")
 def api_scoreboard_submissions():
-    """Team-grouped, scoring-policy-transformed submission scores.
+    """Team-grouped submission scores with per-task breakdown.
 
     Response shape::
 
         {
           "<short_name>": {
-            "<team label>": [["DD/MM/YYYY HH:MM:SS", <float>], ...]
+            "<team label>": [
+              {
+                "ts": "DD/MM/YYYY HH:MM:SS",
+                "score": <float>,
+                "tasks": {"<task_name>": <float | null>, ...}
+              },
+              ...
+            ]
           }
         }
+
+    ``tasks`` values are ``null`` for tasks whose underlying raw score was
+    ``None`` (bool-returning tests). Such tasks contribute 0 to ``score``.
     """
     _scoreboard_enabled_or_abort()
 
-    scores: dict[str, dict[str, list[list]]] = defaultdict(lambda: defaultdict(list))
+    scores: dict[str, dict[str, list[dict]]] = defaultdict(lambda: defaultdict(list))
 
-    for submission in Submission.all():
+    # Eager-load test results; we always read them now that multi-task
+    # submissions are supported.
+    submissions = Submission.query.options(
+        selectinload(Submission.submission_test_results)
+    ).all()
+
+    for submission in submissions:
         instance = submission.origin_instance
         if instance is None:
             continue
@@ -165,24 +198,28 @@ def api_scoreboard_submissions():
         if cfg is None or cfg.category is None:
             continue
 
-        test_results = submission.submission_test_results
-        if len(test_results) != 1:
-            log.warning(
-                "Skipping submission %s with %d test results on scoreboard",
-                submission.id,
-                len(test_results),
-            )
+        if not submission.submission_test_results:
+            # Nothing was tested — no meaningful score to plot.
             continue
 
-        raw = test_results[0].score
-        transformed = apply_scoring(raw, cfg.scoring_policy)
+        total, breakdown = score_submission(
+            submission.submission_test_results,
+            cfg.per_task_scoring_policies,
+        )
+        if not breakdown:
+            # Every task was discarded; nothing to show for this submission.
+            continue
         team = team_identity(instance.user)
         scores[exercise.short_name][team].append(
-            [datetime_to_string(submission.submission_ts), transformed]
+            {
+                "ts": datetime_to_string(submission.submission_ts),
+                "score": total,
+                "tasks": breakdown,
+            }
         )
 
     for challenge in scores.values():
         for entries in challenge.values():
-            entries.sort(key=lambda e: e[0])
+            entries.sort(key=lambda e: e["ts"])
 
     return jsonify(scores)

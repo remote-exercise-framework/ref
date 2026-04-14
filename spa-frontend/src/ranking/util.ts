@@ -41,16 +41,16 @@ export function getHighscores(
       null;
     const teams = submissions[challenge] || {};
     for (const team of Object.keys(teams)) {
-      for (const [tsStr, rawScore] of teams[team] || []) {
-        const score = Number(rawScore);
-        const ts = parseApiDate(tsStr);
+      for (const entry of teams[team] || []) {
+        const score = Number(entry.score);
+        const ts = parseApiDate(entry.ts);
         if (!ts || Number.isNaN(score)) continue;
         if (
           !best ||
           score > best.score ||
           (score === best.score && ts < best.ts)
         ) {
-          best = { team, score, ts, tsStr };
+          best = { team, score, ts, tsStr: entry.ts };
         }
       }
     }
@@ -76,10 +76,10 @@ export function getBadges(
       const teams = (submissions && submissions[challenge]) || {};
       for (const team of Object.keys(teams)) {
         let earned = false;
-        for (const [tsStr, rawScore] of teams[team] || []) {
-          const ts = parseApiDate(tsStr);
+        for (const entry of teams[team] || []) {
+          const ts = parseApiDate(entry.ts);
           if (!ts || ts < cStart || ts > cEnd) continue;
-          if (Number(rawScore) > 0) {
+          if (Number(entry.score) > 0) {
             earned = true;
             break;
           }
@@ -98,30 +98,44 @@ export function getBadges(
 }
 
 // Assignment whose challenges are currently submittable (start <= now <=
-// end). If multiple are active, pick the one whose earliest start is
-// latest so the newest open assignment wins.
+// end). If multiple are active, pick the one with the soonest end so the
+// tab with the closest deadline wins. Falls back to the upcoming
+// assignment with the nearest start if nothing is currently active.
 export function getActiveAssignmentName(
   assignments: Assignments,
 ): string | null {
   const now = new Date();
-  let best: string | null = null;
-  let bestStart: Date | null = null;
+  let activeName: string | null = null;
+  let activeEnd: Date | null = null;
+  let upcomingName: string | null = null;
+  let upcomingStart: Date | null = null;
   for (const [name, challenges] of Object.entries(assignments || {})) {
-    let anyActive = false;
-    let earliestStart: Date | null = null;
+    let earliestActiveEnd: Date | null = null;
+    let earliestFutureStart: Date | null = null;
     for (const ch of Object.values(challenges || {}) as ChallengeCfg[]) {
       const s = parseApiDate(ch.start);
       const e = parseApiDate(ch.end);
       if (!s || !e) continue;
-      if (s <= now && now <= e) anyActive = true;
-      if (!earliestStart || s < earliestStart) earliestStart = s;
+      if (s <= now && now <= e) {
+        if (!earliestActiveEnd || e < earliestActiveEnd) earliestActiveEnd = e;
+      } else if (s > now) {
+        if (!earliestFutureStart || s < earliestFutureStart) earliestFutureStart = s;
+      }
     }
-    if (anyActive && earliestStart && (!bestStart || earliestStart > bestStart)) {
-      best = name;
-      bestStart = earliestStart;
+    if (earliestActiveEnd && (!activeEnd || earliestActiveEnd < activeEnd)) {
+      activeName = name;
+      activeEnd = earliestActiveEnd;
+    }
+    if (
+      !earliestActiveEnd &&
+      earliestFutureStart &&
+      (!upcomingStart || earliestFutureStart < upcomingStart)
+    ) {
+      upcomingName = name;
+      upcomingStart = earliestFutureStart;
     }
   }
-  return best;
+  return activeName ?? upcomingName;
 }
 
 export function computeAssignmentStartTimes(

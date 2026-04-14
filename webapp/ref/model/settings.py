@@ -102,12 +102,8 @@ class SystemSettingsManager:
 
     TIMEZONE = Setting("TIMEZONE", str, "Europe/Berlin")
 
-    # Public scoreboard toggle and ranking strategy. See
-    # ref/core/scoring.py for the set of valid ranking ids.
+    # Public scoreboard toggle.
     SCOREBOARD_ENABLED = Setting("SCOREBOARD_ENABLED", bool, False)
-    SCOREBOARD_RANKING_MODE = Setting(
-        "SCOREBOARD_RANKING_MODE", str, "f1_time_weighted"
-    )
 
     # Which page students land on when visiting "/". One of
     # {"registration", "scoreboard"}.

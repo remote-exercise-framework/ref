@@ -3,11 +3,12 @@
    live here; all colors come from Vuetify's --v-theme-* custom
    properties, so dark and light themes share one stylesheet. */
 
-@import url('https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Major+Mono+Display&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap');
 
 :root {
   --term-font-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
   --term-font-display: 'Major Mono Display', ui-monospace, monospace;
+  --term-font-hud: 'Orbitron', 'IBM Plex Sans', system-ui, sans-serif;
 }
 
 html, body, #app {
@@ -472,6 +473,48 @@ body.theme-light .term-live-dot {
   animation: term-fade 400ms ease both;
 }
 
+.term-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin: 5rem 0 2rem;
+  text-align: center;
+}
+
+.term-group-head::before,
+.term-group-head::after {
+  content: "";
+  flex: 1;
+  max-width: 180px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--v-theme-border)) 40%,
+    rgb(var(--v-theme-border)) 60%,
+    transparent
+  );
+}
+
+.term-group-title {
+  font-family: var(--term-font-hud);
+  font-size: clamp(1.8rem, 3.8vw, 2.8rem);
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  margin: 0;
+  padding: 0 0.4em;
+  text-shadow: 0 0 18px rgba(var(--v-theme-cool-glow), var(--v-cool-glow-alpha));
+}
+
+.term-group-title::before { content: "/// "; opacity: 0.5; }
+.term-group-title::after  { content: " ///"; opacity: 0.5; }
+
+.term-group-title.term-hot {
+  text-shadow: 0 0 18px rgba(var(--v-theme-hot-glow), var(--v-hot-glow-alpha));
+}
+
 @keyframes term-fade {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -481,4 +524,10 @@ body.theme-light .term-live-dot {
   padding: 1.5rem;
   min-height: 440px;
   max-height: 440px;
+}
+
+@media (max-width: 900px) {
+  .term-challenge-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 }

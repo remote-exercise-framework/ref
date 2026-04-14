@@ -7,10 +7,8 @@ from pathlib import Path
 from flask import abort, current_app, redirect, render_template, request, url_for
 from wtforms import (
     BooleanField,
-    FloatField,
     Form,
     IntegerField,
-    SelectField,
     StringField,
     SubmitField,
     TextAreaField,
@@ -23,6 +21,7 @@ from ref.core import (
     ExerciseImageManager,
     ExerciseManager,
     admin_required,
+    extract_task_names_from_submission_tests,
     flash,
     InstanceManager,
     validate_scoring_policy,
@@ -38,14 +37,6 @@ from ref.core import InconsistentStateError
 log = get_logger(__name__)
 
 
-SCORING_MODE_CHOICES = [
-    ("none", "No scoring policy"),
-    ("linear", "Linear (raw [0..1] → [0..max_points])"),
-    ("threshold", "Threshold (all or nothing)"),
-    ("tiered", "Tiered (stepped milestones)"),
-]
-
-
 class ExerciseConfigForm(Form):
     short_name = StringField("Short Name", validators=[validators.DataRequired()])
     category = StringField("Category", validators=[validators.DataRequired()])
@@ -55,77 +46,81 @@ class ExerciseConfigForm(Form):
     max_grading_points = IntegerField(
         "Max Grading Points", validators=[validators.Optional()]
     )
-
-    scoring_mode = SelectField("Scoring Mode", choices=SCORING_MODE_CHOICES)
-    scoring_max_points = FloatField("Max Points", validators=[validators.Optional()])
-    scoring_min_raw = FloatField("Lower bound", validators=[validators.Optional()])
-    scoring_max_raw = FloatField("Upper bound", validators=[validators.Optional()])
-    scoring_threshold = FloatField("Threshold", validators=[validators.Optional()])
-    scoring_points = FloatField("Points", validators=[validators.Optional()])
-    scoring_tiers_json = TextAreaField("Tiers JSON", validators=[validators.Optional()])
-    scoring_baseline = FloatField("Baseline", validators=[validators.Optional()])
+    per_task_scoring_policies_json = TextAreaField(
+        "Per-task scoring policies", validators=[validators.Optional()]
+    )
 
     submit = SubmitField("Save")
 
 
-def _scoring_policy_from_form(
+def _discover_tasks_for_config(config: ExerciseConfig) -> list[str]:
+    """Return the task names declared in the current default version's
+    submission_tests file, or [] when the file is missing or unparseable.
+
+    ExerciseConfig is shared across all versions of an exercise, so
+    discovery targets the version currently marked as default.
+    """
+    exercise = Exercise.query.filter(
+        Exercise.short_name == config.short_name,
+        Exercise.is_default.is_(True),
+    ).one_or_none()
+    if exercise is None or not exercise.template_path:
+        return []
+    return extract_task_names_from_submission_tests(
+        Path(exercise.template_path) / "submission_tests"
+    )
+
+
+def _per_task_policies_from_form(
     form: "ExerciseConfigForm",
-) -> tuple[dict | None, list[str]]:
-    """Build a scoring policy dict from form fields, or (None, errors)."""
-    mode = form.scoring_mode.data or "none"
-    if mode == "none":
-        policy: dict = {}
-    elif mode == "linear":
-        policy = {"mode": "linear", "max_points": form.scoring_max_points.data}
-        if form.scoring_min_raw.data is not None:
-            policy["min_raw"] = form.scoring_min_raw.data
-        if form.scoring_max_raw.data is not None:
-            policy["max_raw"] = form.scoring_max_raw.data
-    elif mode == "threshold":
-        policy = {
-            "mode": "threshold",
-            "threshold": form.scoring_threshold.data,
-            "points": form.scoring_points.data,
-        }
-    elif mode == "tiered":
-        raw = (form.scoring_tiers_json.data or "").strip()
-        if not raw:
-            return None, ["tiered mode requires a non-empty `tiers` list."]
-        try:
-            tiers = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            return None, [f"`tiers` is not valid JSON: {exc.msg}"]
-        policy = {"mode": "tiered", "tiers": tiers}
-    else:
-        return None, [f"unknown scoring mode {mode!r}."]
+    discovered_tasks: list[str],
+) -> tuple[dict[str, dict] | None, list[str]]:
+    """Parse and validate the per-task policies JSON blob.
 
-    if form.scoring_baseline.data is not None:
-        policy["baseline"] = form.scoring_baseline.data
+    Returns `(policies_dict | None, errors)`. An empty blob yields
+    `(None, [])` — the column is set to NULL and every task scores as
+    pass-through. Each policy is validated with `validate_scoring_policy`;
+    entries for tasks not in `discovered_tasks` are rejected as a safety
+    check against stale rows when a task was renamed or removed.
+    """
+    raw = (form.per_task_scoring_policies_json.data or "").strip()
+    if not raw:
+        return None, []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return None, [f"per-task policies JSON is invalid: {exc.msg}"]
+    if not isinstance(parsed, dict):
+        return None, ["per-task policies must be a JSON object keyed by task name."]
 
-    errors = validate_scoring_policy(policy)
+    errors: list[str] = []
+    discovered_set = set(discovered_tasks)
+    cleaned: dict[str, dict] = {}
+    for task_name, policy in parsed.items():
+        if not isinstance(task_name, str):
+            errors.append(f"task name {task_name!r} must be a string.")
+            continue
+        if discovered_set and task_name not in discovered_set:
+            errors.append(
+                f"unknown task {task_name!r} — not present in submission_tests."
+            )
+            continue
+        if policy is None or policy == {}:
+            # Empty policy means "pass through" — don't store it.
+            continue
+        if not isinstance(policy, dict):
+            errors.append(f"policy for task {task_name!r} must be an object.")
+            continue
+        policy_errors = validate_scoring_policy(policy)
+        if policy_errors:
+            for err in policy_errors:
+                errors.append(f"task {task_name!r}: {err}")
+            continue
+        cleaned[task_name] = policy
+
     if errors:
         return None, errors
-    return (policy or None), []
-
-
-def _populate_scoring_form(form: "ExerciseConfigForm", policy: dict | None) -> None:
-    """Fill scoring form fields from a stored policy dict (or its absence)."""
-    if not policy:
-        form.scoring_mode.data = "none"
-        return
-    mode = policy.get("mode") or "none"
-    form.scoring_mode.data = mode
-    if mode == "linear":
-        form.scoring_max_points.data = policy.get("max_points")
-        form.scoring_min_raw.data = policy.get("min_raw")
-        form.scoring_max_raw.data = policy.get("max_raw")
-    elif mode == "threshold":
-        form.scoring_threshold.data = policy.get("threshold")
-        form.scoring_points.data = policy.get("points")
-    elif mode == "tiered":
-        form.scoring_tiers_json.data = json.dumps(policy.get("tiers") or [], indent=2)
-    if "baseline" in policy:
-        form.scoring_baseline.data = policy.get("baseline")
+    return (cleaned or None), []
 
 
 @refbp.route("/admin/exercise/build/<int:exercise_id>")
@@ -494,6 +489,15 @@ def exercise_edit_config(short_name):
         return redirect_to_next()
 
     form = ExerciseConfigForm(request.form)
+    discovered_tasks = _discover_tasks_for_config(config)
+
+    def render():
+        return render_template(
+            "exercise_config_edit.html",
+            form=form,
+            short_name=short_name,
+            discovered_tasks=discovered_tasks,
+        )
 
     if request.method == "GET":
         form.short_name.data = config.short_name
@@ -510,7 +514,9 @@ def exercise_edit_config(short_name):
         )
         form.submission_test_enabled.data = config.submission_test_enabled
         form.max_grading_points.data = config.max_grading_points
-        _populate_scoring_form(form, config.scoring_policy)
+        form.per_task_scoring_policies_json.data = json.dumps(
+            config.per_task_scoring_policies or {}, indent=2
+        )
 
     if request.method == "POST" and form.validate():
         import re
@@ -521,9 +527,7 @@ def exercise_edit_config(short_name):
             flash.error(
                 f'Invalid short name "{new_short_name}" (must match {short_name_regex})'
             )
-            return render_template(
-                "exercise_config_edit.html", form=form, short_name=short_name
-            )
+            return render()
 
         # Handle rename
         if new_short_name != config.short_name:
@@ -532,9 +536,7 @@ def exercise_edit_config(short_name):
             ).one_or_none()
             if existing:
                 flash.error(f'Short name "{new_short_name}" is already in use.')
-                return render_template(
-                    "exercise_config_edit.html", form=form, short_name=short_name
-                )
+                return render()
 
             # Update all Exercise rows that share this short_name
             exercises = Exercise.query.filter(
@@ -564,34 +566,28 @@ def exercise_edit_config(short_name):
                 )
             except ValueError:
                 flash.error("Invalid date format.")
-                return render_template(
-                    "exercise_config_edit.html", form=form, short_name=short_name
-                )
+                return render()
 
             if deadline_start >= deadline_end:
                 flash.error("Deadline start must be before deadline end.")
-                return render_template(
-                    "exercise_config_edit.html", form=form, short_name=short_name
-                )
+                return render()
         elif start_str or end_str:
             flash.error("Either set both deadline start and end, or leave both empty.")
-            return render_template(
-                "exercise_config_edit.html", form=form, short_name=short_name
-            )
+            return render()
 
         config.submission_deadline_start = deadline_start
         config.submission_deadline_end = deadline_end
         config.submission_test_enabled = form.submission_test_enabled.data
         config.max_grading_points = form.max_grading_points.data
 
-        scoring_policy, scoring_errors = _scoring_policy_from_form(form)
+        per_task_policies, scoring_errors = _per_task_policies_from_form(
+            form, discovered_tasks
+        )
         if scoring_errors:
             for err in scoring_errors:
                 flash.error(err)
-            return render_template(
-                "exercise_config_edit.html", form=form, short_name=short_name
-            )
-        config.scoring_policy = scoring_policy
+            return render()
+        config.per_task_scoring_policies = per_task_policies
 
         # Validate consistency
         has_deadline = config.submission_deadline_end is not None
@@ -600,18 +596,14 @@ def exercise_edit_config(short_name):
             flash.error(
                 "Either set both deadline and grading points, or leave both empty."
             )
-            return render_template(
-                "exercise_config_edit.html", form=form, short_name=short_name
-            )
+            return render()
 
         db.session.add(config)
         db.session.commit()
         flash.success(f"Configuration for '{config.short_name}' updated.")
         return redirect(url_for("ref.exercise_view_all"))
 
-    return render_template(
-        "exercise_config_edit.html", form=form, short_name=short_name
-    )
+    return render()
 
 
 @refbp.route("/admin", methods=("GET", "POST"))

@@ -2,43 +2,27 @@
 
 Two concerns live here:
 
-1. `apply_scoring()` — transforms a raw per-submission score into scoreboard
-   points according to an `ExerciseConfig.scoring_policy` dict. Supported
-   modes: `linear`, `threshold`, `tiered`. The optional `baseline` field is
-   accepted (frontend reference line) but has no effect on the transformed
-   score.
+1. `apply_scoring()` — transforms a single raw task score into scoreboard
+   points according to a policy dict. Supported modes: `linear`,
+   `threshold`, `tiered`. The optional `baseline` field is accepted
+   (frontend reference line) but has no effect on the transformed score.
 
-2. `RANKING_STRATEGIES` — the single source of truth for which ranking
-   strategies exist. Both the admin system-settings form and the
-   `/api/scoreboard/config` endpoint import from here, so adding a new
-   ranking strategy is one dict entry plus one SPA module.
+2. `score_submission()` — applies `apply_scoring()` to each task result
+   in a submission using an `ExerciseConfig.per_task_scoring_policies`
+   lookup, returning both the total and a per-task breakdown.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 
 from ref.core.logging import get_logger
 
 if TYPE_CHECKING:
     from ref.model import User
+    from ref.model.instance import SubmissionTestResult
 
 log = get_logger(__name__)
-
-
-RANKING_STRATEGIES: dict[str, str] = {
-    "f1_time_weighted": "Formula 1 (time-weighted)",
-    "best_sum": "Sum of best per challenge",
-}
-DEFAULT_RANKING_STRATEGY = "f1_time_weighted"
-RANKING_STRATEGY_CHOICES: list[tuple[str, str]] = list(RANKING_STRATEGIES.items())
-
-
-def resolve_ranking_mode(raw: Optional[str]) -> str:
-    """Return `raw` if it names a known strategy, otherwise the default."""
-    if raw and raw in RANKING_STRATEGIES:
-        return raw
-    return DEFAULT_RANKING_STRATEGY
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -62,6 +46,8 @@ def apply_scoring(
     mode = policy.get("mode")
     if mode in (None, "", "none"):
         return raw
+    if mode == "discard":
+        return 0.0
 
     if mode == "linear":
         max_points = float(policy.get("max_points", 0))
@@ -95,6 +81,45 @@ def apply_scoring(
     return raw
 
 
+def score_submission(
+    results: Sequence["SubmissionTestResult"],
+    per_task_policies: Optional[dict[str, dict[str, Any]]],
+) -> tuple[float, dict[str, Optional[float]]]:
+    """Score a submission by applying per-task scoring policies.
+
+    For each `SubmissionTestResult`:
+      - The task name is looked up in `per_task_policies`; the matched
+        policy (or `None`) is passed to `apply_scoring` together with the
+        raw score.
+      - Tasks whose raw `score` is `None` (bool-returning tests that
+        weren't graded) appear in the breakdown as `None` so consumers
+        can distinguish "untested" from "scored 0". They contribute 0
+        to the total.
+      - Tasks whose policy has `mode == "discard"` are omitted entirely:
+        they don't appear in the breakdown and contribute 0 to the
+        total. Use this to suppress a task from scoring (e.g. a broken
+        or deprecated task) without deleting it from the submission
+        test.
+
+    Returns `(total, breakdown)` where `breakdown` maps `task_name` to a
+    transformed float or `None`.
+    """
+    policies = per_task_policies or {}
+    total = 0.0
+    breakdown: dict[str, Optional[float]] = {}
+    for r in results:
+        policy = policies.get(r.task_name)
+        if policy and policy.get("mode") == "discard":
+            continue
+        if r.score is None:
+            breakdown[r.task_name] = None
+            continue
+        transformed = apply_scoring(r.score, policy)
+        breakdown[r.task_name] = transformed
+        total += transformed
+    return total, breakdown
+
+
 def validate_scoring_policy(policy: Optional[dict[str, Any]]) -> list[str]:
     """Return a list of human-readable errors; empty list means valid."""
     if not policy:
@@ -104,6 +129,8 @@ def validate_scoring_policy(policy: Optional[dict[str, Any]]) -> list[str]:
     mode = policy.get("mode")
 
     if mode in (None, "", "none"):
+        pass
+    elif mode == "discard":
         pass
     elif mode == "linear":
         if "max_points" not in policy:

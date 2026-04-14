@@ -2,10 +2,14 @@
 import type { Ranking } from '../../ranking/types';
 import type { Badges } from '../../ranking/util';
 
-defineProps<{
-  ranking: Ranking;
-  badges: Badges;
-}>();
+const props = withDefaults(
+  defineProps<{
+    ranking: Ranking;
+    badges?: Badges;
+    hideBadges?: boolean;
+  }>(),
+  { badges: () => ({}), hideBadges: false },
+);
 
 function badgeSrc(name: string): string {
   return `/static/badges/${name}.svg`;
@@ -16,6 +20,8 @@ function onBadgeError(e: Event) {
   img.onerror = null;
   img.src = '/static/badges/default.svg';
 }
+
+const colSpan = props.hideBadges ? 3 : 4;
 </script>
 
 <template>
@@ -25,18 +31,18 @@ function onBadgeError(e: Event) {
         <tr>
           <th class="term-col-rank">#</th>
           <th>Team</th>
-          <th>Badges</th>
+          <th v-if="!hideBadges">Badges</th>
           <th class="term-col-points">Points</th>
         </tr>
       </thead>
       <tbody>
         <tr v-if="!ranking || ranking.length === 0" class="term-empty">
-          <td colspan="4">// awaiting submissions</td>
+          <td :colspan="colSpan">// awaiting submissions</td>
         </tr>
         <tr v-for="([team, score], i) in ranking" :key="team">
           <td class="term-col-rank"><span class="term-rank">{{ i + 1 }}</span></td>
           <td class="term-team">{{ team }}</td>
-          <td>
+          <td v-if="!hideBadges">
             <span class="term-badges">
               <img
                 v-for="b in badges[team] || []"

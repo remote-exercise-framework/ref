@@ -1,5 +1,7 @@
 // Sum-of-best-per-challenge ranking strategy.
-// Ported from webapp/ref/static/js/ranking/best_sum.js.
+//
+// Each team's score for a challenge is their highest in-window
+// submission score; the ranking score is the sum across challenges.
 
 import type {
   Assignments,
@@ -24,10 +26,10 @@ function bestPerChallenge(
       const teams = (submissions && submissions[name]) || {};
       if (!best[name]) best[name] = {};
       for (const team of Object.keys(teams)) {
-        for (const [tsStr, raw] of teams[team] || []) {
-          const ts = parseApiDate(tsStr);
+        for (const entry of teams[team] || []) {
+          const ts = parseApiDate(entry.ts);
           if (!ts || ts < cStart || ts > cEnd) continue;
-          const score = Number(raw);
+          const score = Number(entry.score);
           if (!Number.isFinite(score)) continue;
           if (!(team in best[name]) || score > best[name][team]) {
             best[name][team] = score;
@@ -79,10 +81,12 @@ export function computeChartScoresOverTime(
       if (!cStart || !cEnd) continue;
       const teams = (submissions && submissions[name]) || {};
       for (const team of Object.keys(teams)) {
-        for (const [tsStr, raw] of teams[team] || []) {
-          const ts = parseApiDate(tsStr);
+        for (const entry of teams[team] || []) {
+          const ts = parseApiDate(entry.ts);
           if (!ts || ts < cStart || ts > cEnd) continue;
-          events.push({ ts, team, challenge: name, score: Number(raw) });
+          const score = Number(entry.score);
+          if (!Number.isFinite(score)) continue;
+          events.push({ ts, team, challenge: name, score });
         }
       }
     }
@@ -97,7 +101,7 @@ export function computeChartScoresOverTime(
   }
 
   for (const ev of events) {
-    const prev = bestPer[ev.team][ev.challenge] || 0;
+    const prev = bestPer[ev.team][ev.challenge] ?? 0;
     if (ev.score > prev) {
       totals[ev.team] += ev.score - prev;
       bestPer[ev.team][ev.challenge] = ev.score;

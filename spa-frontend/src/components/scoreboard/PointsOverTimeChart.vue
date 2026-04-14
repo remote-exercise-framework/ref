@@ -47,7 +47,17 @@ function buildAnnotations(): Record<string, any> {
       borderWidth: 1,
       scaleID: 'x',
       value: t.getTime(),
-      label: { content: `Assignment ${i + 1}`, display: true },
+      label: {
+        content: `Assignment ${i + 1}`,
+        display: true,
+        rotation: -90,
+        position: 'center',
+        xAdjust: 12,
+        yAdjust: -10,
+        backgroundColor: 'rgba(0, 0, 0, 0)',
+        color: 'gray',
+        padding: 0,
+      },
     };
   });
   return annotations;

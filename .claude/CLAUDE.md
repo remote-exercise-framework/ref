@@ -23,9 +23,13 @@ The test infrastructure (`tests/helpers/ref_instance.py`) automatically sets thi
 # Build all Docker images
 ./ctrl.sh build
 
-# Start services (--debug attaches to terminal with logs)
-./ctrl.sh up --debug
-./ctrl.sh up
+# Start services
+# For development, always use --debug and --hot-reloading:
+#   --debug         enables Flask debug mode and verbose logging
+#   --hot-reloading enables Flask auto-reload and runs the spa-frontend
+#                   under `vite dev` (Vite HMR) instead of a static build
+./ctrl.sh up --debug --hot-reloading
+./ctrl.sh up                            # production-style start, no HMR
 
 # Stop services
 ./ctrl.sh stop              # Keep containers

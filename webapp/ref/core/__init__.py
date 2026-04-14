@@ -15,11 +15,11 @@ from .util import failsafe as failsafe
 from .util import unavailable_during_maintenance as unavailable_during_maintenance
 from .util import datetime_transmute_into_local as datetime_transmute_into_local
 from .scoring import (
-    DEFAULT_RANKING_STRATEGY as DEFAULT_RANKING_STRATEGY,
-    RANKING_STRATEGIES as RANKING_STRATEGIES,
-    RANKING_STRATEGY_CHOICES as RANKING_STRATEGY_CHOICES,
     apply_scoring as apply_scoring,
-    resolve_ranking_mode as resolve_ranking_mode,
+    score_submission as score_submission,
     team_identity as team_identity,
     validate_scoring_policy as validate_scoring_policy,
+)
+from .task_discovery import (
+    extract_task_names_from_submission_tests as extract_task_names_from_submission_tests,
 )

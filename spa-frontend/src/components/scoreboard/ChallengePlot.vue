@@ -18,27 +18,49 @@ let chart: Chart | null = null;
 let xMinCache = 0;
 
 function findBaseline(): number | null {
+  // The plot's baseline line is drawn at the sum of per-task baselines
+  // (each task's policy may optionally carry one). Returns null if no
+  // task has a baseline configured.
   for (const challenges of Object.values(props.assignments || {})) {
     const cfg = challenges[props.challengeName];
-    if (cfg && cfg.scoring && typeof cfg.scoring.baseline === 'number') {
-      return cfg.scoring.baseline;
+    if (!cfg || !cfg.per_task_scoring_policies) continue;
+    let total = 0;
+    let any = false;
+    for (const policy of Object.values(cfg.per_task_scoring_policies)) {
+      if (policy && typeof policy.baseline === 'number') {
+        total += policy.baseline;
+        any = true;
+      }
     }
+    if (any) return total;
   }
   return null;
 }
+
+type PlotPoint = {
+  x: number;
+  y: number;
+  tasks: Record<string, number | null>;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildDatasets(): any[] {
   const teams = (props.submissions && props.submissions[props.challengeName]) || {};
   return Object.entries(teams).map(([team, points]) => {
     const parsed = points
-      .map(([tsStr, score]) => {
-        const d = parseApiDate(tsStr);
-        return d ? { x: d.getTime(), y: Number(score) } : null;
+      .map((entry) => {
+        const d = parseApiDate(entry.ts);
+        return d
+          ? {
+              x: d.getTime(),
+              y: Number(entry.score),
+              tasks: entry.tasks ?? {},
+            }
+          : null;
       })
-      .filter((p): p is { x: number; y: number } => p !== null)
+      .filter((p): p is PlotPoint => p !== null)
       .sort((a, b) => a.x - b.x);
-    const improvements: { x: number; y: number }[] = [];
+    const improvements: PlotPoint[] = [];
     let best = -Infinity;
     for (const p of parsed) {
       if (p.y > best) {
@@ -105,6 +127,27 @@ function render() {
         annotation: { annotations },
         legend: { labels: { usePointStyle: true } },
         zoom: makeZoomPanOptions(() => xMinCache),
+        tooltip: {
+          callbacks: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            label: (ctx: any) =>
+              `${ctx.dataset.label ?? ''}: ${Number(ctx.parsed.y).toFixed(2)}`,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            afterBody: (items: any[]) => {
+              if (!items.length) return [];
+              const raw = items[0].raw as PlotPoint | undefined;
+              const tasks = raw?.tasks;
+              if (!tasks || Object.keys(tasks).length < 2) return [];
+              const lines = ['', 'Tasks:'];
+              for (const [name, score] of Object.entries(tasks)) {
+                const rendered =
+                  score === null ? 'untested' : Number(score).toFixed(2);
+                lines.push(`  ${name}: ${rendered}`);
+              }
+              return lines;
+            },
+          },
+        },
       },
     },
   });

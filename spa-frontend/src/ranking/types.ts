@@ -18,6 +18,5 @@ export interface RankingStrategy {
   computeChartScoresOverTime(
     assignments: Assignments,
     submissions: SubmissionsByChallenge,
-    noIntervals?: number,
   ): ScoresOverTime;
 }

@@ -11,10 +11,7 @@ from wtforms import (
 
 import pytz
 from ref import refbp
-from ref.core import (
-    RANKING_STRATEGY_CHOICES,
-    admin_required,
-)
+from ref.core import admin_required
 from ref.core.logging import get_logger
 from ref.model import SystemSettingsManager
 
@@ -53,10 +50,6 @@ class GeneralSettings(Form):
     telegram_logger_channel_id = StringField("Telegram Logger Channel ID")
 
     scoreboard_enabled = BooleanField("Enable the public scoreboard and its JSON APIs.")
-    scoreboard_ranking_mode = SelectField(
-        "Scoreboard ranking strategy",
-        choices=RANKING_STRATEGY_CHOICES,
-    )
     landing_page = SelectField(
         "Default landing page for students visiting /",
         choices=LANDING_PAGE_CHOICES,
@@ -138,10 +131,6 @@ def view_system_settings():
         (
             SystemSettingsManager.SCOREBOARD_ENABLED,
             general_settings_form.scoreboard_enabled,
-        ),
-        (
-            SystemSettingsManager.SCOREBOARD_RANKING_MODE,
-            general_settings_form.scoreboard_ranking_mode,
         ),
         (
             SystemSettingsManager.LANDING_PAGE,

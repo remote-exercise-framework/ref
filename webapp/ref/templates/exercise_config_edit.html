@@ -45,94 +45,28 @@ Edit Exercise: {{ short_name }}
             </div>
 
             <hr>
-            <h5>Scoring Policy</h5>
+            <h5>Per-task scoring policies</h5>
             <p class="text-muted">
-                How raw submission scores are translated into scoreboard
-                points for this exercise.
+                Each task in this exercise's submission test can have its own
+                scoring policy. Tasks without a policy contribute their raw
+                score unchanged and the submission total is the sum of all
+                (possibly transformed) per-task scores.
             </p>
 
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="{{ form.scoring_mode.id }}">{{ form.scoring_mode.label.text }}</label>
-                    {{ form.scoring_mode(class_="form-control") }}
-                </div>
-                <div class="col-md-6">
-                    {{ wtf_utils.render_field(form.scoring_baseline, "number") }}
-                </div>
+            {% if not discovered_tasks %}
+            <div class="alert alert-warning">
+                No tasks could be discovered for this exercise. Ensure a
+                version of the exercise is built and marked as default, and
+                that its <code>submission_tests</code> file parses correctly.
+                Per-task policies cannot be edited until at least one task is
+                discovered.
             </div>
+            {% endif %}
 
-            <div class="alert alert-info scoring-fields" data-mode="none">
-                No scoring policy: raw submission scores are shown verbatim
-                and no scoreboard points are awarded.
-            </div>
+            <div id="per-task-policies-host" data-tasks='{{ discovered_tasks|tojson }}'></div>
 
-            <div class="scoring-fields" data-mode="linear">
-                <div class="alert alert-secondary">
-                    <strong>Linear:</strong> raw score linearly mapped from
-                    <code>[Lower bound … Upper bound]</code> to
-                    <code>[0 … Max Points]</code>. Raws below the
-                    <em>Lower bound</em> award 0, raws above the
-                    <em>Upper bound</em> clamp to <em>Max Points</em>.
-                    <ul class="mb-0 mt-2">
-                        <li><strong>Max Points</strong> — points awarded at the <em>Upper bound</em>.</li>
-                        <li><strong>Lower bound</strong> — raw value below which nothing is awarded. Default <code>0</code>.</li>
-                        <li><strong>Upper bound</strong> — raw value at which full points are reached. Default <code>1</code>.</li>
-                    </ul>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        {{ wtf_utils.render_field(form.scoring_max_points, "number") }}
-                    </div>
-                    <div class="col-md-4">
-                        {{ wtf_utils.render_field(form.scoring_min_raw, "number") }}
-                    </div>
-                    <div class="col-md-4">
-                        {{ wtf_utils.render_field(form.scoring_max_raw, "number") }}
-                    </div>
-                </div>
-            </div>
-
-            <div class="scoring-fields" data-mode="threshold">
-                <div class="alert alert-secondary">
-                    <strong>Threshold:</strong> binary all-or-nothing.
-                    <ul class="mb-0 mt-2">
-                        <li><strong>Threshold</strong> — minimum raw score that awards any points.</li>
-                        <li><strong>Points</strong> — awarded once the threshold is reached; zero otherwise.</li>
-                    </ul>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        {{ wtf_utils.render_field(form.scoring_threshold, "number") }}
-                    </div>
-                    <div class="col-md-6">
-                        {{ wtf_utils.render_field(form.scoring_points, "number") }}
-                    </div>
-                </div>
-            </div>
-
-            <div class="scoring-fields" data-mode="tiered">
-                <div class="alert alert-secondary">
-                    <strong>Tiered:</strong> stepped milestones. The
-                    transformed score is the <em>highest</em> <strong>Points</strong>
-                    value whose <strong>Above</strong> threshold the raw score
-                    meets. Tiers can be listed in any order.
-                    <ul class="mb-0 mt-2">
-                        <li><strong>Above</strong> — minimum raw score required to reach this tier.</li>
-                        <li><strong>Points</strong> — points awarded when this tier is the highest one met.</li>
-                    </ul>
-                </div>
-
-                <div id="scoring-tiers-rows"></div>
-                <div class="mb-3">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="scoring-tiers-add">
-                        + Add tier
-                    </button>
-                </div>
-                <!-- Hidden JSON field — the single source of truth that the server
-                     reads. The dynamic rows above are kept in sync with it. -->
-                <div style="display: none;">
-                    {{ form.scoring_tiers_json(id=form.scoring_tiers_json.id) }}
-                </div>
+            <div style="display: none;">
+                {{ form.per_task_scoring_policies_json(id=form.per_task_scoring_policies_json.id) }}
             </div>
 
             <div class="row mt-4 justify-content-center">
@@ -146,95 +80,252 @@ Edit Exercise: {{ short_name }}
 
 <script>
 (function () {
-    var select = document.getElementById("{{ form.scoring_mode.id }}");
-    var groups = document.querySelectorAll(".scoring-fields");
-    function sync() {
-        var mode = select.value;
-        groups.forEach(function (g) {
-            g.style.display = (g.dataset.mode === mode) ? "" : "none";
-        });
-    }
-    if (select) {
-        select.addEventListener("change", sync);
-        sync();
+    var host = document.getElementById("per-task-policies-host");
+    var jsonField = document.getElementById("{{ form.per_task_scoring_policies_json.id }}");
+    if (!host || !jsonField) return;
+
+    var tasks = [];
+    try {
+        tasks = JSON.parse(host.dataset.tasks || "[]");
+    } catch (e) {
+        tasks = [];
     }
 
-    // --- Tiered mode: dynamic row editor backed by the hidden JSON field ---
-    var tiersInput = document.getElementById("{{ form.scoring_tiers_json.id }}");
-    var rowsHost = document.getElementById("scoring-tiers-rows");
-    var addBtn = document.getElementById("scoring-tiers-add");
+    var initialState = {};
+    try {
+        var parsed = JSON.parse(jsonField.value || "{}");
+        if (parsed && typeof parsed === "object") initialState = parsed;
+    } catch (e) {
+        initialState = {};
+    }
 
-    function readTiers() {
-        if (!tiersInput || !tiersInput.value.trim()) return [];
-        try {
-            var parsed = JSON.parse(tiersInput.value);
-            return Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-            return [];
+    var MODE_LABELS = {
+        none: "No scoring (pass-through)",
+        linear: "Linear (raw → [0..max_points])",
+        threshold: "Threshold (all or nothing)",
+        tiered: "Tiered (stepped milestones)",
+        discard: "Discard (exclude task from scoring)"
+    };
+
+    // state[taskName] = { mode, max_points, min_raw, max_raw, threshold, points, tiers, baseline }
+    var state = {};
+
+    function initTaskState(taskName, policy) {
+        var s = { mode: "none" };
+        if (policy && typeof policy === "object") {
+            s.mode = policy.mode || "none";
+            if (policy.max_points !== undefined) s.max_points = policy.max_points;
+            if (policy.min_raw !== undefined) s.min_raw = policy.min_raw;
+            if (policy.max_raw !== undefined) s.max_raw = policy.max_raw;
+            if (policy.threshold !== undefined) s.threshold = policy.threshold;
+            if (policy.points !== undefined) s.points = policy.points;
+            if (policy.tiers !== undefined) s.tiers = policy.tiers;
+            if (policy.baseline !== undefined) s.baseline = policy.baseline;
         }
+        state[taskName] = s;
     }
 
-    function writeTiers() {
-        var tiers = [];
-        rowsHost.querySelectorAll(".scoring-tier-row").forEach(function (row) {
-            var above = parseFloat(row.querySelector(".tier-above").value);
-            var points = parseFloat(row.querySelector(".tier-points").value);
-            if (isFinite(above) && isFinite(points)) {
-                tiers.push({ above: above, points: points });
+    tasks.forEach(function (t) {
+        initTaskState(t, initialState[t]);
+    });
+
+    function serialize() {
+        var out = {};
+        tasks.forEach(function (taskName) {
+            var s = state[taskName];
+            if (!s || !s.mode || s.mode === "none") return;
+            var policy = { mode: s.mode };
+            if (s.mode === "linear") {
+                if (s.max_points !== undefined && s.max_points !== "") policy.max_points = Number(s.max_points);
+                if (s.min_raw !== undefined && s.min_raw !== "") policy.min_raw = Number(s.min_raw);
+                if (s.max_raw !== undefined && s.max_raw !== "") policy.max_raw = Number(s.max_raw);
+            } else if (s.mode === "threshold") {
+                if (s.threshold !== undefined && s.threshold !== "") policy.threshold = Number(s.threshold);
+                if (s.points !== undefined && s.points !== "") policy.points = Number(s.points);
+            } else if (s.mode === "tiered") {
+                var tiers = (s.tiers || []).filter(function (t) {
+                    return isFinite(Number(t.above)) && isFinite(Number(t.points));
+                }).map(function (t) {
+                    return { above: Number(t.above), points: Number(t.points) };
+                });
+                policy.tiers = tiers;
             }
+            // `discard` carries no extra fields; baseline is only meaningful
+            // for modes that actually produce a score.
+            if (s.mode !== "discard" && s.baseline !== undefined && s.baseline !== "") {
+                policy.baseline = Number(s.baseline);
+            }
+            out[taskName] = policy;
         });
-        tiersInput.value = JSON.stringify(tiers);
+        jsonField.value = JSON.stringify(out, null, 2);
     }
 
-    function makeRow(above, points) {
+    function numericInput(labelText, key, taskName) {
+        var col = document.createElement("div");
+        col.className = "col-md-4";
+        var id = "policy-" + taskName + "-" + key;
+        col.innerHTML =
+            '<label class="form-label mb-1" for="' + id + '">' + labelText + '</label>' +
+            '<input type="number" step="any" class="form-control" id="' + id + '">';
+        var input = col.querySelector("input");
+        if (state[taskName][key] !== undefined && state[taskName][key] !== null) {
+            input.value = state[taskName][key];
+        }
+        input.addEventListener("input", function () {
+            state[taskName][key] = input.value;
+            serialize();
+        });
+        return col;
+    }
+
+    function makeTierRow(taskName, tier) {
         var row = document.createElement("div");
-        row.className = "row mb-2 align-items-end scoring-tier-row";
+        row.className = "row mb-2 align-items-end tier-row";
         row.innerHTML =
             '<div class="col-md-5">' +
               '<label class="form-label mb-1">Above</label>' +
-              '<input type="number" step="any" class="form-control tier-above" value="' +
-                (above !== undefined && above !== null ? above : "") + '">' +
+              '<input type="number" step="any" class="form-control tier-above">' +
             '</div>' +
             '<div class="col-md-5">' +
               '<label class="form-label mb-1">Points</label>' +
-              '<input type="number" step="any" class="form-control tier-points" value="' +
-                (points !== undefined && points !== null ? points : "") + '">' +
+              '<input type="number" step="any" class="form-control tier-points">' +
             '</div>' +
             '<div class="col-md-2">' +
               '<button type="button" class="btn btn-outline-danger btn-sm tier-remove">Remove</button>' +
             '</div>';
-        row.querySelector(".tier-above").addEventListener("input", writeTiers);
-        row.querySelector(".tier-points").addEventListener("input", writeTiers);
+        var aboveInput = row.querySelector(".tier-above");
+        var pointsInput = row.querySelector(".tier-points");
+        if (tier && tier.above !== undefined) aboveInput.value = tier.above;
+        if (tier && tier.points !== undefined) pointsInput.value = tier.points;
+
+        function write() {
+            var tiers = [];
+            row.parentElement.querySelectorAll(".tier-row").forEach(function (r) {
+                tiers.push({
+                    above: r.querySelector(".tier-above").value,
+                    points: r.querySelector(".tier-points").value,
+                });
+            });
+            state[taskName].tiers = tiers;
+            serialize();
+        }
+
+        aboveInput.addEventListener("input", write);
+        pointsInput.addEventListener("input", write);
         row.querySelector(".tier-remove").addEventListener("click", function () {
             row.remove();
-            writeTiers();
+            write();
         });
         return row;
     }
 
-    function renderTiers() {
-        if (!rowsHost) return;
-        rowsHost.innerHTML = "";
-        var tiers = readTiers();
-        if (tiers.length === 0) {
-            rowsHost.appendChild(makeRow("", ""));
+    function makeTieredEditor(taskName) {
+        var wrap = document.createElement("div");
+        var rowsHost = document.createElement("div");
+        wrap.appendChild(rowsHost);
+        var addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.className = "btn btn-outline-secondary btn-sm mb-3";
+        addBtn.textContent = "+ Add tier";
+        addBtn.addEventListener("click", function () {
+            rowsHost.appendChild(makeTierRow(taskName, null));
+            // Force state sync after adding an empty row.
+            state[taskName].tiers = (state[taskName].tiers || []).concat([{ above: "", points: "" }]);
+            serialize();
+        });
+        wrap.appendChild(addBtn);
+
+        var existing = state[taskName].tiers || [];
+        if (existing.length === 0) {
+            rowsHost.appendChild(makeTierRow(taskName, null));
         } else {
-            tiers.forEach(function (t) {
-                rowsHost.appendChild(makeRow(t.above, t.points));
+            existing.forEach(function (tier) {
+                rowsHost.appendChild(makeTierRow(taskName, tier));
             });
         }
-        writeTiers();
+        return wrap;
     }
 
-    if (addBtn) {
-        addBtn.addEventListener("click", function () {
-            rowsHost.appendChild(makeRow("", ""));
-            writeTiers();
+    function makeCard(taskName) {
+        var card = document.createElement("div");
+        card.className = "card mb-3";
+
+        var header = document.createElement("div");
+        header.className = "card-header d-flex justify-content-between align-items-center";
+        var title = document.createElement("strong");
+        title.textContent = "Task: " + taskName;
+        header.appendChild(title);
+
+        var modeSelect = document.createElement("select");
+        modeSelect.className = "form-select form-select-sm";
+        modeSelect.style.maxWidth = "24rem";
+        Object.keys(MODE_LABELS).forEach(function (mode) {
+            var opt = document.createElement("option");
+            opt.value = mode;
+            opt.textContent = MODE_LABELS[mode];
+            if (state[taskName].mode === mode) opt.selected = true;
+            modeSelect.appendChild(opt);
         });
+        header.appendChild(modeSelect);
+
+        card.appendChild(header);
+
+        var body = document.createElement("div");
+        body.className = "card-body";
+        card.appendChild(body);
+
+        function renderBody() {
+            body.innerHTML = "";
+            var mode = state[taskName].mode;
+            if (mode === "none") {
+                var note = document.createElement("p");
+                note.className = "text-muted mb-0";
+                note.textContent = "Raw score is passed through unchanged.";
+                body.appendChild(note);
+            } else if (mode === "discard") {
+                var dNote = document.createElement("p");
+                dNote.className = "text-muted mb-0";
+                dNote.textContent = "Task is excluded from scoring. It does not appear in the per-task breakdown and contributes nothing to the total.";
+                body.appendChild(dNote);
+            } else if (mode === "linear") {
+                var row = document.createElement("div");
+                row.className = "row mb-3";
+                row.appendChild(numericInput("Max Points", "max_points", taskName));
+                row.appendChild(numericInput("Lower bound", "min_raw", taskName));
+                row.appendChild(numericInput("Upper bound", "max_raw", taskName));
+                body.appendChild(row);
+            } else if (mode === "threshold") {
+                var row2 = document.createElement("div");
+                row2.className = "row mb-3";
+                row2.appendChild(numericInput("Threshold", "threshold", taskName));
+                row2.appendChild(numericInput("Points", "points", taskName));
+                body.appendChild(row2);
+            } else if (mode === "tiered") {
+                body.appendChild(makeTieredEditor(taskName));
+            }
+
+            if (mode !== "none" && mode !== "discard") {
+                var baselineRow = document.createElement("div");
+                baselineRow.className = "row";
+                baselineRow.appendChild(numericInput("Baseline (optional)", "baseline", taskName));
+                body.appendChild(baselineRow);
+            }
+        }
+
+        modeSelect.addEventListener("change", function () {
+            state[taskName].mode = modeSelect.value;
+            renderBody();
+            serialize();
+        });
+
+        renderBody();
+        return card;
     }
-    if (rowsHost && tiersInput) {
-        renderTiers();
-    }
+
+    tasks.forEach(function (taskName) {
+        host.appendChild(makeCard(taskName));
+    });
+    serialize();
 })();
 </script>
 {% endblock %}

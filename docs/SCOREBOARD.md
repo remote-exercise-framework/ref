@@ -3,10 +3,11 @@
 A public leaderboard at `/v2/scoreboard` that ranks students/teams based
 on submission scores. Exercises are grouped into **assignments**
 (time-boxed rounds, one per `ExerciseConfig.category`). Each exercise
-has a **scoring policy** that transforms raw submission scores into
-scoreboard points. The Vue SPA fetches metadata + submissions via two
-JSON endpoints and renders rankings, badges, charts, and per-challenge
-plots client-side.
+has **per-task scoring policies** that transform the raw score of each
+submission-test task into scoreboard points; the submission's total is
+the sum of the transformed per-task scores. The Vue SPA fetches metadata
++ submissions via two JSON endpoints and renders rankings, badges,
+charts, and per-challenge plots client-side.
 
 ## Data Model
 
@@ -22,7 +23,7 @@ class ExerciseConfig(db.Model):
     id: Mapped[int]                                     # PK
     short_name: Mapped[str]                             # unique
     category: Mapped[Optional[str]]                     # assignment label
-    scoring_policy: Mapped[Optional[dict]]              # JSON, see below
+    per_task_scoring_policies: Mapped[Optional[dict]]   # JSON: {task_name: policy}
     submission_deadline_start: Mapped[Optional[datetime]]
     submission_deadline_end: Mapped[Optional[datetime]]
     submission_test_enabled: Mapped[bool]
@@ -43,12 +44,21 @@ retroactively without reprocessing stored data.
 
 ## Scoring Policies
 
-The `scoring_policy` column on `ExerciseConfig` is a JSON object the
-admin edits from the exercise config page. `ref/core/scoring.py` exposes
-`apply_scoring(raw, policy)` which every API call routes raw scores
-through.
+`ExerciseConfig.per_task_scoring_policies` is a JSON object keyed by
+submission-test task name, where each value is a policy dict. The admin
+edits it from the exercise config page; task names are auto-discovered
+from the exercise's `submission_tests` file via AST parsing
+(`ref/core/task_discovery.py::extract_task_names_from_submission_tests`),
+so the editor always shows exactly the tasks the test script registers.
 
-Supported modes:
+`ref/core/scoring.py::score_submission(results, per_task_policies)`
+applies each task's policy (or pass-through if the task has no entry)
+to that task's raw score and returns `(total, breakdown)` where
+`breakdown[task_name]` is the transformed score (or `None` for tasks
+whose raw score was `None`). `total` sums the transformed scores;
+`None`-scored tasks contribute 0.
+
+Supported policy modes (same shape as `apply_scoring(raw, policy)`):
 
 ```
 # Linear mapping: raw [min_raw..max_raw] → [0..max_points]
@@ -71,29 +81,19 @@ tiers:
 ```
 
 Any policy may also carry an optional `baseline` field. It has no effect
-on the transformed score; the SPA renders it as a horizontal reference
-line on per-challenge plots (typically the score of a naive/trivial
-solution).
+on the transformed score; the SPA renders the **sum of per-task
+baselines** as a horizontal reference line on per-challenge plots
+(typically the score of a naive/trivial solution).
 
 `validate_scoring_policy(policy)` in the same module returns a list of
-human-readable error strings — the exercise-config edit view uses this
-to surface admin mistakes before persisting.
+human-readable error strings for a single policy dict — the exercise-
+config edit view validates each per-task entry with it before persisting.
 
-## Ranking Strategies
+## Ranking Strategy
 
-Ranking strategies are registered in `RANKING_STRATEGIES` in
-`ref/core/scoring.py`. The active strategy is chosen by the
-`SCOREBOARD_RANKING_MODE` system setting and surfaced to the SPA via the
-config endpoint. Each strategy has a matching TypeScript module under
-`spa-frontend/src/ranking/` that computes the ranking client-side.
-
-| Id | Label | Source |
-|----|-------|--------|
-| `f1_time_weighted` | Formula 1 (time-weighted) | `spa-frontend/src/ranking/f1_time_weighted.ts` |
-| `best_sum` | Sum of best per challenge | `spa-frontend/src/ranking/best_sum.ts` |
-
-Adding a strategy is one dict entry on the Python side plus one `.ts`
-file on the frontend.
+Ranking is computed client-side by
+`spa-frontend/src/ranking/f1_time_weighted.ts` — a Formula 1 style,
+time-weighted strategy. It is the only strategy the scoreboard supports.
 
 ## API Endpoints
 
@@ -103,46 +103,59 @@ feature never leaks its existence). No authentication required.
 
 ### `GET /api/scoreboard/config`
 
-Assignment/challenge metadata plus the active ranking strategy.
+Assignment/challenge metadata.
 
 ```json
 {
   "course_name": "OS-Security",
-  "ranking_mode": "f1_time_weighted",
   "assignments": {
     "Assignment 1": {
       "exercise_short_name": {
         "start": "DD/MM/YYYY HH:MM:SS",
         "end":   "DD/MM/YYYY HH:MM:SS",
-        "scoring": { "mode": "threshold", "threshold": 0.5, "points": 100, "baseline": 0.013 },
-        "max_points": 100
+        "per_task_scoring_policies": {
+          "coverage": { "mode": "linear", "max_points": 100, "baseline": 0.013 },
+          "crashes":  { "mode": "threshold", "threshold": 1, "points": 50 }
+        },
+        "max_points": 150
       }
     }
   }
 }
 ```
 
-Only exercises whose default version has finished building and whose
-`ExerciseConfig` has both deadline endpoints + a non-null `category` are
-included. Empty assignment buckets are pruned.
+`max_points` is the best-effort sum of each per-task policy's upper
+bound (used by the frontend for axis scaling); it is `null` if no task
+has a computable maximum. Only exercises whose default version has
+finished building and whose `ExerciseConfig` has both deadline endpoints
++ a non-null `category` are included. Empty assignment buckets are
+pruned.
 
 ### `GET /api/scoreboard/submissions`
 
-Submission scores grouped by exercise and team, pre-transformed by
-`apply_scoring()`:
+Submission scores grouped by exercise and team, pre-transformed via
+`score_submission()` with a per-task breakdown:
 
 ```json
 {
   "exercise_short_name": {
-    "Team A": [["DD/MM/YYYY HH:MM:SS", 87.5], ...]
+    "Team A": [
+      {
+        "ts": "DD/MM/YYYY HH:MM:SS",
+        "score": 87.5,
+        "tasks": { "coverage": 50.0, "crashes": 37.5, "env_check": null }
+      }
+    ]
   }
 }
 ```
 
-Submissions with zero or multiple test results are skipped and logged;
-the endpoint expects exactly one top-level test result per submission.
-The team label comes from `team_identity(user)`, which returns the
-user's group name when groups are enabled, otherwise their full name.
+`tasks` values of `null` mean the underlying `SubmissionTestResult.score`
+was `None` (bool-returning test, no grading) — consumers render these
+as "untested" rather than 0. Such tasks contribute 0 to the outer
+`score`. Submissions with no test results at all are skipped. The team
+label comes from `team_identity(user)`, which returns the user's group
+name when groups are enabled, otherwise their full name.
 
 ## Frontend
 
@@ -172,8 +185,7 @@ dedicated backend. Badge assets are static SVG files at
 | Setting | Type | Purpose |
 |---------|------|---------|
 | `SCOREBOARD_ENABLED` | bool | Master toggle for the page + JSON endpoints |
-| `SCOREBOARD_RANKING_MODE` | str | Selected ranking strategy id |
 | `LANDING_PAGE` | str | `"registration"` or `"scoreboard"` — where `/` redirects |
 
-All three are exposed in the admin system-settings form
+Both are exposed in the admin system-settings form
 (`webapp/ref/view/system_settings.py`).

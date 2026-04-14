@@ -4,7 +4,6 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
-  shallowRef,
   watch,
 } from 'vue';
 import {
@@ -14,16 +13,13 @@ import {
   type SubmissionsByChallenge,
   type ChallengeCfg,
 } from '../api/scoreboard';
-import { loadStrategy } from '../ranking';
-import type { RankingStrategy } from '../ranking/types';
+import { strategy } from '../ranking';
 import {
   computeAssignmentStartTimes,
   getActiveAssignmentName,
   getBadges,
-  getHighscores,
   parseApiDate,
 } from '../ranking/util';
-import HighscoreCard from '../components/scoreboard/HighscoreCard.vue';
 import RankingTable from '../components/scoreboard/RankingTable.vue';
 import PointsOverTimeChart from '../components/scoreboard/PointsOverTimeChart.vue';
 import ChallengePlot from '../components/scoreboard/ChallengePlot.vue';
@@ -33,7 +29,6 @@ const POLL_INTERVAL_MS = 5000;
 
 const config = ref<ScoreboardConfig | null>(null);
 const submissions = ref<SubmissionsByChallenge>({});
-const strategy = shallowRef<RankingStrategy | null>(null);
 const error = ref<string | null>(null);
 const disabled = ref(false);
 
@@ -51,7 +46,6 @@ async function refresh() {
     ]);
     config.value = cfg;
     submissions.value = subs;
-    strategy.value = loadStrategy(cfg.ranking_mode);
     error.value = null;
     disabled.value = false;
   } catch (e: unknown) {
@@ -115,27 +109,23 @@ function pickChallenge(assignment: string, challenge: string) {
   };
 }
 
-const highscores = computed(() =>
-  config.value ? getHighscores(assignments.value, submissions.value) : {},
-);
 const badges = computed(() =>
   config.value ? getBadges(assignments.value, submissions.value) : {},
 );
 const ranking = computed(() => {
-  if (!strategy.value || !config.value) return [];
-  return strategy.value.getRanking(assignments.value, submissions.value);
+  if (!config.value) return [];
+  return strategy.getRanking(assignments.value, submissions.value);
 });
 const scoresOverTime = computed(() => {
-  if (!strategy.value || !config.value) return {};
-  return strategy.value.computeChartScoresOverTime(
+  if (!config.value) return {};
+  return strategy.computeChartScoresOverTime(
     assignments.value,
     submissions.value,
   );
 });
 const assignmentBoundaries = computed(() => {
   if (!config.value) return [];
-  // Skip the first — it is the chart's start, drawing a line there is noise.
-  return computeAssignmentStartTimes(assignments.value).slice(1);
+  return computeAssignmentStartTimes(assignments.value);
 });
 
 const activeChallenges = computed(() => {
@@ -159,9 +149,23 @@ const activeFirstChallenge = computed<ChallengeCfg | null>(() => {
   return (first as ChallengeCfg) ?? null;
 });
 
-const rankingModeLabel = computed(
-  () => config.value?.ranking_mode.replace(/_/g, ' ') ?? '',
-);
+const assignmentRanking = computed(() => {
+  if (!config.value || !activeAssignment.value) return [];
+  const name = activeAssignment.value;
+  const subset = { [name]: assignments.value[name] || {} };
+  return strategy.getRanking(subset, submissions.value);
+});
+
+const challengeRanking = computed(() => {
+  if (!config.value) return [];
+  const assignment = activeAssignment.value;
+  const challenge = activeChallengeSelected.value;
+  if (!assignment || !challenge) return [];
+  const cfg = assignments.value[assignment]?.[challenge];
+  if (!cfg) return [];
+  const subset = { [assignment]: { [challenge]: cfg } };
+  return strategy.getRanking(subset, submissions.value);
+});
 </script>
 
 <template>
@@ -186,8 +190,6 @@ const rankingModeLabel = computed(
           <span class="term-live-dot" />LIVE
         </span>
         <span class="term-eyebrow term-hot">{{ config.course_name }}</span>
-        <span class="term-muted">//</span>
-        <span class="term-eyebrow term-cool">{{ rankingModeLabel }}</span>
       </div>
       <h1
         class="term-display term-hot-glow"
@@ -197,41 +199,10 @@ const rankingModeLabel = computed(
       </h1>
     </header>
 
-    <!-- Highscores section -->
-    <section class="term-section">
-      <div class="term-section-head">
-        <h2 class="term-section-title">[ highscores ]</h2>
-        <ul class="term-tabs">
-          <li v-for="name in assignmentNames" :key="'hs-' + name">
-            <a
-              :class="{
-                'is-current': name === activeAssignment,
-                'is-disabled': assignmentDisabled(name),
-              }"
-              @click.prevent="pickAssignment(name)"
-              >{{ name }}</a
-            >
-          </li>
-        </ul>
-      </div>
-      <div v-if="activeAssignment">
-        <div class="term-hs-grid">
-          <HighscoreCard
-            v-for="challengeName in Object.keys(
-              assignments[activeAssignment] || {},
-            )"
-            :key="challengeName"
-            :challenge-name="challengeName"
-            :highscores="highscores"
-          />
-        </div>
-        <Countdown
-          v-if="activeFirstChallenge"
-          :start="activeFirstChallenge.start"
-          :end="activeFirstChallenge.end"
-        />
-      </div>
-    </section>
+    <!-- Overall group -->
+    <div class="term-group-head">
+      <h2 class="term-group-title term-cool">OVERALL</h2>
+    </div>
 
     <!-- Ranking table -->
     <section class="term-section">
@@ -252,12 +223,17 @@ const rankingModeLabel = computed(
       />
     </section>
 
-    <!-- Per-challenge plots -->
+    <!-- Assignment-specific group -->
+    <div class="term-group-head">
+      <h2 class="term-group-title term-hot">ASSIGNMENT</h2>
+    </div>
+
+    <!-- Assignment summary: countdown + per-assignment ranking -->
     <section class="term-section">
       <div class="term-section-head">
-        <h2 class="term-section-title">[ challenges ]</h2>
+        <h2 class="term-section-title">[ {{ activeAssignment ?? 'assignment' }} ranking ]</h2>
         <ul class="term-tabs">
-          <li v-for="name in assignmentNames" :key="'ch-' + name">
+          <li v-for="name in assignmentNames" :key="'as-' + name">
             <a
               :class="{
                 'is-current': name === activeAssignment,
@@ -270,7 +246,24 @@ const rankingModeLabel = computed(
         </ul>
       </div>
       <div v-if="activeAssignment">
-        <ul class="term-tabs" style="margin-bottom: 1rem">
+        <Countdown
+          v-if="activeFirstChallenge"
+          :start="activeFirstChallenge.start"
+          :end="activeFirstChallenge.end"
+        />
+        <div style="margin-top: 1.25rem">
+          <RankingTable :ranking="assignmentRanking" hide-badges />
+        </div>
+      </div>
+    </section>
+
+    <!-- Per-challenge plots -->
+    <section class="term-section">
+      <div class="term-section-head">
+        <h2 class="term-section-title">[ challenges ]</h2>
+      </div>
+      <div v-if="activeAssignment">
+        <ul class="term-tabs" style="margin: 0 0 1rem">
           <li v-for="ch in activeChallenges" :key="ch">
             <a
               :class="{ 'is-current': ch === activeChallengeSelected }"
@@ -279,13 +272,19 @@ const rankingModeLabel = computed(
             >
           </li>
         </ul>
-        <ChallengePlot
+        <div
           v-if="activeChallengeSelected"
-          :key="activeAssignment + '::' + activeChallengeSelected"
-          :challenge-name="activeChallengeSelected"
-          :assignments="assignments"
-          :submissions="submissions"
-        />
+          style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 22rem); gap: 1.25rem; align-items: start"
+          class="term-challenge-grid"
+        >
+          <ChallengePlot
+            :key="activeAssignment + '::' + activeChallengeSelected"
+            :challenge-name="activeChallengeSelected"
+            :assignments="assignments"
+            :submissions="submissions"
+          />
+          <RankingTable :ranking="challengeRanking" hide-badges />
+        </div>
       </div>
     </section>
   </div>

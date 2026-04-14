@@ -36,8 +36,13 @@ class ExerciseConfig(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     # Max points a user can get for this exercise. Might be None.
     max_grading_points: Mapped[Optional[int]]
 
-    # JSON scoring policy for the scoreboard (mode, thresholds, etc.)
-    scoring_policy: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Per-task scoring policies keyed by task_name, as discovered from the
+    # exercise's submission_tests file. Tasks without an entry score as
+    # pass-through (raw score). Each value has the same shape as the
+    # legacy single-policy dict: {"mode": ..., "max_points": ..., ...}.
+    per_task_scoring_policies: Mapped[Optional[dict]] = mapped_column(
+        JSON, nullable=True
+    )
 
     def has_deadline(self) -> bool:
         return self.submission_deadline_end is not None
