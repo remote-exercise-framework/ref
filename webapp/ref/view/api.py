@@ -1001,8 +1001,8 @@ def api_scoreboard_config():
     }
 
     # The outer grouping key is `ExerciseConfig.category` — whatever label
-    # the admin chose in the exercise config edit form (e.g. "Assignment 1",
-    # "Wave 1", "Phase A"). Rendered verbatim by the frontend.
+    # the admin chose in the exercise config edit form (e.g. "Assignment 1"
+    # or "Phase A"). Rendered verbatim by the frontend.
     assignments: dict[str, dict[str, dict]] = defaultdict(dict)
     configs = ExerciseConfig.query.filter(
         ExerciseConfig.category.isnot(None),

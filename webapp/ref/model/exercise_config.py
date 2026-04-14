@@ -25,7 +25,7 @@ class ExerciseConfig(CommonDbOpsMixin, ModelToStringMixin, db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     short_name: Mapped[str] = mapped_column(Text, unique=True)
 
-    # Used to group exercises (e.g., wave name for scoreboard)
+    # Used to group exercises (e.g., assignment name for scoreboard)
     category: Mapped[Optional[str]] = mapped_column(Text)
 
     submission_deadline_start: Mapped[Optional[datetime.datetime]]

@@ -4,25 +4,25 @@ This document describes how to integrate a scoreboard into REF, based on the pro
 
 ## Overview
 
-The scoreboard is a public-facing page that shows team/student rankings based on submission scores. Exercises are grouped into **waves** (time-boxed rounds). Each exercise defines a **scoring policy** that maps raw submission scores to scoreboard points. The frontend fetches data via two JSON APIs and renders rankings, badges, charts, and per-challenge plots client-side.
+The scoreboard is a public-facing page that shows team/student rankings based on submission scores. Exercises are grouped into **assignments** (time-boxed rounds). Each exercise defines a **scoring policy** that maps raw submission scores to scoreboard points. The frontend fetches data via two JSON APIs and renders rankings, badges, charts, and per-challenge plots client-side.
 
 ## What exists in `raid/raid`
 
 The prototype adds:
 
-- **Two API endpoints** (`/api/waves`, `/api/submissions`) that return exercise metadata and submission scores as JSON.
+- **Two API endpoints** (`/api/assignments`, `/api/submissions`) that return exercise metadata and submission scores as JSON.
 - **Three new Exercise model fields**: `baseline_score`, `badge_score`, `badge_points` — parsed from the exercise YAML config.
 - **A scoreboard page** (`/student/scoreboard`) with a Jinja template and ~2300 lines of client-side JS (`scoreboard.js`, `utils.js`, `plots.js`) using Chart.js.
 - **Badges**: per-challenge achievement icons shown in the ranking table when a team's score exceeds `badge_score`. Each challenge can have custom SVG/PNG assets with a default fallback.
 - **System settings**: `LANDING_PAGE` (choose which page students see first), `DEMO_MODE_ENABLED` (serve dummy JSON data).
-- **A demo/dummy data system** (`dummies/waves.json`, `dummies/submissions.json`) for development without real submissions.
+- **A demo/dummy data system** (`dummies/assignments.json`, `dummies/submissions.json`) for development without real submissions.
 
-The prototype is tightly coupled to a fixed 3-waves x 3-challenges layout and hardcodes wave/challenge indices in the template. It also bundles all scoring logic (ranking, badges, rates) in the frontend JS.
+The prototype is tightly coupled to a fixed 3-assignments x 3-challenges layout and hardcodes assignment/challenge indices in the template. It also bundles all scoring logic (ranking, badges, rates) in the frontend JS.
 
 ## What already exists in `dev`
 
 - `SubmissionTestResult.score` (float, nullable) — already in the model. This is the raw per-submission score.
-- Exercise `category` field — used as the wave/group name.
+- Exercise `category` field — used as the assignment/group name.
 - `Submission.all()`, exercise deadlines, the full submission lifecycle.
 
 ## ExerciseConfig: Separating Administrative from Build-Time Config
@@ -41,7 +41,7 @@ class ExerciseConfig(db.Model):
 
     id: Mapped[int]                                     # PK (integer)
     short_name: Mapped[str]                             # unique constraint
-    category: Mapped[Optional[str]]                     # wave/group name
+    category: Mapped[Optional[str]]                     # assignment/group name
     scoring_policy: Mapped[Optional[dict]]              # JSON, see Scoring Architecture
     submission_deadline_start: Mapped[Optional[datetime]]
     submission_deadline_end: Mapped[Optional[datetime]]
@@ -96,7 +96,7 @@ Future candidates for `ExerciseConfig`: display name, description, visibility/pu
 
 The exercise list page gets an **Edit** button per exercise (per `short_name`, not per version). It opens a form editing the `ExerciseConfig`:
 
-- Category / wave assignment
+- Category / assignment
 - Deadlines (start, end)
 - Scoring policy (mode selector + mode-specific fields)
 - Max grading points
@@ -166,11 +166,11 @@ The migration:
 
 ### 3. Scoring API Endpoints
 
-**`GET /api/scoreboard/config`** — Returns exercise metadata grouped by `category` (wave), including the scoring policy:
+**`GET /api/scoreboard/config`** — Returns exercise metadata grouped by `category` (assignment), including the scoring policy:
 
 ```json
 {
-  "Wave 1": {
+  "Assignment 1": {
     "exercise_name": {
       "start": "...",
       "end": "...",
@@ -203,7 +203,7 @@ Both endpoints are rate-limited and publicly accessible (no auth required).
 
 Add an edit button to the exercise list page. The edit form modifies `ExerciseConfig` fields:
 
-- Category / wave
+- Category / assignment
 - Deadlines
 - Scoring policy (mode dropdown + dynamic fields per mode)
 - Max grading points
@@ -216,9 +216,9 @@ Add a scoreboard page at `/scoreboard`:
 - Fetches `/api/scoreboard/config` and `/api/submissions` periodically.
 - Renders a **ranking table** (sorted by total points) with **badge icons** for earned challenges.
 - Renders **per-challenge score charts** using Chart.js with baseline annotation lines.
-- Shows a **countdown timer** for the active wave's deadline.
-- Supports multiple waves via tab navigation.
-- Fully dynamic — number of waves and challenges driven by API data.
+- Shows a **countdown timer** for the active assignment's deadline.
+- Supports multiple assignments via tab navigation.
+- Fully dynamic — number of assignments and challenges driven by API data.
 
 The `raid/raid` JS can be reused but should be refactored to remove the hardcoded 3x3 layout.
 

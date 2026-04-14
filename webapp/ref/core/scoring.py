@@ -39,7 +39,7 @@ RANKING_STRATEGY_CHOICES: list[tuple[str, str]] = list(RANKING_STRATEGIES.items(
 # independent of the ranking strategy — views share utils.js and the
 # ranking/*.js modules. Adding a new view is one dict entry + two files.
 SCOREBOARD_VIEWS: dict[str, str] = {
-    "default": "Default (waves, charts, badges)",
+    "default": "Default (assignments, charts, badges)",
     "minimal": "Minimal (ranking table only)",
 }
 DEFAULT_SCOREBOARD_VIEW = "default"
