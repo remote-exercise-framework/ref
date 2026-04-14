@@ -92,8 +92,9 @@ config edit view validates each per-task entry with it before persisting.
 ## Ranking Strategy
 
 Ranking is computed client-side by
-`spa-frontend/src/ranking/f1_time_weighted.ts` — a Formula 1 style,
-time-weighted strategy. It is the only strategy the scoreboard supports.
+`spa-frontend/src/ranking/best_sum.ts`. Each team's score on a challenge
+is their highest in-window submission score, and the ranking score is
+the sum of those bests across challenges.
 
 ## API Endpoints
 
