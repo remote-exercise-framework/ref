@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 
 """
-First-run initialization for REF.
+First-run initialization and re-render for REF.
 
 Generates the ``settings.yaml`` configuration file with cryptographically
-secure secrets, renders ``settings.env`` (consumed by docker-compose) from it,
-generates ``docker-compose.yml`` from its template, and creates the container
-SSH host keys used by the SSH reverse proxy.
+secure secrets on first run, renders ``settings.env`` (consumed by
+docker-compose) from it, generates ``docker-compose.yml`` from its template,
+and creates the container SSH host keys used by the SSH reverse proxy.
 
-This script must be run once before the first ``./ctrl.sh up``. It refuses to
-run if ``settings.yaml`` already exists so that existing secrets are never
-overwritten silently.
+Re-running with an existing ``settings.yaml`` re-propagates the yaml into the
+downstream artifacts without touching the secrets. Pass ``--fresh`` to
+regenerate ``settings.yaml`` from scratch (destroying all existing secrets).
 """
 
+import argparse
 import secrets
 import shutil
 import subprocess
@@ -47,12 +48,18 @@ def detect_docker_group_id() -> int:
 def build_default_settings() -> Dict[str, Any]:
     """Assemble a fresh settings dict with cryptographically secure secrets."""
     return {
-        "debug": False,
-        "maintenance_enabled": False,
         "docker_group_id": detect_docker_group_id(),
         "ports": {
             "ssh_host_port": 2222,
             "http_host_port": 8000,
+        },
+        "paths": {
+            "data": "./data",
+            "exercises": "./exercises",
+            "ref_utils": "./ref-docker-base/ref-utils",
+        },
+        "runtime": {
+            "binfmt_support": False,
         },
         "admin": {
             # Auto-generated on first boot. The user logs in with username "0".
@@ -79,25 +86,102 @@ SETTINGS_YAML_HEADER = """\
 # secure random generator (Python's `secrets` module). Treat this file as
 # sensitive: it grants full administrative access to the REF instance.
 #
-# To regenerate from scratch, delete this file together with settings.env and
-# re-run ./prepare.py.
+# Editing this file and re-running ./prepare.py re-renders settings.env and
+# docker-compose.yml from the new values. Pass --fresh to regenerate this
+# file from scratch (destroys all current secrets).
 """
+
+SETTINGS_YAML_SECTIONS = [
+    (
+        "docker_group_id",
+        "# Host docker group ID. Must match the docker group on the host\n"
+        "# (getent group docker); ctrl.sh fails fast if they diverge.",
+    ),
+    (
+        "ports",
+        "# Host ports published by the ssh-reverse-proxy and web services.",
+    ),
+    (
+        "paths",
+        "# On-host paths bind-mounted into the web container. Changing these\n"
+        "# requires re-running ./prepare.py and then ./ctrl.sh restart.",
+    ),
+    (
+        "runtime",
+        "# Runtime feature toggles. binfmt_support renders the\n"
+        "# foreign-arch-runner service into docker-compose.yml if true.",
+    ),
+    (
+        "admin",
+        "# Admin user credentials. The admin username is '0'. The password\n"
+        "# is used only for the initial admin creation — rotate via the web\n"
+        "# UI once the admin exists. If ssh_key is null, the web app\n"
+        "# auto-generates a keypair on first boot.",
+    ),
+    (
+        "secrets",
+        "# Inter-service secrets. Rotating any of these requires\n"
+        "# ./ctrl.sh restart; see docs/CONFIG.md for the procedure\n"
+        "# (postgres_password is especially tricky after first boot).",
+    ),
+]
+
+
+def _dump_yaml_block(data: Dict[str, Any]) -> str:
+    """Dump a dict as a yaml block scalar without wrapping long strings."""
+    return yaml.safe_dump(data, sort_keys=False, default_flow_style=False, width=2**16)
 
 
 def write_settings_yaml(settings: Dict[str, Any]) -> None:
+    """Write settings.yaml with a per-section comment above each top-level key."""
+    known_keys = {key for key, _ in SETTINGS_YAML_SECTIONS}
     with SETTINGS_YAML.open("w") as f:
         f.write(SETTINGS_YAML_HEADER)
-        yaml.safe_dump(settings, f, sort_keys=False, default_flow_style=False)
+        for key, comment in SETTINGS_YAML_SECTIONS:
+            if key not in settings:
+                continue
+            f.write("\n")
+            f.write(comment + "\n")
+            f.write(_dump_yaml_block({key: settings[key]}))
+        unknown = {k: v for k, v in settings.items() if k not in known_keys}
+        if unknown:
+            f.write("\n")
+            f.write(_dump_yaml_block(unknown))
     SETTINGS_YAML.chmod(0o600)
 
 
-def _env_value(value: Any) -> str:
-    """Render a Python value as an env-file scalar."""
-    if value is None or value is False:
-        return ""
-    if value is True:
-        return "1"
-    return str(value)
+BACKFILL_DEFAULTS: Dict[str, Dict[str, Any]] = {
+    "paths": {
+        "data": "./data",
+        "exercises": "./exercises",
+        "ref_utils": "./ref-docker-base/ref-utils",
+    },
+    "runtime": {
+        "binfmt_support": False,
+    },
+}
+
+
+def load_settings_yaml() -> Dict[str, Any]:
+    """Load settings.yaml, backfill schema additions, and re-emit with current comments."""
+    with SETTINGS_YAML.open("r") as f:
+        settings = yaml.safe_load(f)
+    if not isinstance(settings, dict):
+        sys.exit(f"error: {SETTINGS_YAML.name} is empty or malformed")
+
+    for section, section_defaults in BACKFILL_DEFAULTS.items():
+        if section not in settings or not isinstance(settings[section], dict):
+            settings[section] = {}
+        for key, default in section_defaults.items():
+            if key not in settings[section]:
+                settings[section][key] = default
+
+    # Always re-emit so the file tracks the current schema, key order, and
+    # section comments. yaml.safe_load strips comments, so anything not
+    # produced by write_settings_yaml is lost on every re-render — this is
+    # intentional.
+    write_settings_yaml(settings)
+    return settings
 
 
 def render_settings_env(settings: Dict[str, Any]) -> None:
@@ -106,22 +190,38 @@ def render_settings_env(settings: Dict[str, Any]) -> None:
     admin_ssh_key = settings["admin"]["ssh_key"] or ""
     lines = [
         "# Auto-generated by prepare.py from settings.yaml. Do not edit by hand.",
-        "# Edit settings.yaml instead and re-render via ./prepare.py (after",
-        "# deleting settings.yaml if you want fresh secrets).",
+        "# Edit settings.yaml instead and re-run ./prepare.py to re-render.",
         "",
-        f"DEBUG={1 if settings['debug'] else 0}",
-        f"MAINTENANCE_ENABLED={1 if settings['maintenance_enabled'] else 0}",
-        "",
+        "# Password of the admin user. The admin user's username is '0'.",
+        "# Used only for the initial admin creation; change via the web UI",
+        "# once the admin exists.",
         f"ADMIN_PASSWORD={admin_password}",
+        "",
+        "# SSH public key deployed for the admin account. If empty, the web",
+        "# app generates a keypair on first boot and exposes the private key",
+        "# via the admin web interface.",
         f'ADMIN_SSH_KEY="{admin_ssh_key}"',
         "",
+        "# Host docker group ID, baked into the web image at build time so",
+        "# the container user can access /var/run/docker.sock. Must match",
+        "# the docker group on the host (getent group docker).",
         f"DOCKER_GROUP_ID={settings['docker_group_id']}",
         "",
+        "# Host ports published by the ssh-reverse-proxy and web services.",
         f"SSH_HOST_PORT={settings['ports']['ssh_host_port']}",
         f"HTTP_HOST_PORT={settings['ports']['http_host_port']}",
         "",
+        "# Flask session / CSRF signing key. Rotating invalidates all",
+        "# existing user sessions.",
         f"SECRET_KEY={settings['secrets']['secret_key']}",
+        "",
+        "# HMAC key shared between the SSH reverse proxy and the web API.",
+        "# Both containers must restart together for rotation to take effect.",
         f"SSH_TO_WEB_KEY={settings['secrets']['ssh_to_web_key']}",
+        "",
+        "# Postgres superuser password used for initial DB setup. Rotating",
+        "# after first boot requires also updating the password inside",
+        "# Postgres (ALTER USER ref PASSWORD '...') or wiping the data dir.",
         f"POSTGRES_PASSWORD={settings['secrets']['postgres_password']}",
         "",
     ]
@@ -129,7 +229,7 @@ def render_settings_env(settings: Dict[str, Any]) -> None:
     SETTINGS_ENV.chmod(0o600)
 
 
-def generate_docker_compose() -> None:
+def generate_docker_compose(settings: Dict[str, Any]) -> None:
     template_loader = jinja2.FileSystemLoader(searchpath=str(REPO_ROOT))
     template_env = jinja2.Environment(loader=template_loader)
     template = template_env.get_template(COMPOSE_TEMPLATE)
@@ -141,11 +241,12 @@ def generate_docker_compose() -> None:
     render_out = template.render(
         testing=False,
         bridge_id="",
-        data_path="./data",
-        exercises_path="./exercises",
+        data_path=settings["paths"]["data"],
+        exercises_path=settings["paths"]["exercises"],
+        ref_utils_path=settings["paths"]["ref_utils"],
         cgroup_parent=cgroup_parent,
         instances_cgroup_parent=instances_cgroup_parent,
-        binfmt_support=False,
+        binfmt_support=settings["runtime"]["binfmt_support"],
     )
     COMPOSE_OUT.write_text(render_out)
 
@@ -164,35 +265,57 @@ def generate_ssh_keys() -> None:
     shutil.copytree(CONTAINER_KEYS_DIR, DOCKER_BASE_KEYS_DIR, dirs_exist_ok=True)
 
 
-def main() -> int:
-    if SETTINGS_YAML.exists():
-        print(
-            f"error: {SETTINGS_YAML.name} already exists. Refusing to overwrite "
-            "existing secrets.\n"
-            "If you want to regenerate configuration from scratch, delete "
-            f"{SETTINGS_YAML.name} and settings.env and re-run this script.",
-            file=sys.stderr,
-        )
-        return 1
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help=(
+            "Regenerate settings.yaml from scratch with new secrets, "
+            "destroying all existing secrets. The existing file is moved to "
+            "settings.yaml.backup first."
+        ),
+    )
+    return parser.parse_args()
 
-    settings = build_default_settings()
-    write_settings_yaml(settings)
+
+def main() -> int:
+    args = parse_args()
+
+    if args.fresh and SETTINGS_YAML.exists():
+        backup = SETTINGS_YAML.with_suffix(".yaml.backup")
+        SETTINGS_YAML.rename(backup)
+        print(f"Moved existing {SETTINGS_YAML.name} to {backup.name}")
+
+    if SETTINGS_YAML.exists():
+        settings = load_settings_yaml()
+        action = "rerender"
+    else:
+        settings = build_default_settings()
+        write_settings_yaml(settings)
+        action = "bootstrap"
+
     render_settings_env(settings)
-    generate_docker_compose()
+    generate_docker_compose(settings)
     generate_ssh_keys()
 
-    print(f"Wrote {SETTINGS_YAML.name} (0600)")
+    if action == "bootstrap":
+        print(f"Wrote {SETTINGS_YAML.name} (0600)")
+    else:
+        print(f"Re-rendered from {SETTINGS_YAML.name}")
     print(f"Wrote {SETTINGS_ENV.name} (0600)")
     print(f"Wrote {COMPOSE_OUT.name}")
     print(f"Generated container SSH keys in {CONTAINER_KEYS_DIR.name}/")
-    print()
-    print("Admin credentials for first login:")
-    print("  user:     0")
-    print(f"  password: {settings['admin']['password']}")
-    print()
-    print("Next steps:")
-    print("  ./ctrl.sh build")
-    print("  ./ctrl.sh up")
+
+    if action == "bootstrap":
+        print()
+        print("Admin credentials for first login:")
+        print("  user:     0")
+        print(f"  password: {settings['admin']['password']}")
+        print()
+        print("Next steps:")
+        print("  ./ctrl.sh build")
+        print("  ./ctrl.sh up")
     return 0
 
 

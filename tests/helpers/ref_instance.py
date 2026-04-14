@@ -368,6 +368,9 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
             bridge_id=bridge_id,
             data_path=str(self._data_dir.resolve()),
             exercises_path=str(self._exercises_dir.resolve()),
+            ref_utils_path=str(
+                (self._ref_root / "ref-docker-base" / "ref-utils").resolve()
+            ),
             cgroup_parent=cgroup_parent,
             instances_cgroup_parent=instances_cgroup_parent,
             binfmt_support=self.config.binfmt_support,

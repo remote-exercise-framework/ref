@@ -8,8 +8,8 @@
 
 docker-compose.yml
 settings.env
-settings.env.backup
 settings.yaml
+settings.yaml.backup
 exercises
 data
 
