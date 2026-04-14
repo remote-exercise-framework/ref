@@ -17,6 +17,7 @@ webapp/.coverage
 webapp/.testmondata
 webapp/htmlcov/
 webapp/venv
+webapp/ref_webapp.egg-info/
 
 ref-docker-base/task-wrapper
 ref-docker-base/container-keys
