@@ -1,8 +1,11 @@
-from .api import api_get_header as api_get_header
-from .api import api_getkeys as api_getkeys
-from .api import api_getuserinfo as api_getuserinfo
-from .api import api_provision as api_provision
-from .api import api_instance_info as api_instance_info
+# Route-registration side effects for the dedicated API packages. Nothing is
+# re-exported directly from them here — `import ref.view` is the single entry
+# point that wires every Flask route onto `refbp`, so we need the submodule
+# imports to happen even though the names are unused.
+import ref.frontend_api  # noqa: F401
+import ref.services_api  # noqa: F401
+
+from .build_status import api_build_status as api_build_status
 from .exercise import admin_default_routes as admin_default_routes
 from .exercise import exercise_browse as exercise_browse
 from .exercise import exercise_build as exercise_build
@@ -29,8 +32,6 @@ from .instances import instances_view_details as instances_view_details
 from .login import login as login
 from .student import student_default_routes as student_default_routes
 from .student import student_delete as student_delete
-from .student import student_getkey as student_getkey
-from .student import student_restorekey as student_restorekey
 from .student import student_view_all as student_view_all
 from .student import student_view_single as student_view_single
 from .submission import submission_delete as submission_delete

@@ -1,7 +1,7 @@
 """Unit tests for ref/core/scoring.py.
 
 Covers the scoring policy transform, the policy validator, the ranking
-strategy and view resolvers, and team_identity's group-aware behavior.
+strategy resolver, and team_identity's group-aware behavior.
 """
 
 from unittest.mock import MagicMock, patch
@@ -10,12 +10,9 @@ import pytest
 
 from ref.core.scoring import (
     DEFAULT_RANKING_STRATEGY,
-    DEFAULT_SCOREBOARD_VIEW,
     RANKING_STRATEGIES,
-    SCOREBOARD_VIEWS,
     apply_scoring,
     resolve_ranking_mode,
-    resolve_scoreboard_view,
     team_identity,
     validate_scoring_policy,
 )
@@ -191,14 +188,6 @@ class TestResolveMode:
         assert resolve_ranking_mode(None) == DEFAULT_RANKING_STRATEGY
         assert resolve_ranking_mode("") == DEFAULT_RANKING_STRATEGY
         assert resolve_ranking_mode("nope") == DEFAULT_RANKING_STRATEGY
-
-    def test_resolve_scoreboard_view_valid(self):
-        for key in SCOREBOARD_VIEWS:
-            assert resolve_scoreboard_view(key) == key
-
-    def test_resolve_scoreboard_view_invalid_falls_back(self):
-        assert resolve_scoreboard_view(None) == DEFAULT_SCOREBOARD_VIEW
-        assert resolve_scoreboard_view("what") == DEFAULT_SCOREBOARD_VIEW
 
 
 @pytest.mark.offline

@@ -10,18 +10,6 @@
     </button>
     <div class="collapse navbar-collapse" id="mainNavbar">
         <ul class="navbar-nav mr-auto">
-            <li class="nav-item {% if route_name == 'get_key' %}active{% endif %}">
-                <a class="nav-link" href="{{ url_for('ref.student_getkey') }}">Registration</a>
-            </li>
-            <li class="nav-item {% if route_name == 'restore_key' %}active{% endif %}">
-                <a class="nav-link" href="{{ url_for('ref.student_restorekey') }}">Restore Key</a>
-            </li>
-            {% if settings.SCOREBOARD_ENABLED.value %}
-            <li class="nav-item {% if route_name == 'scoreboard' %}active{% endif %}">
-                <a class="nav-link" href="{{ url_for('ref.student_scoreboard') }}">Scoreboard</a>
-            </li>
-            {% endif %}
-
             {% if current_user.is_authenticated and current_user.is_admin %}
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button"

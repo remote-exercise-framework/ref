@@ -152,9 +152,13 @@ REF is a containerized platform for hosting programming exercises with isolated 
 ### Components
 
 1. **Web Application** (`webapp/`) - Flask app on port 8000
-   - `ref/view/` - Route handlers (API, exercises, grading, instances, file browser, visualization, system settings, etc.)
+   - `ref/view/` - HTML route handlers (exercises, grading, instances, file browser, visualization, admin student management, system settings, etc.)
+   - `ref/services_api/` - JSON endpoints called by services (SSH reverse proxy hooks in `ssh.py`, student container callbacks in `instance.py`)
+   - `ref/frontend_api/` - JSON endpoints consumed by the Vue SPA (registration/restore-key in `students.py`, public scoreboard in `scoreboard.py`; mounted under `/api/v2/*` + `/api/scoreboard/*`)
    - `ref/model/` - SQLAlchemy models (users, groups, exercises, instances, submissions, grades, system settings)
    - `ref/core/` - Business logic managers (`ExerciseManager`, `InstanceManager`, `ExerciseImageManager`, `UserManager`, `DockerClient`, etc.)
+
+   Student-facing pages (registration, restore-key, public scoreboard) are served by the Vue SPA under `/v2/*` and talk to `ref/frontend_api/`. Admin pages live under `ref/view/` as Jinja-rendered HTML.
 
 2. **SSH Reverse Proxy** (`ssh-reverse-proxy/`) - Rust-based SSH proxy on port 2222
    - Routes student SSH connections to exercise containers
@@ -195,7 +199,7 @@ Client (ssh exercise@host -p 2222)
 
 ## Code Comments
 
-- Do not reference line numbers in comments (e.g., "see api.py lines 397-404"). Line numbers change frequently and become outdated. Reference functions, classes, or use direct code references instead.
+- Do not reference line numbers in comments (e.g., "see ssh.py lines 397-404"). Line numbers change frequently and become outdated. Reference functions, classes, or use direct code references instead.
 
 ## Pending Tasks
 

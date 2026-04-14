@@ -13,7 +13,6 @@ import pytz
 from ref import refbp
 from ref.core import (
     RANKING_STRATEGY_CHOICES,
-    SCOREBOARD_VIEW_CHOICES,
     admin_required,
 )
 from ref.core.logging import get_logger
@@ -23,7 +22,6 @@ from ref.model import SystemSettingsManager
 LANDING_PAGE_CHOICES = [
     ("registration", "Registration / Key form"),
     ("scoreboard", "Public scoreboard"),
-    ("chooser", "Chooser page (registration + scoreboard buttons)"),
 ]
 
 
@@ -55,10 +53,6 @@ class GeneralSettings(Form):
     telegram_logger_channel_id = StringField("Telegram Logger Channel ID")
 
     scoreboard_enabled = BooleanField("Enable the public scoreboard and its JSON APIs.")
-    scoreboard_view = SelectField(
-        "Scoreboard visual view",
-        choices=SCOREBOARD_VIEW_CHOICES,
-    )
     scoreboard_ranking_mode = SelectField(
         "Scoreboard ranking strategy",
         choices=RANKING_STRATEGY_CHOICES,
@@ -144,10 +138,6 @@ def view_system_settings():
         (
             SystemSettingsManager.SCOREBOARD_ENABLED,
             general_settings_form.scoreboard_enabled,
-        ),
-        (
-            SystemSettingsManager.SCOREBOARD_VIEW,
-            general_settings_form.scoreboard_view,
         ),
         (
             SystemSettingsManager.SCOREBOARD_RANKING_MODE,

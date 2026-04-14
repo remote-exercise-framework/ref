@@ -316,7 +316,7 @@ def create_instance(
     Create (and optionally start) an instance using InstanceManager.
 
     Uses InstanceManager.create_instance() and InstanceManager.start()
-    as the API endpoint does in ref/view/api.py.
+    as the `/api/provision` endpoint does in ref/services_api/ssh.py.
 
     Args:
         ref_instance: The REF instance to execute in

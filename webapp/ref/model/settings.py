@@ -102,10 +102,9 @@ class SystemSettingsManager:
 
     TIMEZONE = Setting("TIMEZONE", str, "Europe/Berlin")
 
-    # Public scoreboard toggle, active visual view, and ranking strategy.
-    # See ref/core/scoring.py for the set of valid ids for each.
+    # Public scoreboard toggle and ranking strategy. See
+    # ref/core/scoring.py for the set of valid ranking ids.
     SCOREBOARD_ENABLED = Setting("SCOREBOARD_ENABLED", bool, False)
-    SCOREBOARD_VIEW = Setting("SCOREBOARD_VIEW", str, "default")
     SCOREBOARD_RANKING_MODE = Setting(
         "SCOREBOARD_RANKING_MODE", str, "f1_time_weighted"
     )

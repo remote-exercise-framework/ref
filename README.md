@@ -184,4 +184,4 @@ The following features are disabled by default and can be enabled from the admin
 Allows students to be organized into named groups with a configurable maximum size. Students pick a group during registration, and admins can manage the available groups and reassign students afterwards. Enable via the `GROUPS_ENABLED` setting and configure the per-group capacity via `GROUP_SIZE`.
 
 #### Scoreboard
-A public leaderboard at `/scoreboard` that ranks students based on their exercise submissions. Exercises can be grouped into assignments, the ranking strategy is selected via `SCOREBOARD_RANKING_MODE`, and the visual layout via `SCOREBOARD_VIEW`. Enable via `SCOREBOARD_ENABLED`; optionally set `LANDING_PAGE` to `scoreboard` to use it as the default landing page.
+A public leaderboard at `/v2/scoreboard` that ranks students based on their exercise submissions. Exercises can be grouped into assignments and the ranking strategy is selected via `SCOREBOARD_RANKING_MODE`. Enable via `SCOREBOARD_ENABLED`; optionally set `LANDING_PAGE` to `scoreboard` to use it as the default landing page.

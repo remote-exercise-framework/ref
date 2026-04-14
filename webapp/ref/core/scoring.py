@@ -11,7 +11,7 @@ Two concerns live here:
 2. `RANKING_STRATEGIES` — the single source of truth for which ranking
    strategies exist. Both the admin system-settings form and the
    `/api/scoreboard/config` endpoint import from here, so adding a new
-   frontend ranking strategy is one dict entry plus one JS file.
+   ranking strategy is one dict entry plus one SPA module.
 """
 
 from __future__ import annotations
@@ -32,25 +32,6 @@ RANKING_STRATEGIES: dict[str, str] = {
 }
 DEFAULT_RANKING_STRATEGY = "f1_time_weighted"
 RANKING_STRATEGY_CHOICES: list[tuple[str, str]] = list(RANKING_STRATEGIES.items())
-
-
-# Visual presentations of the scoreboard. Each view is a
-# (templates/scoreboard/<id>.html, static/js/scoreboard/<id>.js) pair and is
-# independent of the ranking strategy — views share utils.js and the
-# ranking/*.js modules. Adding a new view is one dict entry + two files.
-SCOREBOARD_VIEWS: dict[str, str] = {
-    "default": "Default (assignments, charts, badges)",
-    "minimal": "Minimal (ranking table only)",
-}
-DEFAULT_SCOREBOARD_VIEW = "default"
-SCOREBOARD_VIEW_CHOICES: list[tuple[str, str]] = list(SCOREBOARD_VIEWS.items())
-
-
-def resolve_scoreboard_view(raw: Optional[str]) -> str:
-    """Return `raw` if it names a known view, otherwise the default."""
-    if raw and raw in SCOREBOARD_VIEWS:
-        return raw
-    return DEFAULT_SCOREBOARD_VIEW
 
 
 def resolve_ranking_mode(raw: Optional[str]) -> str:

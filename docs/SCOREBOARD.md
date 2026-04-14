@@ -1,130 +1,68 @@
-# Scoreboard Integration
+# Scoreboard
 
-This document describes how to integrate a scoreboard into REF, based on the prototype in the `raid/raid` branch and adapted to the current `dev` codebase.
+A public leaderboard at `/v2/scoreboard` that ranks students/teams based
+on submission scores. Exercises are grouped into **assignments**
+(time-boxed rounds, one per `ExerciseConfig.category`). Each exercise
+has a **scoring policy** that transforms raw submission scores into
+scoreboard points. The Vue SPA fetches metadata + submissions via two
+JSON endpoints and renders rankings, badges, charts, and per-challenge
+plots client-side.
 
-## Overview
+## Data Model
 
-The scoreboard is a public-facing page that shows team/student rankings based on submission scores. Exercises are grouped into **assignments** (time-boxed rounds). Each exercise defines a **scoring policy** that maps raw submission scores to scoreboard points. The frontend fetches data via two JSON APIs and renders rankings, badges, charts, and per-challenge plots client-side.
+### `ExerciseConfig` (global, web-editable)
 
-## What exists in `raid/raid`
-
-The prototype adds:
-
-- **Two API endpoints** (`/api/assignments`, `/api/submissions`) that return exercise metadata and submission scores as JSON.
-- **Three new Exercise model fields**: `baseline_score`, `badge_score`, `badge_points` — parsed from the exercise YAML config.
-- **A scoreboard page** (`/student/scoreboard`) with a Jinja template and ~2300 lines of client-side JS (`scoreboard.js`, `utils.js`, `plots.js`) using Chart.js.
-- **Badges**: per-challenge achievement icons shown in the ranking table when a team's score exceeds `badge_score`. Each challenge can have custom SVG/PNG assets with a default fallback.
-- **System settings**: `LANDING_PAGE` (choose which page students see first), `DEMO_MODE_ENABLED` (serve dummy JSON data).
-- **A demo/dummy data system** (`dummies/assignments.json`, `dummies/submissions.json`) for development without real submissions.
-
-The prototype is tightly coupled to a fixed 3-assignments x 3-challenges layout and hardcodes assignment/challenge indices in the template. It also bundles all scoring logic (ranking, badges, rates) in the frontend JS.
-
-## What already exists in `dev`
-
-- `SubmissionTestResult.score` (float, nullable) — already in the model. This is the raw per-submission score.
-- Exercise `category` field — used as the assignment/group name.
-- `Submission.all()`, exercise deadlines, the full submission lifecycle.
-
-## ExerciseConfig: Separating Administrative from Build-Time Config
-
-### Problem
-
-Currently, all exercise configuration lives on the `Exercise` model — one row per version. Administrative fields like deadlines, category, and max grading points are duplicated across versions and synchronized at import time (importing a new version propagates deadlines to all predecessors). This is fragile: editing via a web UI would require updating every version row.
-
-### Solution: `ExerciseConfig` Model
-
-Introduce a new model that holds **administrative configuration** shared across all versions of an exercise:
+Administrative configuration shared across every version of an exercise.
+All `Exercise` rows with the same `short_name` point at the same
+`ExerciseConfig` row, so editing via the admin UI takes effect
+immediately for all versions.
 
 ```python
 class ExerciseConfig(db.Model):
-    __tablename__ = 'exercise_config'
-
-    id: Mapped[int]                                     # PK (integer)
-    short_name: Mapped[str]                             # unique constraint
-    category: Mapped[Optional[str]]                     # assignment/group name
-    scoring_policy: Mapped[Optional[dict]]              # JSON, see Scoring Architecture
+    id: Mapped[int]                                     # PK
+    short_name: Mapped[str]                             # unique
+    category: Mapped[Optional[str]]                     # assignment label
+    scoring_policy: Mapped[Optional[dict]]              # JSON, see below
     submission_deadline_start: Mapped[Optional[datetime]]
     submission_deadline_end: Mapped[Optional[datetime]]
     submission_test_enabled: Mapped[bool]
     max_grading_points: Mapped[Optional[int]]
 ```
 
-The `Exercise` model gets a FK to `ExerciseConfig`:
+`Exercise` carries a `config_id` FK to `ExerciseConfig`; per-version,
+build-time fields (`entry_service`, `services`, `build_job_*`,
+`template_path`, `persistence_path`, `is_default`, `version`) stay on
+`Exercise` itself.
 
-```python
-class Exercise(db.Model):
-    # ... existing build-time fields ...
-    config_id: Mapped[int] = mapped_column(ForeignKey('exercise_config.id'))
-    config: Mapped[ExerciseConfig] = relationship(...)
-```
+### Raw Scores
 
-All versions of an exercise with the same `short_name` point to the **same** `ExerciseConfig` row.
+Submissions produce a **raw score** (float, stored in
+`SubmissionTestResult.score`). Raw scores are persisted unmodified —
+scoring policies are applied on read, so policy edits take effect
+retroactively without reprocessing stored data.
 
-### What stays on `Exercise` (per-version, build-time)
+## Scoring Policies
 
-- `entry_service` — files, build commands, cmd, flags, resource limits, ASLR, readonly, networking
-- `services` — peripheral service configs
-- `build_job_status` / `build_job_result`
-- `template_path` / `persistence_path` / `template_import_path`
-- `is_default`
-- `version`
+The `scoring_policy` column on `ExerciseConfig` is a JSON object the
+admin edits from the exercise config page. `ref/core/scoring.py` exposes
+`apply_scoring(raw, policy)` which every API call routes raw scores
+through.
 
-### What moves to `ExerciseConfig` (global, web-editable)
-
-- `category`
-- `submission_deadline_start` / `submission_deadline_end`
-- `submission_test_enabled`
-- `max_grading_points`
-- `scoring_policy` (new)
-
-### How it integrates with versioning
-
-- **First import of an exercise:** Creates an `ExerciseConfig` row. Initial values come from the YAML config.
-- **Reimport (new version):** Reuses the existing `ExerciseConfig` (looked up by `short_name`). The new `Exercise` row points to the same config. YAML values for administrative fields are **ignored** — the web-edited config takes precedence.
-- **Web UI edit:** Updates the single `ExerciseConfig` row — immediately effective for all versions.
-- **No more sync logic:** Deadlines no longer need to be propagated across version rows on import.
-
-### Migration path for other config
-
-As more settings move from YAML to web UI, the pattern is:
-1. **Build-time?** → stays on `Exercise` (per-version, immutable after build)
-2. **Administrative?** → moves to `ExerciseConfig` (global, web-editable)
-
-Future candidates for `ExerciseConfig`: display name, description, visibility/published flag, ordering/priority.
-
-### Web UI: Edit Button
-
-The exercise list page gets an **Edit** button per exercise (per `short_name`, not per version). It opens a form editing the `ExerciseConfig`:
-
-- Category / assignment
-- Deadlines (start, end)
-- Scoring policy (mode selector + mode-specific fields)
-- Max grading points
-- Submission test toggle
-
-This is separate from the import flow which handles build-time config.
-
-## Scoring Architecture
-
-### Raw Scores vs. Scoreboard Points
-
-Submissions produce a **raw score** (float, stored in `SubmissionTestResult.score`). This raw score needs to be translated into **scoreboard points** via the exercise's **scoring policy** (stored on `ExerciseConfig`).
-
-### Scoring Policy
-
-The scoring policy is configured via the web UI and stored as a JSON column on `ExerciseConfig`. Supported modes:
+Supported modes:
 
 ```
-# Linear mapping: raw [0..1] → [0..max_points]
+# Linear mapping: raw [min_raw..max_raw] → [0..max_points]
 mode: linear
 max_points: 100
+min_raw: 0.0     # optional, default 0.0
+max_raw: 1.0     # optional, default 1.0
 
 # Threshold: all-or-nothing
 mode: threshold
 threshold: 0.5
 points: 100
 
-# Tiered: stepped milestones
+# Tiered: stepped milestones, highest reached tier wins
 mode: tiered
 tiers:
   - above: 0.3, points: 25
@@ -132,128 +70,110 @@ tiers:
   - above: 0.9, points: 100
 ```
 
-An optional `baseline` field can be included in any mode to show a reference line on charts (e.g., the score of a naive/trivial solution).
+Any policy may also carry an optional `baseline` field. It has no effect
+on the transformed score; the SPA renders it as a horizontal reference
+line on per-challenge plots (typically the score of a naive/trivial
+solution).
 
-### Where Scoring is Evaluated
+`validate_scoring_policy(policy)` in the same module returns a list of
+human-readable error strings — the exercise-config edit view uses this
+to surface admin mistakes before persisting.
 
-**Server-side, in core logic.** The server applies the scoring policy when serving the submissions API. Reasons:
+## Ranking Strategies
 
-- **Authoritative ranking** — no client-side inconsistencies.
-- **Retroactive changes** — changing a policy recomputes on the fly since raw scores are stored, not transformed ones.
-- **Single source of truth** — one evaluation function in `ref/core/`.
+Ranking strategies are registered in `RANKING_STRATEGIES` in
+`ref/core/scoring.py`. The active strategy is chosen by the
+`SCOREBOARD_RANKING_MODE` system setting and surfaced to the SPA via the
+config endpoint. Each strategy has a matching TypeScript module under
+`spa-frontend/src/ranking/` that computes the ranking client-side.
 
-### Badges
+| Id | Label | Source |
+|----|-------|--------|
+| `f1_time_weighted` | Formula 1 (time-weighted) | `spa-frontend/src/ranking/f1_time_weighted.ts` |
+| `best_sum` | Sum of best per challenge | `spa-frontend/src/ranking/best_sum.ts` |
 
-Badges are a **visual consequence of scoring**, not a separate system. When a team earns points for a challenge (i.e., crosses a threshold or achieves a score), the frontend renders a badge icon. Badge assets are static files per exercise name (`/static/badges/<name>.svg`) with a default fallback. No extra backend logic is needed — the frontend derives badges from the scoring data.
+Adding a strategy is one dict entry on the Python side plus one `.ts`
+file on the frontend.
 
-## Integration Plan
+## API Endpoints
 
-### 1. `ExerciseConfig` Model and Migration
+Both endpoints live in `webapp/ref/frontend_api/scoreboard.py`, are
+rate-limited, and return `404` when `SCOREBOARD_ENABLED` is off (so the
+feature never leaks its existence). No authentication required.
 
-Create the `ExerciseConfig` model. Migrate existing administrative fields (`category`, deadlines, `submission_test_enabled`, `max_grading_points`) from `Exercise` rows into `ExerciseConfig` rows. Add `scoring_policy` JSON column. Update `Exercise` with a FK `config_id` pointing to `ExerciseConfig`.
+### `GET /api/scoreboard/config`
 
-The migration:
-1. Create `exercise_config` table.
-2. Populate it from distinct `short_name` values in `exercise`, taking field values from the head (newest) version.
-3. Add `config_id` FK column to `exercise` and backfill it.
-4. (Optional, later) Drop the migrated columns from `exercise`.
-
-### 2. Update ExerciseManager
-
-- On first import: create `ExerciseConfig` from YAML values.
-- On reimport: look up existing `ExerciseConfig` by `short_name`, skip administrative fields from YAML.
-- Remove the deadline sync logic from `check_global_constraints()`.
-
-### 3. Scoring API Endpoints
-
-**`GET /api/scoreboard/config`** — Returns exercise metadata grouped by `category` (assignment), including the scoring policy:
+Assignment/challenge metadata plus the active ranking strategy.
 
 ```json
 {
-  "Assignment 1": {
-    "exercise_name": {
-      "start": "...",
-      "end": "...",
-      "scoring": {
-        "mode": "threshold",
-        "threshold": 0.5,
-        "points": 100,
-        "baseline": 0.013
+  "course_name": "OS-Security",
+  "ranking_mode": "f1_time_weighted",
+  "assignments": {
+    "Assignment 1": {
+      "exercise_short_name": {
+        "start": "DD/MM/YYYY HH:MM:SS",
+        "end":   "DD/MM/YYYY HH:MM:SS",
+        "scoring": { "mode": "threshold", "threshold": 0.5, "points": 100, "baseline": 0.013 },
+        "max_points": 100
       }
     }
   }
 }
 ```
 
-**`GET /api/submissions`** — Returns transformed submission scores grouped by exercise and team/user:
+Only exercises whose default version has finished building and whose
+`ExerciseConfig` has both deadline endpoints + a non-null `category` are
+included. Empty assignment buckets are pruned.
+
+### `GET /api/scoreboard/submissions`
+
+Submission scores grouped by exercise and team, pre-transformed by
+`apply_scoring()`:
 
 ```json
 {
-  "exercise_name": {
-    "Team A": [[timestamp, score], ...]
+  "exercise_short_name": {
+    "Team A": [["DD/MM/YYYY HH:MM:SS", 87.5], ...]
   }
 }
 ```
 
-Scores returned here are already transformed by the server using the exercise's scoring policy.
+Submissions with zero or multiple test results are skipped and logged;
+the endpoint expects exactly one top-level test result per submission.
+The team label comes from `team_identity(user)`, which returns the
+user's group name when groups are enabled, otherwise their full name.
 
-Both endpoints are rate-limited and publicly accessible (no auth required).
+## Frontend
 
-### 4. Exercise Edit UI
+The Vue page at `spa-frontend/src/pages/Scoreboard.vue` polls both API
+endpoints and hands the data to the components under
+`spa-frontend/src/components/scoreboard/`:
 
-Add an edit button to the exercise list page. The edit form modifies `ExerciseConfig` fields:
+- `RankingTable.vue` — sorted points table with earned badge icons.
+- `HighscoreCard.vue` — per-assignment top-score card.
+- `PointsOverTimeChart.vue` — cumulative points line chart with
+  assignment-boundary annotations.
+- `ChallengePlot.vue` — per-challenge scatter of best-ever improvements
+  (regressions are filtered out).
+- `Countdown.vue` — timer for the currently-running assignment's deadline.
 
-- Category / assignment
-- Deadlines
-- Scoring policy (mode dropdown + dynamic fields per mode)
-- Max grading points
-- Submission test toggle
+All charts use Chart.js with `chartjs-plugin-zoom` for pan/zoom
+(drag-pan, wheel/pinch zoom, shift-drag box zoom) and cap the x-axis at
+the earliest data point so users can't drag into empty pre-data space.
+Chart data updates on each poll preserve the user's zoom state.
 
-### 5. Scoreboard Frontend
+Badges are a visual consequence of crossing a scoring threshold — no
+dedicated backend. Badge assets are static SVG files at
+`webapp/ref/static/badges/<short_name>.svg` with a default fallback.
 
-Add a scoreboard page at `/scoreboard`:
-
-- Fetches `/api/scoreboard/config` and `/api/submissions` periodically.
-- Renders a **ranking table** (sorted by total points) with **badge icons** for earned challenges.
-- Renders **per-challenge score charts** using Chart.js with baseline annotation lines.
-- Shows a **countdown timer** for the active assignment's deadline.
-- Supports multiple assignments via tab navigation.
-- Fully dynamic — number of assignments and challenges driven by API data.
-
-The `raid/raid` JS can be reused but should be refactored to remove the hardcoded 3x3 layout.
-
-### 6. System Settings
+## System Settings
 
 | Setting | Type | Purpose |
 |---------|------|---------|
-| `SCOREBOARD_ENABLED` | bool | Toggle scoreboard visibility |
-| `LANDING_PAGE` | str | Choose default student landing page (registration / scoreboard) |
+| `SCOREBOARD_ENABLED` | bool | Master toggle for the page + JSON endpoints |
+| `SCOREBOARD_RANKING_MODE` | str | Selected ranking strategy id |
+| `LANDING_PAGE` | str | `"registration"` or `"scoreboard"` — where `/` redirects |
 
-## Key Design Decisions (to be made)
-
-- **Public vs. authenticated scoreboard**: Should the scoreboard require login? The `raid/raid` version is public.
-- **Score aggregation**: Should ranking use sum of best scores per challenge, or sum of all earned points? The prototype sums badge points.
-- **Polling interval**: The prototype polls every 5 seconds. Consider server-side caching or a longer interval.
-- **Admin scoreboard controls**: Should admins be able to freeze/reset the scoreboard?
-- **Dropping old columns**: When to remove the migrated fields from `Exercise` (can be deferred to avoid a big-bang migration).
-
-## Files to Create/Modify
-
-| File | Action |
-|------|--------|
-| `webapp/ref/model/exercise_config.py` | New: `ExerciseConfig` model |
-| `webapp/ref/model/exercise.py` | Add `config_id` FK, remove migrated fields (later) |
-| `webapp/ref/core/exercise.py` | Update import logic to use `ExerciseConfig` |
-| `webapp/ref/core/scoring.py` | New: `apply_scoring()` helper |
-| `webapp/ref/view/api.py` | Add `/api/scoreboard/config` and `/api/submissions` endpoints |
-| `webapp/ref/view/exercise.py` | Add edit endpoint for `ExerciseConfig` |
-| `webapp/ref/templates/exercise_edit.html` | New: edit form template |
-| `webapp/ref/view/student.py` | Add scoreboard route |
-| `webapp/ref/templates/student_scoreboard.html` | New template |
-| `webapp/ref/static/js/scoreboard.js` | Adapt from `raid/raid` |
-| `webapp/ref/static/js/plots.js` | Adapt from `raid/raid` (Chart.js plots) |
-| `webapp/ref/static/js/utils.js` | Adapt from `raid/raid` (scoring logic) |
-| `webapp/ref/static/badges/` | Badge SVG assets (per exercise + default) |
-| `webapp/ref/model/settings.py` | Add `SCOREBOARD_ENABLED`, `LANDING_PAGE` |
-| `webapp/ref/view/system_settings.py` | Expose new settings in admin UI |
-| `migrations/versions/xxx_exercise_config.py` | DB migration |
+All three are exposed in the admin system-settings form
+(`webapp/ref/view/system_settings.py`).

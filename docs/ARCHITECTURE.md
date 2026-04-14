@@ -23,8 +23,8 @@ Flask application providing the management interface.
 
 **Key modules:**
 
-- `ref/view/` - Route handlers
-  - `api.py` - SSH proxy authentication, provisioning, instance introspection, submissions
+- `ref/view/` - HTML route handlers (admin + student dashboards)
+  - `build_status.py` - `/api/build-status` poll used by the exercises admin UI
   - `exercise.py` - Exercise import, build, delete, toggle defaults
   - `file_browser.py` - Interactive file browser with load/save
   - `grading.py` - Submission grading with search
@@ -32,11 +32,19 @@ Flask application providing the management interface.
   - `group.py` - User group management
   - `instances.py` - Instance lifecycle (create/start/stop/delete/review/submit)
   - `login.py` - Authentication
-  - `student.py` - User management and SSH key generation/restoration
+  - `student.py` - Admin user management + signed key download endpoints; root/`/` redirect to the SPA landing pages
   - `submission.py` - Submission history
   - `system.py` - Garbage collection for dangling containers/networks
   - `system_settings.py` - System configuration (general, group, SSH settings)
   - `visualization.py` - Analytics dashboards (submission trends, container graphs)
+
+- `ref/services_api/` - JSON endpoints called by other services (not browsers)
+  - `ssh.py` - SSH reverse-proxy hooks: `/api/ssh-authenticated`, `/api/provision`, `/api/getkeys`, `/api/getuserinfo`, `/api/header`
+  - `instance.py` - Student container callbacks (HMAC-signed with per-instance keys): `/api/instance/reset`, `/api/instance/submit`, `/api/instance/info`
+
+- `ref/frontend_api/` - JSON endpoints consumed by the Vue SPA (`/api/v2/*` + scoreboard)
+  - `students.py` - `/api/v2/registration{,/meta}`, `/api/v2/restore-key`
+  - `scoreboard.py` - `/api/scoreboard/config`, `/api/scoreboard/submissions`
 
 - `ref/model/` - SQLAlchemy models
   - `user.py` - `User`, `UserGroup`

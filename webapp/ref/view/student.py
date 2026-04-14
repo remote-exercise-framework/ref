@@ -1,11 +1,6 @@
-import re
-
 from Crypto.PublicKey import RSA
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
-    NoEncryption,
-    PrivateFormat,
     PublicFormat,
     load_ssh_public_key,
 )
@@ -16,7 +11,6 @@ from flask import (
     redirect,
     render_template,
     request,
-    url_for,
 )
 from itsdangerous import URLSafeTimedSerializer
 from wtforms import (
@@ -32,8 +26,8 @@ from wtforms import (
     validators,
 )
 
-from ref import db, limiter, refbp
-from ref.core import UserManager, admin_required, flash, resolve_scoreboard_view
+from ref import limiter, refbp
+from ref.core import admin_required, flash
 from ref.core.logging import get_logger
 from ref.core.util import (
     redirect_to_next,
@@ -41,10 +35,11 @@ from ref.core.util import (
 from ref.model import GroupNameList, SystemSettingsManager, User, UserGroup
 from ref.model.enums import UserAuthorizationGroups
 
+# URL paths students are redirected to when hitting "/". Values are absolute
+# URL paths served by the SPA — no Flask endpoint exists for these anymore.
 LANDING_PAGE_ROUTES = {
-    "registration": "ref.student_getkey",
-    "scoreboard": "ref.student_scoreboard",
-    "chooser": "ref.student_landing",
+    "registration": "/v2/register",
+    "scoreboard": "/v2/scoreboard",
 }
 
 PASSWORD_MIN_LEN = 8
@@ -54,7 +49,6 @@ PASSWORD_SECURITY_LEVEL = 3
 DOWNLOAD_LINK_SIGN_SALT = "dl-keys"
 
 MAT_REGEX = r"^[0-9]+$"
-GROUP_REGEX = r"^[a-zA-Z0-9-_]+$"
 
 log = get_logger(__name__)
 
@@ -69,31 +63,6 @@ class StringFieldDefaultEmpty(StringField):
 def field_to_str(form, field):
     del form
     return str(field.data)
-
-
-def validate_password(form, field):
-    """
-    Implements a simple password policy.
-    Raises:
-        ValidationError: If the password does not fullfill the policy.
-    """
-    del form
-    password = field.data
-
-    if len(password) < PASSWORD_MIN_LEN:
-        raise ValidationError(
-            f"Password must be at least {PASSWORD_MIN_LEN} characters long."
-        )
-
-    digit = re.search(r"\d", password) is not None
-    upper = re.search(r"[A-Z]", password) is not None
-    lower = re.search(r"[a-z]", password) is not None
-    special = re.search(r"[ !#$%&'()*+,-./[\\\]^_`{|}~" + r'"]', password) is not None
-
-    if sum([digit, upper, lower, special]) < PASSWORD_SECURITY_LEVEL:
-        raise ValidationError(
-            "Password not strong enough. Try to use a mix of digits, upper- and lowercase letters."
-        )
 
 
 def validate_pubkey(form, field):
@@ -166,59 +135,6 @@ class EditUserForm(Form):
     submit = SubmitField("Update")
 
 
-class GetKeyForm(Form):
-    mat_num = StringFieldDefaultEmpty(
-        "Matriculation Number",
-        validators=[
-            validators.DataRequired(),
-            validators.Regexp(MAT_REGEX),
-            field_to_str,
-        ],
-    )
-    firstname = StringFieldDefaultEmpty(
-        "Firstname", validators=[validators.DataRequired()], default=""
-    )
-    surname = StringFieldDefaultEmpty("Surname", validators=[validators.DataRequired()])
-    password = PasswordField(
-        "Password",
-        validators=[validators.DataRequired(), validate_password],
-        default="",
-    )
-    password_rep = PasswordField(
-        "Password (Repeat)",
-        validators=[validators.DataRequired(), validate_password],
-        default="",
-    )
-    pubkey = StringFieldDefaultEmpty(
-        "Public SSH Key (if empty, an Ed25519 key-pair is generated for you)",
-        validators=[validate_pubkey],
-    )
-    group_name = SelectField(
-        "Group Name",
-        choices=[],
-        validate_choice=False,
-        default="",
-    )
-    submit = SubmitField("Get Key")
-
-
-class RestoreKeyForm(Form):
-    mat_num = StringFieldDefaultEmpty(
-        "Matriculation Number",
-        validators=[
-            validators.DataRequired(),
-            validators.Regexp(MAT_REGEX),
-            field_to_str,  # FIXME: Field is implemented as number in view.
-        ],
-    )
-    password = PasswordField(
-        "Password (The password used during first retrieval)",
-        validators=[validators.DataRequired()],
-        default="",
-    )
-    submit = SubmitField("Restore")
-
-
 @refbp.route("/student/download/pubkey/<string:signed_mat>")
 @limiter.limit("16 per minute;1024 per day")
 def student_download_pubkey(signed_mat: str):
@@ -277,225 +193,6 @@ def student_download_privkey(signed_mat: str):
 
     flash.error("Unknown student")
     abort(400)
-
-
-@refbp.route("/student/getkey", methods=("GET", "POST"))
-@limiter.limit("16 per minute;1024 per day")
-def student_getkey():
-    """
-    Endpoint used to genereate a public/private key pair used by the students
-    for authentication to get access to the exercises.
-    """
-
-    regestration_enabled = SystemSettingsManager.REGESTRATION_ENABLED.value
-    if not regestration_enabled:
-        flash.warning(
-            "Regestration is currently disabled. Please contact the staff if you need to register."
-        )
-        # Fallthrough
-
-    form = GetKeyForm(request.form)
-
-    groups_enabled = SystemSettingsManager.GROUPS_ENABLED.value
-    max_group_size = SystemSettingsManager.GROUP_SIZE.value
-    allowed_names: dict[str, GroupNameList] = {}
-    group_choices: list[dict] = []
-    if groups_enabled:
-        for lst in GroupNameList.query.filter(
-            GroupNameList.enabled_for_registration.is_(True)
-        ).all():
-            for n in lst.names or []:
-                allowed_names.setdefault(n, lst)
-        form.group_name.choices = [(n, n) for n in allowed_names]
-
-        # Per-name current occupancy for the datalist hints.
-        existing_groups = {
-            g.name: g
-            for g in UserGroup.query.filter(
-                UserGroup.name.in_(allowed_names.keys())
-            ).all()
-        }
-        for name in allowed_names:
-            existing = existing_groups.get(name)
-            count = len(existing.users) if existing else 0
-            group_choices.append(
-                {
-                    "name": name,
-                    "count": count,
-                    "max": max_group_size,
-                    "full": count >= max_group_size,
-                }
-            )
-
-    pubkey = None
-    privkey = None
-    signed_mat = None
-    student = None
-
-    def render():
-        return render_template(
-            "student_getkey.html",
-            route_name="get_key",
-            form=form,
-            student=student,
-            pubkey=pubkey,
-            privkey=privkey,
-            signed_mat=signed_mat,
-            groups_enabled=groups_enabled,
-            group_choices=group_choices,
-            max_group_size=max_group_size,
-        )
-
-    if regestration_enabled and form.submit.data and form.validate():
-        # Check if the matriculation number is already registered.
-        existing_student = User.query.filter(
-            User.mat_num == form.mat_num.data
-        ).one_or_none()
-        if existing_student:
-            form.mat_num.errors += [
-                "Already registered, please use your password to restore the key."
-            ]
-            return render()
-
-        # Check if the pubkey is already regsitered.
-        if form.pubkey.data:
-            # NOTE: The .data was validated by the form.
-            pubkey = form.pubkey.data
-
-            # Check for duplicated key
-            existing_student = User.query.filter(User.pub_key == pubkey).one_or_none()
-            if existing_student:
-                form.pubkey.errors += [
-                    "Already registered, please use your password to restore the key."
-                ]
-                return render()
-
-        # Check password fields
-        if form.password.data != form.password_rep.data:
-            err = ["Passwords do not match!"]
-            form.password.errors += err
-            form.password_rep.errors += err
-            form.password.data = ""
-            form.password_rep.data = ""
-            return render()
-
-        # If a public key was provided use it, if not, generate a key pair.
-        if form.pubkey.data:
-            pubkey = form.pubkey.data
-            privkey = None
-        else:
-            key = Ed25519PrivateKey.generate()
-            pubkey = (
-                key.public_key()
-                .public_bytes(Encoding.OpenSSH, PublicFormat.OpenSSH)
-                .decode()
-            )
-            privkey = key.private_bytes(
-                Encoding.PEM, PrivateFormat.OpenSSH, NoEncryption()
-            ).decode()
-
-        group: UserGroup | None = None
-        if groups_enabled:
-            submitted_name = (form.group_name.data or "").strip()
-            if not submitted_name:
-                form.group_name.errors = list(form.group_name.errors or []) + [
-                    "Please pick a group name."
-                ]
-                return render()
-            if submitted_name not in allowed_names:
-                form.group_name.errors = list(form.group_name.errors or []) + [
-                    "Pick a name from the offered list."
-                ]
-                return render()
-
-            source_list = allowed_names[submitted_name]
-            existing = (
-                UserGroup.query.filter(UserGroup.name == submitted_name)
-                .with_for_update()
-                .one_or_none()
-            )
-            if existing is None:
-                group = UserGroup()
-                group.name = submitted_name
-                group.source_list_id = source_list.id
-                db.session.add(group)
-                db.session.flush()
-            else:
-                if len(existing.users) >= max_group_size:
-                    form.group_name.errors = list(form.group_name.errors or []) + [
-                        f"Group '{submitted_name}' is full ({len(existing.users)} / {max_group_size})."
-                    ]
-                    db.session.rollback()
-                    return render()
-                group = existing
-
-        student = UserManager.create_student(
-            mat_num=form.mat_num.data,
-            first_name=form.firstname.data,
-            surname=form.surname.data,
-            password=form.password.data,
-            pub_key=pubkey,
-            priv_key=privkey,
-            group=group,
-        )
-
-        signer = URLSafeTimedSerializer(
-            current_app.config["SECRET_KEY"], salt=DOWNLOAD_LINK_SIGN_SALT
-        )
-        signed_mat = signer.dumps(str(student.mat_num))
-
-        db.session.add(student)
-        db.session.commit()
-
-        return render()
-
-    return render()
-
-
-@refbp.route("/student/restoreKey", methods=("GET", "POST"))
-@limiter.limit("16 per minute;1024 per day")
-def student_restorekey():
-    """
-    This endpoint allows a user to restore its key using its matriculation number
-    and password that was initially used to create the account.
-    """
-    form = RestoreKeyForm(request.form)
-    pubkey = None
-    privkey = None
-    signed_mat = None
-
-    def render():
-        return render_template(
-            "student_restorekey.html",
-            route_name="restore_key",
-            form=form,
-            pubkey=pubkey,
-            privkey=privkey,
-            signed_mat=signed_mat,
-        )
-
-    signer = URLSafeTimedSerializer(
-        current_app.config["SECRET_KEY"], salt=DOWNLOAD_LINK_SIGN_SALT
-    )
-
-    if form.submit.data and form.validate():
-        student = User.query.filter(User.mat_num == form.mat_num.data).one_or_none()
-        if student:
-            if student.check_password(form.password.data):
-                signed_mat = signer.dumps(str(student.mat_num))
-                pubkey = student.pub_key
-                privkey = student.priv_key
-                return render()
-            else:
-                form.password.errors += [
-                    "Wrong password or matriculation number unknown."
-                ]
-                return render()
-        else:
-            form.password.errors += ["Wrong password or matriculation number unknown."]
-            return render()
-
-    return render()
 
 
 @refbp.route("/admin/student/view", methods=("GET", "POST"))
@@ -670,52 +367,15 @@ def student_delete(user_id):
     return redirect_to_next()
 
 
-@refbp.route("/scoreboard", methods=("GET",))
-@limiter.limit("60 per minute")
-def student_scoreboard():
-    """
-    Public scoreboard landing page. Returns 404 when the scoreboard is
-    disabled to avoid leaking the feature's existence. The active view is
-    selected via ``SystemSettingsManager.SCOREBOARD_VIEW`` — each view is a
-    self-contained template at ``templates/scoreboard/<view>.html``.
-    """
-    if not SystemSettingsManager.SCOREBOARD_ENABLED.value:
-        abort(404)
-    view = resolve_scoreboard_view(SystemSettingsManager.SCOREBOARD_VIEW.value)
-    return render_template(
-        f"scoreboard/{view}.html",
-        scoreboard_view=view,
-        route_name="scoreboard",
-    )
-
-
-@refbp.route("/landing", methods=("GET",))
-@limiter.limit("60 per minute")
-def student_landing():
-    """
-    Simple chooser page that lets visitors pick between registering for
-    the course and viewing the public scoreboard. The scoreboard option
-    is only shown when it is enabled.
-    """
-    return render_template(
-        "student_landing.html",
-        scoreboard_enabled=bool(SystemSettingsManager.SCOREBOARD_ENABLED.value),
-        route_name="landing",
-    )
-
-
 @refbp.route("/student/")
 @refbp.route("/student")
 @refbp.route("/")
 def student_default_routes():
     """
-    Redirect visitors of "/" to the configured landing page.
-    Falls back to the key retrieval form when the configured page is
-    unavailable (e.g. scoreboard selected but disabled).
+    Redirect visitors of "/" to the configured SPA landing page. Falls back
+    to the registration form when the scoreboard is selected but disabled.
     """
     target = SystemSettingsManager.LANDING_PAGE.value
-    # The scoreboard cannot be the landing page while it is disabled.
     if target == "scoreboard" and not SystemSettingsManager.SCOREBOARD_ENABLED.value:
         target = "registration"
-    endpoint = LANDING_PAGE_ROUTES.get(target, "ref.student_getkey")
-    return redirect(url_for(endpoint))
+    return redirect(LANDING_PAGE_ROUTES.get(target, "/v2/register"))

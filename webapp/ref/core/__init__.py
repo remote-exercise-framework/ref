@@ -16,14 +16,10 @@ from .util import unavailable_during_maintenance as unavailable_during_maintenan
 from .util import datetime_transmute_into_local as datetime_transmute_into_local
 from .scoring import (
     DEFAULT_RANKING_STRATEGY as DEFAULT_RANKING_STRATEGY,
-    DEFAULT_SCOREBOARD_VIEW as DEFAULT_SCOREBOARD_VIEW,
     RANKING_STRATEGIES as RANKING_STRATEGIES,
     RANKING_STRATEGY_CHOICES as RANKING_STRATEGY_CHOICES,
-    SCOREBOARD_VIEWS as SCOREBOARD_VIEWS,
-    SCOREBOARD_VIEW_CHOICES as SCOREBOARD_VIEW_CHOICES,
     apply_scoring as apply_scoring,
     resolve_ranking_mode as resolve_ranking_mode,
-    resolve_scoreboard_view as resolve_scoreboard_view,
     team_identity as team_identity,
     validate_scoring_policy as validate_scoring_policy,
 )
