@@ -29,6 +29,9 @@ tests/failure_logs/
 tests/.coverage
 
 ssh-reverse-proxy/target/
+
+spa-frontend/node_modules/
+spa-frontend/dist/
 docker-compose.ref_e2e_*.yml
 .docker-cache/
 todo.md

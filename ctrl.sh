@@ -63,7 +63,8 @@ Commands:
         --debug-toolbar       Enable the debug toolbar (never use in production).
         --maintenance         Only allow admin users to login.
         --disable-telegram    Disable error reporting via telegram.
-        --hot-reloading       Enable hot reloading of the server (except .html, .js, .sh files).
+        --hot-reloading       Enable hot reloading of the web server (Python)
+                              and of the spa-frontend container (Vite HMR).
 
   down
       Stop and delete all services and networks. Disconnects all users and orphans running instances.

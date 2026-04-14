@@ -113,6 +113,36 @@ services:
             - db
         cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
+    # Vue 3 + Vuetify SPA that serves the student-facing pages under /v2/
+    # (registration, restore-key, scoreboard). In dev (HOT_RELOADING=true)
+    # runs `vite dev` with HMR against the host bind-mounted source;
+    # otherwise runs `vite build && vite preview`. Either way the
+    # container's port 5173 is mapped to SPA_HOST_PORT on the host, and
+    # Vite's proxy forwards /api, /student/download, and /static to the
+    # web container over the web-host network.
+    spa-frontend:
+        init: true
+        hostname: spa-frontend
+        build:
+            context: ./spa-frontend
+        environment:
+            - HOT_RELOADING=${HOT_RELOADING:-false}
+        volumes:
+            # Bind-mount the host source so Vite sees live edits. The
+            # anonymous volume below shields node_modules from the overlay
+            # so deps installed at build time remain available.
+            - ./spa-frontend/:/spa-frontend
+            - /spa-frontend/node_modules
+    {% if not testing %}
+        ports:
+            - "${SPA_HOST_PORT:-5173}:5173"
+    {% endif %}
+        networks:
+            - web-host
+        depends_on:
+            - web
+        cgroup_parent: "{{ cgroup_parent }}-core.slice"
+
     # Rust-based SSH reverse proxy
     ssh-reverse-proxy:
         init: true
