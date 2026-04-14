@@ -135,10 +135,11 @@ COPY mypyrc /etc/mypyrc
 RUN echo "unset environment LINES" >> .gdbinit && \
     echo "unset environment COLUMNS" >> .gdbinit
 
-# Import and install ref-utils
-COPY ref-utils /home/ref-utils
-RUN cd /home/ref-utils && \
-    uv pip install --system --break-system-packages .
+# Import and install ref-utils in editable mode so a runtime bind-mount of
+# the host source at /opt/ref-utils live-updates the package without a rebuild.
+COPY ref-utils /opt/ref-utils
+RUN cd /opt/ref-utils && \
+    uv pip install --system --break-system-packages -e .
 
 # Install coverage for code coverage collection during e2e tests
 RUN uv pip install --system --break-system-packages coverage

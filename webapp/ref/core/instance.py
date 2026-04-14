@@ -574,6 +574,16 @@ class InstanceManager:
             "mode": "rw",
         }
 
+        # Bind-mount the host ref-utils source over the baked editable install
+        # so edits on the host apply immediately inside the instance container.
+        # /ref-utils is mounted into the webapp container by docker-compose.yml.
+        ref_utils_webapp_path = "/ref-utils"
+        if Path(ref_utils_webapp_path).is_dir():
+            mounts[self.dc.local_path_to_host(ref_utils_webapp_path)] = {
+                "bind": "/opt/ref-utils",
+                "mode": "ro",
+            }
+
         # Coverage configuration for testing
         coverage_env = {}
         if os.environ.get("COVERAGE_PROCESS_START"):

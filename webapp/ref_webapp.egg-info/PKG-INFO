@@ -23,7 +23,7 @@ Requires-Dist: flask-login==0.6.3
 Requires-Dist: flask-migrate==4.1.0
 Requires-Dist: flask-moment==1.0.6
 Requires-Dist: fuzzywuzzy==0.18.0
-Requires-Dist: PySocks@ git+https://github.com/nbars/PySocks.git@hack_unix_domain_socket_file_support
+Requires-Dist: PySocks @ git+https://github.com/nbars/PySocks.git@hack_unix_domain_socket_file_support
 Requires-Dist: gunicorn==23.0.0
 Requires-Dist: hypothesis==6.124.7
 Requires-Dist: importlib-metadata==8.6.1
