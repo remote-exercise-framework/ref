@@ -91,6 +91,12 @@ services:
             - {{ exercises_path }}:/exercises
             #Make docker availabe inside the container
             - /var/run/docker.sock:/var/run/docker.sock
+            #Source for ref-utils, bind-mounted read-only into student
+            #instances so edits on the host apply without rebuilding images.
+            - type: bind
+              source: ./ref-docker-base/ref-utils
+              target: /ref-utils
+              read_only: true
 {% if testing %}
             - coverage-data:/coverage-data:rw
             - ./coverage:/coverage-config:ro
