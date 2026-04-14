@@ -1,0 +1,484 @@
+/* Shared structural styling for the SPA — fonts, grid overlays, tick
+   corner frames, LIVE pulse, .term-* utilities. Only structural rules
+   live here; all colors come from Vuetify's --v-theme-* custom
+   properties, so dark and light themes share one stylesheet. */
+
+@import url('https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap');
+
+:root {
+  --term-font-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --term-font-display: 'Major Mono Display', ui-monospace, monospace;
+}
+
+html, body, #app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--term-font-mono);
+  background: rgb(var(--v-theme-background));
+  color: rgb(var(--v-theme-on-background));
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- utility classes ----------------------------------------------------- */
+
+.term-mono     { font-family: var(--term-font-mono); }
+.term-display  { font-family: var(--term-font-display); letter-spacing: 0.04em; }
+
+.term-eyebrow {
+  font-family: var(--term-font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgb(var(--v-theme-muted));
+}
+
+.term-section-title {
+  font-family: var(--term-font-display);
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  color: rgb(var(--v-theme-secondary));
+  text-shadow: 0 0 12px rgba(var(--v-theme-cool-glow), var(--v-cool-glow-alpha));
+  margin: 0;
+}
+
+.term-hot     { color: rgb(var(--v-theme-primary)); }
+.term-cool    { color: rgb(var(--v-theme-secondary)); }
+.term-dim     { color: rgb(var(--v-theme-dim)); }
+.term-muted   { color: rgb(var(--v-theme-muted)); }
+
+.term-hot-glow {
+  text-shadow: 0 0 14px rgba(var(--v-theme-hot-glow), var(--v-hot-glow-alpha));
+}
+
+/* --- the framed terminal surface ----------------------------------------- */
+
+.term-frame {
+  position: relative;
+  padding: 2.5rem max(1.25rem, 4vw) 4rem;
+  min-height: calc(100vh - 64px);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.term-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(
+      rgba(var(--v-theme-grid-line), var(--v-grid-line-alpha)) 1px,
+      transparent 1px),
+    linear-gradient(90deg,
+      rgba(var(--v-theme-grid-line), var(--v-grid-line-alpha)) 1px,
+      transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  mask-image: radial-gradient(ellipse at 50% 0%, black, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 0%, black, transparent 80%);
+  z-index: 0;
+}
+
+.term-frame::after {
+  content: "";
+  position: absolute;
+  inset: 1.5rem;
+  border: 1px solid rgb(var(--v-theme-border));
+  pointer-events: none;
+  clip-path: polygon(
+    0 0, 24px 0, 24px 1px, 1px 1px, 1px 24px, 0 24px,
+    0 calc(100% - 24px), 1px calc(100% - 24px), 1px calc(100% - 1px), 24px calc(100% - 1px), 24px 100%, 0 100%,
+    100% 100%, calc(100% - 24px) 100%, calc(100% - 24px) calc(100% - 1px), calc(100% - 1px) calc(100% - 1px), calc(100% - 1px) calc(100% - 24px), 100% calc(100% - 24px),
+    100% 0, calc(100% - 24px) 0, calc(100% - 24px) 1px, calc(100% - 1px) 1px, calc(100% - 1px) 24px, 100% 24px
+  );
+  z-index: 0;
+}
+
+.term-frame > * { position: relative; z-index: 1; }
+
+.term-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* --- LIVE dot ------------------------------------------------------------ */
+
+.term-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgb(var(--v-theme-error));
+  font-family: var(--term-font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.term-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(var(--v-theme-error));
+  box-shadow: 0 0 0 0 rgba(var(--v-theme-error), 0.5);
+  animation: term-pulse 1.8s infinite;
+}
+
+@keyframes term-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--v-theme-error), 0.6); }
+  70%  { box-shadow: 0 0 0 10px rgba(var(--v-theme-error), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--v-theme-error), 0); }
+}
+
+body.theme-light .term-live-dot {
+  animation-duration: 2.4s;
+}
+
+/* --- app bar dressing ---------------------------------------------------- */
+
+/* Align the app-bar content with the .term-frame::after tick lines,
+   which sit at inset: 1.5rem from the viewport edge. `position: relative`
+   anchors the absolutely-positioned nav-center group (below) against
+   the toolbar so it stays pinned to the viewport midline. */
+.term-appbar .v-toolbar__content {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  position: relative;
+}
+
+.term-appbar-title {
+  font-family: var(--term-font-mono);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.term-tab {
+  font-family: var(--term-font-mono) !important;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 0.75rem !important;
+}
+
+/* Nav buttons are absolutely positioned to the exact viewport center so
+   they align with the centered page content, regardless of how wide the
+   course-name title or theme toggle are. */
+.term-nav-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+.term-nav-center > * {
+  pointer-events: auto;
+}
+
+/* Give every Vuetify input a little more vertical breathing room so
+   error messages (rendered in .v-input__details) never crowd the next
+   field. Applies across every form in the SPA. */
+.v-input {
+  margin-bottom: 0.75rem;
+}
+.v-input__details {
+  padding-top: 0.25rem !important;
+  padding-inline-start: 0 !important;
+  padding-inline-end: 0 !important;
+}
+
+/* Custom placeholder rendered inside v-select selection slot. */
+.term-placeholder {
+  color: rgb(var(--v-theme-muted));
+  font-style: italic;
+  opacity: 0.8;
+}
+.v-input__details .v-messages {
+  padding-inline: 0 !important;
+}
+.v-messages__message {
+  padding-inline: 0 !important;
+}
+
+/* Form-oriented pages center their content horizontally inside
+   .term-frame. Use .term-form-page on the page root; each page can
+   override its own column width by setting the --form-width custom
+   property inline (default 720px). Both the section head (title left /
+   eyebrow right) and the form card clamp to the same width so they
+   line up edge-to-edge. */
+.term-form-page {
+  --form-width: 720px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.term-form-page .term-section-head,
+.term-form-page .term-form-box {
+  width: 100%;
+  max-width: var(--form-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* --- countdown ----------------------------------------------------------- */
+
+.term-countdown-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgb(var(--v-theme-dim));
+  font-variant-numeric: tabular-nums;
+}
+
+.term-countdown-bar {
+  height: 3px;
+  background: rgb(var(--v-theme-border));
+  margin-top: 0.4rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.term-countdown-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--v-theme-secondary)),
+    rgb(var(--v-theme-primary))
+  );
+  box-shadow: 0 0 12px rgba(var(--v-theme-cool-glow), var(--v-cool-glow-alpha));
+  transition: width 500ms linear;
+}
+
+/* --- highscore cards ---------------------------------------------------- */
+
+.term-hs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.term-hs-card {
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgb(var(--v-theme-border));
+  padding: 1.25rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: transform 250ms ease, border-color 250ms ease;
+}
+
+.term-hs-card:hover {
+  border-color: rgb(var(--v-theme-secondary));
+  transform: translateY(-2px);
+}
+
+.term-hs-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(var(--v-theme-cool-glow), var(--v-cool-glow-alpha)), transparent 30%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 250ms ease;
+}
+.term-hs-card:hover::before { opacity: 0.4; }
+
+.term-hs-label {
+  position: relative;
+  font-size: 0.65rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgb(var(--v-theme-dim));
+  margin-bottom: 0.5rem;
+}
+
+.term-hs-caption {
+  position: relative;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgb(var(--v-theme-muted));
+  margin-top: 0.75rem;
+}
+
+.term-hs-score {
+  position: relative;
+  font-family: var(--term-font-display);
+  font-size: 2.25rem;
+  color: rgb(var(--v-theme-primary));
+  line-height: 1;
+  margin: 0.25rem 0 0;
+  text-shadow: 0 0 18px rgba(var(--v-theme-hot-glow), var(--v-hot-glow-alpha));
+}
+
+/* --- ranking table ------------------------------------------------------- */
+
+.term-panel {
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgb(var(--v-theme-border));
+  position: relative;
+}
+
+.term-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.term-table thead th {
+  text-align: left;
+  padding: 1rem 1.25rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgb(var(--v-theme-muted));
+  font-weight: 500;
+  border-bottom: 1px solid rgb(var(--v-theme-border));
+  background: rgb(var(--v-theme-surface-variant));
+}
+
+.term-table td {
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid rgb(var(--v-theme-border-soft));
+  color: rgb(var(--v-theme-on-surface));
+  vertical-align: middle;
+}
+
+.term-table tbody tr:last-child td { border-bottom: none; }
+.term-table tbody tr:hover td {
+  background: rgba(var(--v-theme-cool-glow), 0.035);
+}
+
+.term-col-rank   { width: 5ch; text-align: right; }
+.term-col-points { text-align: right; width: 14ch; }
+
+.term-rank {
+  font-family: var(--term-font-display);
+  color: rgb(var(--v-theme-muted));
+  font-size: 1rem;
+  text-align: right;
+}
+
+.term-table tbody tr:nth-child(1) .term-rank {
+  color: rgb(var(--v-theme-rank-gold));
+  text-shadow: 0 0 14px rgba(var(--v-theme-hot-glow), var(--v-hot-glow-alpha));
+  font-size: 1.4rem;
+}
+.term-table tbody tr:nth-child(2) .term-rank {
+  color: rgb(var(--v-theme-rank-silver));
+  font-size: 1.2rem;
+}
+.term-table tbody tr:nth-child(3) .term-rank {
+  color: rgb(var(--v-theme-rank-bronze));
+  font-size: 1.1rem;
+}
+
+.term-team { font-weight: 500; letter-spacing: 0.02em; }
+
+.term-points {
+  font-family: var(--term-font-display);
+  font-size: 1.125rem;
+  color: rgb(var(--v-theme-primary));
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px rgba(var(--v-theme-hot-glow), var(--v-hot-glow-alpha));
+}
+
+.term-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.term-badges img {
+  height: 1.35em;
+  filter: drop-shadow(0 0 6px rgba(var(--v-theme-cool-glow), var(--v-cool-glow-alpha)));
+}
+
+.term-empty td {
+  text-align: center;
+  color: rgb(var(--v-theme-muted));
+  font-style: italic;
+  padding: 2rem 1rem !important;
+}
+
+/* --- tabs (assignment + challenge) -------------------------------------- */
+
+.term-tabs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 1.75rem;
+  flex-wrap: wrap;
+}
+
+.term-tabs li { margin: 0; }
+
+.term-tabs a {
+  color: rgb(var(--v-theme-muted));
+  text-decoration: none;
+  font-family: var(--term-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  border-bottom: 2px solid transparent;
+  transition: color 150ms ease, border-color 150ms ease;
+  display: inline-block;
+}
+
+.term-tabs a:hover:not(.is-disabled) {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.term-tabs a.is-current {
+  color: rgb(var(--v-theme-primary));
+  border-bottom-color: rgb(var(--v-theme-primary));
+  text-shadow: 0 0 12px rgba(var(--v-theme-hot-glow), var(--v-hot-glow-alpha));
+}
+
+.term-tabs a.is-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.term-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgb(var(--v-theme-border));
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.term-section {
+  margin-bottom: 3rem;
+  animation: term-fade 400ms ease both;
+}
+
+@keyframes term-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.term-chart-wrap {
+  padding: 1.5rem;
+  min-height: 440px;
+  max-height: 440px;
+}
