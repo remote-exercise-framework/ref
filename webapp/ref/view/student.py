@@ -31,6 +31,7 @@ from ref.core import admin_required, flash
 from ref.core.logging import get_logger
 from ref.core.util import (
     redirect_to_next,
+    ssh_key_basename,
 )
 from ref.model import GroupNameList, SystemSettingsManager, User, UserGroup
 from ref.model.enums import UserAuthorizationGroups
@@ -155,10 +156,11 @@ def student_download_pubkey(signed_mat: str):
 
     student = User.query.filter(User.mat_num == mat_num).one_or_none()
     if student:
+        filename = f"{ssh_key_basename(student.pub_key)}.pub"
         return Response(
             student.pub_key,
             mimetype="text/plain",
-            headers={"Content-disposition": "attachment; filename=id_rsa.pub"},
+            headers={"Content-disposition": f"attachment; filename={filename}"},
         )
 
     flash.error("Unknown student")
@@ -185,10 +187,11 @@ def student_download_privkey(signed_mat: str):
 
     student = User.query.filter(User.mat_num == mat_num).one_or_none()
     if student:
+        filename = ssh_key_basename(student.pub_key)
         return Response(
             student.priv_key,
             mimetype="text/plain",
-            headers={"Content-disposition": "attachment; filename=id_rsa"},
+            headers={"Content-disposition": f"attachment; filename={filename}"},
         )
 
     flash.error("Unknown student")

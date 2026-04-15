@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { KeyResult } from '../api/registration';
 
 const props = withDefaults(
@@ -9,6 +9,21 @@ const props = withDefaults(
 
 const pubCopied = ref(false);
 const privCopied = ref(false);
+
+// Pick the filename `ssh-keygen` would default to for this key's algorithm
+// so downloaded files reflect the actual key type (ed25519/ecdsa/rsa/dsa).
+function sshKeyBasename(pubkey: string | null | undefined): string {
+  if (!pubkey) return 'id_rsa';
+  const algo = pubkey.trim().split(/\s+/, 1)[0] ?? '';
+  if (algo === 'ssh-ed25519') return 'id_ed25519';
+  if (algo.startsWith('ecdsa-sha2-')) return 'id_ecdsa';
+  if (algo === 'ssh-dss') return 'id_dsa';
+  return 'id_rsa';
+}
+
+const keyBasename = computed(() => sshKeyBasename(props.result.pubkey));
+const pubkeyFilename = computed(() => `${keyBasename.value}.pub`);
+const privkeyFilename = computed(() => keyBasename.value);
 
 async function copy(text: string | null, flag: 'pub' | 'priv') {
   if (!text) return;
@@ -93,11 +108,11 @@ const hasPrivkey = !!props.result.privkey;
         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
           <v-btn
             :href="props.result.pubkey_url"
-            download="id_rsa.pub"
+            :download="pubkeyFilename"
             prepend-icon="mdi-download"
             size="small"
           >
-            Download id_rsa.pub
+            Download {{ pubkeyFilename }}
           </v-btn>
           <v-btn
             size="small"
@@ -124,11 +139,11 @@ const hasPrivkey = !!props.result.privkey;
           <v-btn
             v-if="props.result.privkey_url"
             :href="props.result.privkey_url"
-            download="id_rsa"
+            :download="privkeyFilename"
             prepend-icon="mdi-download"
             size="small"
           >
-            Download id_rsa
+            Download {{ privkeyFilename }}
           </v-btn>
           <v-btn
             size="small"

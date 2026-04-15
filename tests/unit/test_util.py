@@ -8,7 +8,12 @@ import pytest
 from unittest.mock import MagicMock, patch
 from colorama import Fore, Style
 
-from ref.core.util import AnsiColorUtil, is_db_serialization_error, is_deadlock_error
+from ref.core.util import (
+    AnsiColorUtil,
+    is_db_serialization_error,
+    is_deadlock_error,
+    ssh_key_basename,
+)
 
 
 @pytest.mark.offline
@@ -223,3 +228,43 @@ class TestColorOutputFormat:
         result = AnsiColorUtil.green(multiline)
         # The entire multiline text should be wrapped, not each line
         assert result == f"{Fore.GREEN}{multiline}{Style.RESET_ALL}"
+
+
+@pytest.mark.offline
+class TestSshKeyBasename:
+    """Filename mapping for OpenSSH public keys."""
+
+    def test_ed25519(self):
+        assert (
+            ssh_key_basename("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 comment") == "id_ed25519"
+        )
+
+    def test_rsa(self):
+        assert ssh_key_basename("ssh-rsa AAAAB3NzaC1yc2E comment") == "id_rsa"
+
+    def test_ecdsa_nistp256(self):
+        assert (
+            ssh_key_basename("ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY=")
+            == "id_ecdsa"
+        )
+
+    def test_ecdsa_nistp521(self):
+        assert ssh_key_basename("ecdsa-sha2-nistp521 AAAA") == "id_ecdsa"
+
+    def test_dsa(self):
+        assert ssh_key_basename("ssh-dss AAAAB3NzaC1kc3M=") == "id_dsa"
+
+    def test_none(self):
+        assert ssh_key_basename(None) == "id_rsa"
+
+    def test_empty_string(self):
+        assert ssh_key_basename("") == "id_rsa"
+
+    def test_whitespace_only(self):
+        assert ssh_key_basename("   \n") == "id_rsa"
+
+    def test_leading_whitespace_is_stripped(self):
+        assert ssh_key_basename("   ssh-ed25519 AAAA") == "id_ed25519"
+
+    def test_unknown_algo_falls_back_to_rsa(self):
+        assert ssh_key_basename("bogus-algo AAAA") == "id_rsa"

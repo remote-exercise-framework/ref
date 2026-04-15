@@ -22,6 +22,27 @@ from ref.model import SystemSettingsManager
 _database_lock = RLock()
 
 
+def ssh_key_basename(pubkey: str | None) -> str:
+    """Return the conventional OpenSSH filename base for a public key line.
+
+    Maps the algorithm identifier in an OpenSSH-format public key (e.g.
+    ``ssh-ed25519 AAAA...``) to the filename ``ssh-keygen`` would pick by
+    default (``id_ed25519``, ``id_rsa``, ``id_ecdsa``, ``id_dsa``). Unknown
+    or missing keys fall back to ``id_rsa`` to preserve historical behaviour.
+    """
+    if not pubkey:
+        return "id_rsa"
+    parts = pubkey.strip().split(None, 1)
+    algo = parts[0] if parts else ""
+    if algo == "ssh-ed25519":
+        return "id_ed25519"
+    if algo.startswith("ecdsa-sha2-"):
+        return "id_ecdsa"
+    if algo == "ssh-dss":
+        return "id_dsa"
+    return "id_rsa"
+
+
 class DatabaseLockTimeoutError(Exception):
     """Raised when waiting for database lock exceeds timeout."""
 

@@ -8,6 +8,13 @@ from logging import Formatter, StreamHandler
 from types import MethodType
 
 from Crypto.PublicKey import RSA, ECC
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    PublicFormat,
+)
 from flask import Blueprint, Flask, current_app, g, render_template, request, url_for
 from flask.logging import default_handler, wsgi_errors_stream
 from flask_limiter import Limiter
@@ -247,9 +254,15 @@ def setup_db_default_data(app: Flask):
                 admin.pub_key = admin.pub_key.decode()
             admin.priv_key = None
         else:
-            key = RSA.generate(2048)
-            admin.pub_key = key.export_key(format="OpenSSH").decode()
-            admin.priv_key = key.export_key().decode()
+            key = Ed25519PrivateKey.generate()
+            admin.pub_key = (
+                key.public_key()
+                .public_bytes(Encoding.OpenSSH, PublicFormat.OpenSSH)
+                .decode()
+            )
+            admin.priv_key = key.private_bytes(
+                Encoding.PEM, PrivateFormat.OpenSSH, NoEncryption()
+            ).decode()
 
         with app.app_context():
             app.db.session.add(admin)
