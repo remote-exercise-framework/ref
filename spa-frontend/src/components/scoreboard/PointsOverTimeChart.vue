@@ -33,7 +33,9 @@ function buildSeries() {
     showSymbol: true,
     symbol: getTeamSymbol(team),
     symbolSize: 10,
-    data: scores.map(({ time, score }) => ({ value: [time, score] })),
+    data: scores.map(({ time, score }) => ({
+      value: [time, score] as [number, number],
+    })),
     lineStyle: {
       width: 2,
       color: getTeamColor(team),
@@ -46,21 +48,21 @@ function buildSeries() {
     },
     markLine: index === 0 && props.assignmentBoundaries.length > 0
       ? {
-          symbol: ['none', 'none'],
+          symbol: ['none', 'none'] as ['none', 'none'],
           animation: false,
           label: {
             show: true,
-            position: 'middle',
+            position: 'middle' as const,
             rotate: 90,
-            align: 'center',
-            verticalAlign: 'middle',
+            align: 'center' as const,
+            verticalAlign: 'middle' as const,
             color: mark.label,
             formatter: ({ dataIndex }: { dataIndex: number }) =>
               `Assignment ${dataIndex + 1}`,
           },
           lineStyle: {
             color: mark.line,
-            type: 'dashed',
+            type: 'dashed' as const,
             width: 1,
           },
           data: props.assignmentBoundaries.map((time) => ({

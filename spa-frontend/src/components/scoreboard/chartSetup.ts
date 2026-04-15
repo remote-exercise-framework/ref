@@ -8,7 +8,9 @@ import {
   TooltipComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import type { EChartsOption, EChartsType } from 'echarts';
+import type { EChartsOption } from 'echarts';
+
+type EChartsInstance = ReturnType<typeof echarts.init>;
 
 echarts.use([
   LineChart,
@@ -121,14 +123,28 @@ export function onThemeChange(listener: () => void): () => void {
 }
 
 const tooltipDateFormatter = new Intl.DateTimeFormat(undefined, {
-  day: '2-digit',
-  month: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
+  dateStyle: 'short',
+  timeStyle: 'short',
 });
 
+const axisDateFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'short',
+});
+
+const axisTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  timeStyle: 'short',
+});
+
+export function formatAxisDate(value: number): string {
+  return axisDateFormatter.format(new Date(value));
+}
+
+export function formatAxisTime(value: number): string {
+  return axisTimeFormatter.format(new Date(value));
+}
+
 export type ManagedChart = {
-  chart: EChartsType;
+  chart: EChartsInstance;
   resizeObserver: ResizeObserver;
 };
 
@@ -212,7 +228,11 @@ export function buildCommonOptions(xMin: number, xMax?: number): EChartsOption {
       type: 'time',
       min: xMin || undefined,
       max: xMax || undefined,
-      axisLabel: { color: t.axisLabel },
+      axisLabel: {
+        color: t.axisLabel,
+        hideOverlap: true,
+        formatter: (value: number) => formatAxisDate(value),
+      },
       axisLine: { lineStyle: { color: t.axisLine } },
       splitLine: { lineStyle: { color: t.splitLine } },
     },

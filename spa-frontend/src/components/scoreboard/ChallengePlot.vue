@@ -97,18 +97,18 @@ function buildSeries() {
       },
       markLine: index === 0 && baseline !== null
         ? {
-            symbol: ['none', 'none'],
+            symbol: ['none', 'none'] as ['none', 'none'],
             animation: false,
             label: {
               show: true,
-              position: 'insideMiddleTop',
+              position: 'insideMiddleTop' as const,
               distance: 4,
               formatter: 'baseline',
               color: mark.label,
             },
             lineStyle: {
               color: mark.line,
-              type: 'dashed',
+              type: 'dashed' as const,
               width: 1,
             },
             data: [{ yAxis: baseline }],

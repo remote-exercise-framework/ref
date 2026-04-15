@@ -125,7 +125,10 @@ const scoresOverTime = computed(() => {
 });
 const assignmentBoundaries = computed(() => {
   if (!config.value) return [];
-  return computeAssignmentStartTimes(assignments.value);
+  const now = Date.now();
+  return computeAssignmentStartTimes(assignments.value).filter(
+    (d) => d.getTime() <= now,
+  );
 });
 
 const activeChallenges = computed(() => {
