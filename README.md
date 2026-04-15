@@ -44,6 +44,38 @@ After successfully building REF, the database has to be initialized:
 ./ctrl.sh down
 ```
 
+### Single-port web interface
+
+The Flask web app (`/`, `/admin/*`, `/api/*`), the Vue student SPA
+(`/spa/*`), and Flask's static assets (`/static/*`) are all fronted by
+a single Caddy reverse proxy (`frontend-proxy/`) on host port 8000.
+Students go to `http://<host>:8000/spa/register` (or whichever landing
+page is configured); admins go to `http://<host>:8000/admin/` (which
+redirects to the exercise view). The SSH entry point for student
+containers is unchanged on port 2222.
+
+In production, `frontend-proxy` serves the Vue SPA as a static bundle
+that is baked into the image at `docker build` time via a multi-stage
+Dockerfile — rebuild with `./ctrl.sh build` after any change under
+`spa-frontend/`.
+
+### Hot reloading (local development only)
+
+Use `./ctrl.sh up --hot-reloading` during local development to get
+Flask auto-reload **and** Vite HMR for the SPA. This flag starts an
+extra `spa-frontend` container (running `vite dev`) which is gated
+behind the `dev` compose profile; Caddy then reverse-proxies `/spa/*`
+(including the HMR websocket) to that container.
+
+> ⚠️ **Do not run `--hot-reloading` on a publicly reachable host.**
+> Vite's dev server is not designed for hostile clients — it serves
+> raw source, exposes `/@fs/`, and has had several path-traversal CVEs
+> in recent releases. While `--hot-reloading` is active, the SPA
+> renders a yellow/black hazard-striped warning strip at the top of
+> every page as a visible reminder; the whole warning is tree-shaken
+> out of the production `vite build`, so nothing about it leaks into
+> the prod bundle. See `docs/ARCHITECTURE.md` for the full model.
+
 
 #### Build the custom Linux kernel
 Building the custom Linux kernel is only required if you need the `no-randomize` attribute for some exercises. This attribute allows you to disable ASLR for a specific binary, even if it is a setuid binary. This is not allowed for unmodified kernels. The following assumes that your system is based on Debian and uses GRUB as a bootloader. For other systems or bootloaders, the instructions have to be adapted accordingly.

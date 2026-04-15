@@ -155,27 +155,35 @@ REF is a containerized platform for hosting programming exercises with isolated 
 
 ### Components
 
-1. **Web Application** (`webapp/`) - Flask app on port 8000
+1. **Web Application** (`webapp/`) - Flask app served by uWSGI on internal port 8000 (not published; reached via `frontend-proxy`)
    - `ref/view/` - HTML route handlers (exercises, grading, instances, file browser, visualization, admin student management, system settings, etc.)
    - `ref/services_api/` - JSON endpoints called by services (SSH reverse proxy hooks in `ssh.py`, student container callbacks in `instance.py`)
    - `ref/frontend_api/` - JSON endpoints consumed by the Vue SPA (registration/restore-key in `students.py`, public scoreboard in `scoreboard.py`; mounted under `/api/v2/*` + `/api/scoreboard/*`)
    - `ref/model/` - SQLAlchemy models (users, groups, exercises, instances, submissions, grades, system settings)
    - `ref/core/` - Business logic managers (`ExerciseManager`, `InstanceManager`, `ExerciseImageManager`, `UserManager`, `DockerClient`, etc.)
 
-   Student-facing pages (registration, restore-key, public scoreboard) are served by the Vue SPA under `/spa/*` and talk to `ref/frontend_api/`. Admin pages live under `ref/view/` as Jinja-rendered HTML. The Caddy `frontend-proxy` container fronts both on a single host port 8000 — it reverse-proxies `/spa/*` to `spa-frontend:5173` (dev, with HMR) or serves a baked SPA bundle (prod), serves Flask's `/static/*` directly, and proxies everything else to `web:8000`.
+   Student-facing pages (registration, restore-key, public scoreboard) are served by the Vue SPA under `/spa/*` and talk to `ref/frontend_api/`. Admin pages live under `ref/view/` as Jinja-rendered HTML.
 
-2. **SSH Reverse Proxy** (`ssh-reverse-proxy/`) - Rust-based SSH proxy on port 2222
+2. **Frontend Proxy** (`frontend-proxy/`) - Caddy 2 container that fronts the Flask `web` service and the Vue SPA on a **single host port** (`HTTP_HOST_PORT`, default 8000). Multi-stage Dockerfile: stage 1 builds the SPA with Node; stage 2 is `caddy:2-alpine` with `dist/` baked in at `/srv/spa-dist`. Routes:
+   - `/spa/*` → `spa-frontend:5173` (dev) or baked `/srv/spa-dist` via `file_server` (prod)
+   - `/static/*` → bind-mount of `webapp/ref/static` served directly
+   - `/admin`, `/admin/` → 302 to `/admin/exercise/view`
+   - `/spa` → 308 `/spa/`
+   - everything else → `reverse_proxy web:8000` with `header_up X-Tinyproxy {remote_host}` so Flask's rate limiter keys on the real client IP
+   Dev/prod is selected at container start by `entrypoint.sh` via `$HOT_RELOADING`. The `spa-frontend` service is gated behind the `dev` compose profile, and `ctrl.sh` exports `COMPOSE_PROFILES=dev` when `--hot-reloading` is active. **Never run `--hot-reloading` on a publicly reachable host** — `vite dev` is not a production server. The SPA renders a hazard-striped warning banner when `import.meta.env.DEV` is true.
+
+3. **SSH Reverse Proxy** (`ssh-reverse-proxy/`) - Rust-based SSH proxy on port 2222
    - Routes student SSH connections to exercise containers
    - Uses web API with HMAC-signed requests for authentication and provisioning
    - Supports shell, exec, SFTP, local/remote port forwarding, and X11 forwarding
 
-3. **Instance Container** (`ref-docker-base/`) - Ubuntu 24.04 with dev tools
+4. **Instance Container** (`ref-docker-base/`) - Ubuntu 24.04 with dev tools
    - Isolated per student/exercise under `ref-instances.slice` cgroup
    - SSH server on port 13370
    - Contains `ref-utils` for submission testing
    - `task`/`_task` scripts for submission testing, `reset-env` for container reset
 
-4. **Database** - PostgreSQL 17.2 storing users, groups, exercises, instances, submissions, grades, system settings
+5. **Database** - PostgreSQL 17.2 storing users, groups, exercises, instances, submissions, grades, system settings
 
 ### Connection Flow
 

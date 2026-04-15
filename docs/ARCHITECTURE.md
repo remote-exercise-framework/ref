@@ -142,6 +142,31 @@ fallback) based on `$HOT_RELOADING`.
 - SPA hashed assets (`/spa/assets/*`) are served with
   `public, max-age=31536000, immutable`; `index.html` is `no-cache` so
   deploys are picked up atomically.
+- `/admin` and `/admin/` 302-redirect to `/admin/exercise/view`.
+- `/spa` 308-redirects to `/spa/` so bare URLs get a trailing slash.
+
+**Dev-mode security warning:**
+
+`./ctrl.sh up --hot-reloading` is a **local-development-only** flag.
+When it is set:
+
+1. The `spa-frontend` container is started (gated behind the `dev`
+   compose profile) and runs `vite dev` with HMR.
+2. `frontend-proxy` selects `Caddyfile.dev` and reverse-proxies
+   `/spa/*` (including the HMR websocket) to `spa-frontend:5173`
+   without any auth or IP filter.
+3. `vite dev` serves raw, unbundled source files and exposes a
+   `/@fs/` endpoint. Vite has had several path-traversal CVEs against
+   `/@fs/` in recent releases (CVE-2025-30208/31125/31486/32395/46565);
+   even on a patched version, the dev server is not designed for
+   hostile clients.
+
+**Never run a publicly-reachable REF instance with `--hot-reloading`.**
+To make this obvious in the UI, the SPA `DefaultLayout` renders a
+hazard-striped warning strip at the very top of every page when
+`import.meta.env.DEV` is true; this block is tree-shaken out of the
+production `vite build` entirely, so only dev-mode clients ever see
+it and the prod bundle contains no trace of the warning code.
 
 ### 3. SSH Reverse Proxy (`ssh-reverse-proxy/`)
 
@@ -227,7 +252,7 @@ exercises/<name>/
 ./ctrl.sh build                  # Build Docker images
 ./ctrl.sh up [--debug]           # Start services (--debug attaches with logs)
 ./ctrl.sh up --maintenance       # Start in maintenance mode
-./ctrl.sh up --hot-reloading     # Start with hot reloading
+./ctrl.sh up --hot-reloading     # Start with hot reloading (LOCAL DEV ONLY; see warning below)
 ./ctrl.sh down                   # Stop and remove services
 ./ctrl.sh stop                   # Stop without removing
 ./ctrl.sh restart                # Restart all services
@@ -239,6 +264,22 @@ exercises/<name>/
 ```
 
 Pre-flight checks: submodule validation, Docker/cgroup v2 requirements, configuration validation.
+
+When `--hot-reloading` is passed, `ctrl.sh` exports `COMPOSE_PROFILES=dev`
+for every compose subcommand. This activates the `dev` compose profile
+which is the gate on the `spa-frontend` service — without it, `vite dev`
+is not started at all. In prod mode, `ctrl.sh up` unsets
+`COMPOSE_PROFILES` so `spa-frontend` stays off; the other commands
+(`build`, `down`, `stop`, `ps`, `logs`, …) keep the profile active so
+profile-gated services can still be built and cleaned up.
+
+> **SECURITY — do not run `--hot-reloading` on a publicly reachable
+> host.** The flag starts Vite's dev server behind Caddy with no auth,
+> serving raw source over `/spa/*` (including the `/@fs/` endpoint,
+> which has had repeated path-traversal CVEs). The SPA itself renders
+> a hazard-striped warning strip at the top of every page in this mode
+> as a visible reminder. Intended use is local development against
+> `http://localhost:8000` only.
 
 ## Test Structure
 
