@@ -96,6 +96,11 @@ Ranking is computed client-side by
 is their highest in-window submission score, and the ranking score is
 the sum of those bests across challenges.
 
+`computeChartScoresOverTime()` emits cumulative points per team over
+time for the points-over-time chart. Only submission events that fall
+inside an assignment's `[start, end]` window are considered; teams with
+no in-window events are omitted from the chart data entirely.
+
 ## API Endpoints
 
 Both endpoints live in `webapp/ref/frontend_api/scoreboard.py`, are
@@ -166,17 +171,30 @@ endpoints and hands the data to the components under
 
 - `RankingTable.vue` — sorted points table with earned badge icons.
 - `HighscoreCard.vue` — per-assignment top-score card.
-- `PointsOverTimeChart.vue` — cumulative points line chart with
-  assignment-boundary annotations.
-- `ChallengePlot.vue` — per-challenge scatter of best-ever improvements
-  (regressions are filtered out).
+- `PointsOverTimeChart.vue` — cumulative points line chart with dashed
+  vertical markLines at each assignment boundary. The boundary labels
+  ("Assignment N") are rotated 90° and sit at the vertical midpoint of
+  each line.
+- `ChallengePlot.vue` — per-challenge line chart of each team's
+  monotonically best score over time (regressions are filtered out).
+  When any task has a `baseline`, a horizontal dashed markLine at the
+  sum of per-task baselines is drawn with a centered "baseline" label.
 - `Countdown.vue` — timer for the currently-running assignment's deadline.
 
 All charts use Apache ECharts with native `dataZoom` on the time axis.
-The default interaction model is wheel/pinch zoom plus drag-to-pan on the
-x-axis, with a slider scrubber below the chart for coarse navigation.
-The x-axis is capped at the earliest data point so users can't pan into
-empty pre-data space.
+The default interaction model is wheel/pinch zoom plus drag-to-pan on
+the x-axis, with a slider scrubber below the chart for coarse
+navigation. The x-axis range spans the union of submission timestamps
+and assignment boundaries (with 2% padding) so every boundary marker
+stays in the viewport even when no data straddles it.
+
+Chart colors (axes, grid, legend, tooltip, data palette, markLine) are
+read from the active Vuetify `--v-theme-*` tokens in
+`spa-frontend/src/components/scoreboard/chartSetup.ts`. A
+`MutationObserver` on `document.body`'s class list watches for theme
+toggles and triggers each mounted chart to re-render with the new
+tokens, so the light and dark themes each get their own high-contrast
+palette without a page reload.
 
 Badges are a visual consequence of crossing a scoring threshold — no
 dedicated backend. Badge assets are static SVG files at

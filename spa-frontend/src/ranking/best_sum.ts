@@ -109,9 +109,8 @@ export function computeChartScoresOverTime(
     out[ev.team].push({ time: ev.ts.getTime(), score: totals[ev.team] });
   }
 
-  const nowMs = Date.now();
   for (const team of teamSet) {
-    if (out[team].length === 0) out[team].push({ time: nowMs, score: 0 });
+    if (out[team].length === 0) delete out[team];
   }
   return out;
 }
