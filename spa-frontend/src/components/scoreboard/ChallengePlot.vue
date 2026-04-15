@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { Chart, getTeamColor, getTeamMarker, makeZoomPanOptions } from './chartSetup';
+import type { EChartsOption } from 'echarts';
+import {
+  buildCommonOptions,
+  formatTooltipDate,
+  getMarkLineColors,
+  getTeamColor,
+  getTeamSymbol,
+  mountChart,
+  onThemeChange,
+  unmountChart,
+  type ManagedChart,
+} from './chartSetup';
 import { parseApiDate } from '../../ranking/util';
 import type {
   Assignments,
@@ -13,14 +24,15 @@ const props = defineProps<{
   submissions: SubmissionsByChallenge;
 }>();
 
-const canvas = ref<HTMLCanvasElement | null>(null);
-let chart: Chart | null = null;
-let xMinCache = 0;
+type PlotPoint = {
+  value: [number, number];
+  tasks: Record<string, number | null>;
+};
+
+const root = ref<HTMLDivElement | null>(null);
+let chart: ManagedChart | null = null;
 
 function findBaseline(): number | null {
-  // The plot's baseline line is drawn at the sum of per-task baselines
-  // (each task's policy may optionally carry one). Returns null if no
-  // task has a baseline configured.
   for (const challenges of Object.values(props.assignments || {})) {
     const cfg = challenges[props.challengeName];
     if (!cfg || !cfg.per_task_scoring_policies) continue;
@@ -37,149 +49,150 @@ function findBaseline(): number | null {
   return null;
 }
 
-type PlotPoint = {
-  x: number;
-  y: number;
-  tasks: Record<string, number | null>;
-};
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildDatasets(): any[] {
+function buildSeries() {
   const teams = (props.submissions && props.submissions[props.challengeName]) || {};
-  return Object.entries(teams).map(([team, points]) => {
+  const baseline = findBaseline();
+  const mark = getMarkLineColors();
+  return Object.entries(teams).map(([team, points], index) => {
     const parsed = points
       .map((entry) => {
         const d = parseApiDate(entry.ts);
         return d
           ? {
-              x: d.getTime(),
-              y: Number(entry.score),
+              value: [d.getTime(), Number(entry.score)] as [number, number],
               tasks: entry.tasks ?? {},
             }
           : null;
       })
-      .filter((p): p is PlotPoint => p !== null)
-      .sort((a, b) => a.x - b.x);
+      .filter((point): point is PlotPoint => point !== null)
+      .sort((a, b) => a.value[0] - b.value[0]);
+
     const improvements: PlotPoint[] = [];
     let best = -Infinity;
-    for (const p of parsed) {
-      if (p.y > best) {
-        improvements.push(p);
-        best = p.y;
+    for (const point of parsed) {
+      if (point.value[1] > best) {
+        improvements.push(point);
+        best = point.value[1];
       }
     }
+
     return {
-      label: team,
+      id: `team-${team}`,
+      name: team,
+      type: 'line' as const,
+      smooth: false,
+      showSymbol: true,
+      symbol: getTeamSymbol(team),
+      symbolSize: 10,
       data: improvements,
-      borderColor: getTeamColor(team),
-      backgroundColor: getTeamColor(team),
-      pointStyle: getTeamMarker(team),
-      showLine: true,
-      fill: false,
-      pointRadius: 6,
-      pointHoverRadius: 8,
+      lineStyle: {
+        width: 2,
+        color: getTeamColor(team),
+      },
+      itemStyle: {
+        color: getTeamColor(team),
+      },
+      emphasis: {
+        focus: 'series' as const,
+      },
+      markLine: index === 0 && baseline !== null
+        ? {
+            symbol: ['none', 'none'],
+            animation: false,
+            label: {
+              show: true,
+              position: 'insideMiddleTop',
+              distance: 4,
+              formatter: 'baseline',
+              color: mark.label,
+            },
+            lineStyle: {
+              color: mark.line,
+              type: 'dashed',
+              width: 1,
+            },
+            data: [{ yAxis: baseline }],
+          }
+        : undefined,
     };
   });
 }
 
-function earliestX(datasets: { data: { x: number }[] }[]): number {
+function earliestX(series: Array<{ data: PlotPoint[] }>): number {
   let min = Infinity;
-  for (const ds of datasets) {
-    for (const pt of ds.data) if (pt.x < min) min = pt.x;
+  for (const item of series) {
+    for (const point of item.data) {
+      if (point.value[0] < min) min = point.value[0];
+    }
   }
   return Number.isFinite(min) ? min : 0;
 }
 
-function render() {
-  if (!canvas.value) return;
-  if (chart) chart.destroy();
-
-  const datasets = buildDatasets();
-  xMinCache = earliestX(datasets);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const annotations: Record<string, any> = {};
-  const baseline = findBaseline();
-  if (baseline !== null) {
-    annotations.baseline = {
-      type: 'line',
-      borderColor: '#aaaaaa',
-      borderDash: [4, 4],
-      borderWidth: 1,
-      scaleID: 'y',
-      value: baseline,
-      label: { content: 'baseline', display: true },
-    };
-  }
-
-  chart = new Chart(canvas.value, {
-    type: 'scatter',
-    data: { datasets },
-    options: {
-      animation: false,
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        x: { type: 'time', time: { tooltipFormat: 'dd/MM HH:mm' } },
-        y: { beginAtZero: true },
-      },
-      plugins: {
-        annotation: { annotations },
-        legend: { labels: { usePointStyle: true } },
-        zoom: makeZoomPanOptions(() => xMinCache),
-        tooltip: {
-          callbacks: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            label: (ctx: any) =>
-              `${ctx.dataset.label ?? ''}: ${Number(ctx.parsed.y).toFixed(2)}`,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            afterBody: (items: any[]) => {
-              if (!items.length) return [];
-              const raw = items[0].raw as PlotPoint | undefined;
-              const tasks = raw?.tasks;
-              if (!tasks || Object.keys(tasks).length < 2) return [];
-              const lines = ['', 'Tasks:'];
-              for (const [name, score] of Object.entries(tasks)) {
-                const rendered =
-                  score === null ? 'untested' : Number(score).toFixed(2);
-                lines.push(`  ${name}: ${rendered}`);
-              }
-              return lines;
-            },
-          },
-        },
+function buildOption(): EChartsOption {
+  const series = buildSeries();
+  const xMin = earliestX(series);
+  const common = buildCommonOptions(xMin);
+  return {
+    ...common,
+    tooltip: {
+      ...(common.tooltip ?? {}),
+      trigger: 'item',
+      formatter: (raw: unknown) => {
+        const item = raw as {
+          data?: PlotPoint;
+          marker?: string;
+          seriesName?: string;
+        };
+        const point = item.data;
+        if (!point) return '';
+        const lines = [
+          formatTooltipDate(point.value[0]),
+          `${item.marker ?? ''}${item.seriesName ?? ''}: ${point.value[1].toFixed(2)}`,
+        ];
+        const entries = Object.entries(point.tasks || {});
+        if (entries.length > 1) {
+          lines.push('', 'Tasks:');
+          for (const [name, score] of entries) {
+            lines.push(
+              `${name}: ${score === null ? 'untested' : Number(score).toFixed(2)}`,
+            );
+          }
+        }
+        return lines.join('<br/>');
       },
     },
-  });
+    series,
+  };
 }
 
-function updateData() {
-  if (!chart) return render();
-  const datasets = buildDatasets();
-  chart.data.datasets = datasets;
-  xMinCache = earliestX(datasets);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const zoomOpts = (chart.options.plugins as any)?.zoom;
-  if (zoomOpts?.limits?.x) zoomOpts.limits.x.min = xMinCache;
-  chart.update('none');
+function render() {
+  if (!root.value) return;
+  if (!chart) chart = mountChart(root.value);
+  chart.chart.setOption(buildOption());
 }
 
-onMounted(render);
-// A challenge switch needs a full rebuild (new baseline annotation); data-only
-// updates reuse the chart so user zoom/pan state survives polling refreshes.
+let offTheme: (() => void) | null = null;
+
+onMounted(() => {
+  render();
+  offTheme = onThemeChange(render);
+});
 watch(() => props.challengeName, render);
 watch(
   () => [props.assignments, props.submissions],
-  updateData,
+  render,
   { deep: true },
 );
 onBeforeUnmount(() => {
-  if (chart) chart.destroy();
+  offTheme?.();
+  offTheme = null;
+  unmountChart(chart);
+  chart = null;
 });
 </script>
 
 <template>
   <div class="term-panel term-chart-wrap">
-    <canvas ref="canvas" />
+    <div ref="root" class="term-chart" />
   </div>
 </template>

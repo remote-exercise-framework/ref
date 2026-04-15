@@ -522,8 +522,14 @@ body.theme-light .term-live-dot {
 
 .term-chart-wrap {
   padding: 1.5rem;
-  min-height: 440px;
-  max-height: 440px;
+  height: 440px;
+  display: flex;
+}
+
+.term-chart {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 @media (max-width: 900px) {

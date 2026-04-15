@@ -172,10 +172,11 @@ endpoints and hands the data to the components under
   (regressions are filtered out).
 - `Countdown.vue` — timer for the currently-running assignment's deadline.
 
-All charts use Chart.js with `chartjs-plugin-zoom` for pan/zoom
-(drag-pan, wheel/pinch zoom, shift-drag box zoom) and cap the x-axis at
-the earliest data point so users can't drag into empty pre-data space.
-Chart data updates on each poll preserve the user's zoom state.
+All charts use Apache ECharts with native `dataZoom` on the time axis.
+The default interaction model is wheel/pinch zoom plus drag-to-pan on the
+x-axis, with a slider scrubber below the chart for coarse navigation.
+The x-axis is capped at the earliest data point so users can't pan into
+empty pre-data space.
 
 Badges are a visual consequence of crossing a scoring threshold — no
 dedicated backend. Badge assets are static SVG files at
