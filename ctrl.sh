@@ -276,6 +276,13 @@ if [[ -z "$HTTP_HOST_PORT" ]]; then
     exit 1
 fi
 
+# The spa-frontend service is gated behind the `dev` compose profile so it
+# is only started when --hot-reloading is active. Activate the profile for
+# every ctrl.sh subcommand so profile-gated services can still be
+# built/stopped/inspected; the `up` function unsets this again for prod
+# mode so spa-frontend does not get started there.
+export COMPOSE_PROFILES=dev
+
 if [[ -z "$SECRET_KEY" ]]; then
     error "Please set SECRET_KEY in $ENV_SETTINGS_FILE to a random string"
     exit 1
@@ -421,6 +428,12 @@ function up {
             ;;
         esac
     done
+
+    if [[ "$HOT_RELOADING" != "true" ]]; then
+        # Prod mode: skip the profile-gated spa-frontend service. Caddy
+        # serves the baked SPA bundle from the frontend-proxy image.
+        unset COMPOSE_PROFILES
+    fi
 
     execute_cmd $DOCKER_COMPOSE -p ref --env-file $ENV_SETTINGS_FILE up "$@"
 }

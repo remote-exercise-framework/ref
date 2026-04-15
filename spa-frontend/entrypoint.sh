@@ -12,7 +12,10 @@ if [ "${HOT_RELOADING:-false}" = "true" ]; then
   echo "[spa-frontend] starting vite dev server (HMR)"
   exec npm run dev
 else
-  echo "[spa-frontend] building and starting vite preview"
-  npm run build
-  exec npm run preview
+  # The prod SPA bundle is baked into the frontend-proxy image at docker
+  # build time (multi-stage Dockerfile). The spa-frontend service is
+  # gated behind the `dev` compose profile and should never start without
+  # HOT_RELOADING=true. Fail loudly if this branch is ever reached.
+  echo "[spa-frontend] prod mode: this container should not run in prod; frontend-proxy bakes the bundle" >&2
+  exit 1
 fi

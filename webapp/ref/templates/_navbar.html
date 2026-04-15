@@ -1,6 +1,6 @@
 <nav class="navbar navbar-expand-lg navbar-dark sticky-top"
      style="background-color: #343a40; z-index: 1050;">
-    <a class="navbar-brand d-flex align-items-center" href="{{ url_for('ref.student_default_routes') }}">
+    <a class="navbar-brand d-flex align-items-center" href="{{ url_for('ref.exercise_view_all') }}">
         <img src="{{ url_for('static', filename='navbar_logo.png') }}" height="30" alt="" class="mr-2">
         {{ settings.COURSE_NAME.value }}
     </a>
@@ -54,6 +54,15 @@
             {% endif %}
         </ul>
         <ul class="navbar-nav ml-auto">
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center" href="/spa/" title="Open the student-facing SPA" aria-label="Student view">
+                    <i class="material-icons mr-1" style="font-size: 20px;">school</i>
+                    <span>Student View</span>
+                </a>
+            </li>
+            <li class="nav-item d-flex align-items-center">
+                <span class="navbar-text" style="opacity: 0.35; padding: 0 0.75rem;">|</span>
+            </li>
             {% if current_user.is_authenticated %}
             <li class="nav-item">
                 <span class="navbar-text mr-3">{{ current_user.first_name }} {{ current_user.surname }}</span>

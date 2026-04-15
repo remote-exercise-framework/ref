@@ -38,8 +38,8 @@ from ref.model.enums import UserAuthorizationGroups
 # URL paths students are redirected to when hitting "/". Values are absolute
 # URL paths served by the SPA — no Flask endpoint exists for these anymore.
 LANDING_PAGE_ROUTES = {
-    "registration": "/v2/register",
-    "scoreboard": "/v2/scoreboard",
+    "registration": "/spa/register",
+    "scoreboard": "/spa/scoreboard",
 }
 
 PASSWORD_MIN_LEN = 8
@@ -378,4 +378,4 @@ def student_default_routes():
     target = SystemSettingsManager.LANDING_PAGE.value
     if target == "scoreboard" and not SystemSettingsManager.SCOREBOARD_ENABLED.value:
         target = "registration"
-    return redirect(LANDING_PAGE_ROUTES.get(target, "/v2/register"))
+    return redirect(LANDING_PAGE_ROUTES.get(target, "/spa/register"))

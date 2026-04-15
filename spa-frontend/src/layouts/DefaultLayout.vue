@@ -48,6 +48,15 @@ const themeLabel = computed(() => {
       >
         <v-icon>{{ themeIcon }}</v-icon>
       </v-btn>
+      <v-btn
+        icon
+        variant="text"
+        href="/admin"
+        aria-label="Admin area (login required)"
+        title="Admin area (login required)"
+      >
+        <v-icon>mdi-shield-account-outline</v-icon>
+      </v-btn>
       <div class="term-nav-center">
         <v-btn
           v-for="item in nav.visibleItems"

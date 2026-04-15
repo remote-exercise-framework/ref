@@ -162,7 +162,7 @@ REF is a containerized platform for hosting programming exercises with isolated 
    - `ref/model/` - SQLAlchemy models (users, groups, exercises, instances, submissions, grades, system settings)
    - `ref/core/` - Business logic managers (`ExerciseManager`, `InstanceManager`, `ExerciseImageManager`, `UserManager`, `DockerClient`, etc.)
 
-   Student-facing pages (registration, restore-key, public scoreboard) are served by the Vue SPA under `/v2/*` and talk to `ref/frontend_api/`. Admin pages live under `ref/view/` as Jinja-rendered HTML.
+   Student-facing pages (registration, restore-key, public scoreboard) are served by the Vue SPA under `/spa/*` and talk to `ref/frontend_api/`. Admin pages live under `ref/view/` as Jinja-rendered HTML. The Caddy `frontend-proxy` container fronts both on a single host port 8000 — it reverse-proxies `/spa/*` to `spa-frontend:5173` (dev, with HMR) or serves a baked SPA bundle (prod), serves Flask's `/static/*` directly, and proxies everything else to `web:8000`.
 
 2. **SSH Reverse Proxy** (`ssh-reverse-proxy/`) - Rust-based SSH proxy on port 2222
    - Routes student SSH connections to exercise containers

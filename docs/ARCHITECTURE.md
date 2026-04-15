@@ -5,13 +5,31 @@ Remote Exercise Framework - A platform for hosting programming exercises with is
 ## System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         HOST SYSTEM                             │
-├─────────────────────────────────────────────────────────────────┤
-│  Port 2222 ──> ssh-reverse-proxy (Rust) ──> Instance (SSH)      │
-│  Port 8000 ──> web (Flask) ──> Docker API ──> Instance Mgmt     │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                            HOST SYSTEM                               │
+├──────────────────────────────────────────────────────────────────────┤
+│  Port 2222 ──> ssh-reverse-proxy (Rust) ──> Instance (SSH)           │
+│  Port 8000 ──> frontend-proxy (Caddy) ──┬─> web (Flask)              │
+│                                         ├─> spa-frontend (vite dev)  │
+│                                         └─> baked SPA dist/ (prod)   │
+└──────────────────────────────────────────────────────────────────────┘
 ```
+
+The `frontend-proxy` Caddy container terminates host port 8000 and routes
+traffic by URL prefix:
+
+- `/spa/*` — the Vue SPA. In dev (`--hot-reloading`) proxied to the
+  `spa-frontend` container running `vite dev` with HMR; in prod served as
+  a static bundle baked into the frontend-proxy image at build time via a
+  multi-stage Dockerfile.
+- `/static/*` — Flask's own static assets (bootstrap, ace-builds, favicon,
+  etc.), served directly by Caddy from a read-only bind-mount of
+  `webapp/ref/static/`.
+- Everything else (`/`, `/admin/*`, `/api/*`, `/student/*`) — reverse-proxied
+  to the Flask `web` container on the internal `web-host` network.
+
+The `ssh-reverse-proxy` still calls `http://web:8000` over the internal
+`web-and-ssh` network and does **not** go through Caddy.
 
 ## Components
 
@@ -96,6 +114,35 @@ Isolated Docker container per student/exercise based on Ubuntu 24.04.
 
 **Entry point:** SSH server on port 13370
 
+### 2b. Frontend Proxy (`frontend-proxy/`)
+
+Caddy-based reverse proxy container that terminates host port 8000 and fans
+out to the Flask webapp and the Vue SPA. Built from a multi-stage
+Dockerfile that compiles the SPA bundle (stage 1: `node:22-alpine`,
+`npm run build`) and copies it into a `caddy:2-alpine` runtime image
+(stage 2). At container start, `entrypoint.sh` picks `Caddyfile.dev`
+(reverse-proxies `/spa/*` to `spa-frontend:5173` for HMR) or
+`Caddyfile.prod` (serves the baked `/srv/spa-dist` with SPA history-mode
+fallback) based on `$HOT_RELOADING`.
+
+**Stack:** Caddy 2 + multi-stage Node builder
+
+**Key files:**
+- `Dockerfile` — multi-stage SPA build + Caddy runtime
+- `Caddyfile.dev` — dev routing (proxies `/spa/*` to vite dev)
+- `Caddyfile.prod` — prod routing (serves baked dist with cache headers)
+- `entrypoint.sh` — selects config based on `HOT_RELOADING`
+
+**Notes:**
+- The Flask rate limiter reads `X-Tinyproxy` to key on the real client IP;
+  Caddy sets this header via `header_up X-Tinyproxy {remote_host}` on the
+  reverse-proxy path.
+- Flask static assets (`/static/*`) are served directly by Caddy with a 1h
+  cache header, skipping uWSGI.
+- SPA hashed assets (`/spa/assets/*`) are served with
+  `public, max-age=31536000, immutable`; `index.html` is `no-cache` so
+  deploys are picked up atomically.
+
 ### 3. SSH Reverse Proxy (`ssh-reverse-proxy/`)
 
 Rust-based SSH proxy routing student connections to their containers.
@@ -160,7 +207,7 @@ PostgreSQL 17.2 storing:
 
 | Network | Bridge Name | Type | Purpose |
 |---------|-------------|------|---------|
-| `web-host` | `br-whost-ref` | External | Web ↔ Host (HTTP access) |
+| `web-host` | `br-whost-ref` | External | frontend-proxy ↔ Host, frontend-proxy ↔ web, frontend-proxy ↔ spa-frontend |
 | `web-and-ssh` | `br-w2ssh-ref` | Internal | Web ↔ SSH reverse proxy API |
 | `web-and-db` | `br-w2db-ref` | Internal | Web ↔ PostgreSQL |
 | `ssh-and-host` | `br-shost-ref` | External | SSH reverse proxy ↔ Host |

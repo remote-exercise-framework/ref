@@ -380,9 +380,15 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
         if self.config.testing:
             compose_dict = yaml.safe_load(rendered)
 
-            # Add web port mapping
-            if "web" in compose_dict.get("services", {}):
-                compose_dict["services"]["web"]["ports"] = [f"{self._http_port}:8000"]
+            # Publish the host HTTP port on the Caddy frontend-proxy, which
+            # fronts Flask and the SPA on a single host port. The `web`
+            # service is only reachable internally on the web-host network
+            # now — tests should drive traffic through the proxy so they
+            # exercise the same path real clients do.
+            if "frontend-proxy" in compose_dict.get("services", {}):
+                compose_dict["services"]["frontend-proxy"]["ports"] = [
+                    f"{self._http_port}:8000"
+                ]
 
             # Add ssh-reverse-proxy port mapping
             if "ssh-reverse-proxy" in compose_dict.get("services", {}):
@@ -572,6 +578,15 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
         run_env["RATELIMIT_ENABLED"] = (
             "true" if self.config.ratelimit_enabled else "false"
         )
+
+        # The spa-frontend service is gated behind the `dev` compose profile
+        # so it is only started when hot-reloading is active. Mirror
+        # ctrl.sh: keep the profile on for every subcommand so profile-gated
+        # services can be built/stopped/inspected, and only drop it for
+        # prod-mode `up` so spa-frontend is not started there.
+        run_env["COMPOSE_PROFILES"] = "dev"
+        if args and args[0] == "up" and not self.config.hot_reloading:
+            run_env.pop("COMPOSE_PROFILES", None)
 
         if env:
             run_env.update(env)

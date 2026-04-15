@@ -1,6 +1,6 @@
 # Scoreboard
 
-A public leaderboard at `/v2/scoreboard` that ranks students/teams based
+A public leaderboard at `/spa/scoreboard` that ranks students/teams based
 on submission scores. Exercises are grouped into **assignments**
 (time-boxed rounds, one per `ExerciseConfig.category`). Each exercise
 has **per-task scoring policies** that transform the raw score of each

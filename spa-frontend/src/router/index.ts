@@ -26,6 +26,6 @@ const routes = [
 ];
 
 export default createRouter({
-  history: createWebHistory('/v2/'),
+  history: createWebHistory('/spa/'),
   routes,
 });

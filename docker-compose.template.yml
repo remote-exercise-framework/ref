@@ -101,10 +101,6 @@ services:
             - coverage-data:/coverage-data:rw
             - ./coverage:/coverage-config:ro
 {% endif %}
-        {% if not testing %}
-        ports:
-            - "${HTTP_HOST_PORT}:8000"
-        {% endif %}
         networks:
             - web-host
             - web-and-ssh
@@ -113,16 +109,53 @@ services:
             - db
         cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
-    # Vue 3 + Vuetify SPA that serves the student-facing pages under /v2/
-    # (registration, restore-key, scoreboard). In dev (HOT_RELOADING=true)
-    # runs `vite dev` with HMR against the host bind-mounted source;
-    # otherwise runs `vite build && vite preview`. Either way the
-    # container's port 5173 is mapped to SPA_HOST_PORT on the host, and
-    # Vite's proxy forwards /api, /student/download, and /static to the
-    # web container over the web-host network.
+    # Caddy reverse proxy that fronts the whole web interface on a single
+    # host port. Routes /spa/* to the SPA (vite dev in dev mode, baked
+    # static bundle in prod) and /static/* directly from webapp/ref/static;
+    # everything else is reverse-proxied to the Flask web container. The
+    # SPA build artifact is baked into this image at docker build time via
+    # a multi-stage Dockerfile, so prod does not need `vite preview` or a
+    # shared volume. Dev selection is done at container start by
+    # entrypoint.sh based on $HOT_RELOADING.
+    frontend-proxy:
+        init: true
+        hostname: frontend-proxy
+        build:
+            context: .
+            dockerfile: frontend-proxy/Dockerfile
+        environment:
+            - HOT_RELOADING=${HOT_RELOADING:-false}
+        volumes:
+            # Serve Flask's static assets directly from Caddy, skipping
+            # uWSGI. Read-only to keep the proxy sandboxed.
+            - ./webapp/ref/static:/srv/flask-static:ro
+    {% if not testing %}
+        ports:
+            - "${HTTP_HOST_PORT}:8000"
+    {% endif %}
+        networks:
+            - web-host
+        depends_on:
+            - web
+        cgroup_parent: "{{ cgroup_parent }}-core.slice"
+        healthcheck:
+            test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/static/favicon.ico"]
+            interval: 10s
+            timeout: 3s
+            retries: 5
+            start_period: 5s
+
+    # Vue 3 + Vuetify SPA dev server. Only started in the `dev` compose
+    # profile (ctrl.sh adds --profile dev when --hot-reloading is set).
+    # In dev it runs `vite dev` with HMR against the host bind-mounted
+    # source; frontend-proxy reverse-proxies /spa/* to this container's
+    # port 5173 (including Vite's HMR websocket). In prod this service
+    # is not started at all — frontend-proxy serves the baked SPA bundle.
     spa-frontend:
         init: true
         hostname: spa-frontend
+        profiles:
+            - dev
         build:
             context: ./spa-frontend
         environment:
@@ -133,10 +166,6 @@ services:
             # so deps installed at build time remain available.
             - ./spa-frontend/:/spa-frontend
             - /spa-frontend/node_modules
-    {% if not testing %}
-        ports:
-            - "${SPA_HOST_PORT:-5173}:5173"
-    {% endif %}
         networks:
             - web-host
         depends_on:

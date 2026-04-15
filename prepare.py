@@ -52,7 +52,6 @@ def build_default_settings() -> Dict[str, Any]:
         "ports": {
             "ssh_host_port": 2222,
             "http_host_port": 8000,
-            "spa_host_port": 5173,
         },
         "paths": {
             "data": "./data",
@@ -152,9 +151,6 @@ def write_settings_yaml(settings: Dict[str, Any]) -> None:
 
 
 BACKFILL_DEFAULTS: Dict[str, Dict[str, Any]] = {
-    "ports": {
-        "spa_host_port": 5173,
-    },
     "paths": {
         "data": "./data",
         "exercises": "./exercises",
@@ -164,6 +160,9 @@ BACKFILL_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "binfmt_support": False,
     },
 }
+
+
+PORTS_TO_PRUNE = ("spa_host_port",)
 
 
 def load_settings_yaml() -> Dict[str, Any]:
@@ -179,6 +178,12 @@ def load_settings_yaml() -> Dict[str, Any]:
         for key, default in section_defaults.items():
             if key not in settings[section]:
                 settings[section][key] = default
+
+    # Drop obsolete fields left over from older settings.yaml versions so that
+    # yaml re-emits stay clean across migrations.
+    if isinstance(settings.get("ports"), dict):
+        for obsolete in PORTS_TO_PRUNE:
+            settings["ports"].pop(obsolete, None)
 
     # Always re-emit so the file tracks the current schema, key order, and
     # section comments. yaml.safe_load strips comments, so anything not
@@ -211,11 +216,11 @@ def render_settings_env(settings: Dict[str, Any]) -> None:
         "# the docker group on the host (getent group docker).",
         f"DOCKER_GROUP_ID={settings['docker_group_id']}",
         "",
-        "# Host ports published by the ssh-reverse-proxy, web, and spa-frontend",
-        "# services.",
+        "# Host ports published by the ssh-reverse-proxy and frontend-proxy",
+        "# services. frontend-proxy (Caddy) fronts the Flask web and the Vue",
+        "# SPA on a single host port.",
         f"SSH_HOST_PORT={settings['ports']['ssh_host_port']}",
         f"HTTP_HOST_PORT={settings['ports']['http_host_port']}",
-        f"SPA_HOST_PORT={settings['ports']['spa_host_port']}",
         "",
         "# Flask session / CSRF signing key. Rotating invalidates all",
         "# existing user sessions.",
