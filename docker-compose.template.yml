@@ -92,6 +92,8 @@ services:
             - {{ exercises_path }}:/exercises
             #Make docker availabe inside the container
             - /var/run/docker.sock:/var/run/docker.sock
+            #Container SSH public keys, bind-mounted into student containers at runtime
+            - ./container-keys:/container-keys:ro
             #Source for ref-utils, bind-mounted read-only into student
             #instances so edits on the host apply without rebuilding images.
             - type: bind

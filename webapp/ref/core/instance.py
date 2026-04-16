@@ -584,6 +584,26 @@ class InstanceManager:
                 "mode": "ro",
             }
 
+        # Bind-mount container SSH public keys so sshd can authenticate the
+        # SSH reverse proxy. Keys are live — changing them on the host takes
+        # effect immediately without rebuilding images or restarting containers.
+        container_keys_path = Path("/container-keys")
+        user_key = container_keys_path / "user_key.pub"
+        root_key = container_keys_path / "root_key.pub"
+        if not user_key.exists() or not root_key.exists():
+            raise RuntimeError(
+                f"Container SSH public keys not found at {container_keys_path}. "
+                "Ensure container-keys/ is mounted into the web container."
+            )
+        mounts[self.dc.local_path_to_host(str(user_key))] = {
+            "bind": "/etc/ssh/master_keys/user",
+            "mode": "ro",
+        }
+        mounts[self.dc.local_path_to_host(str(root_key))] = {
+            "bind": "/etc/ssh/master_keys/root",
+            "mode": "ro",
+        }
+
         # Coverage configuration for testing
         coverage_env = {}
         if os.environ.get("COVERAGE_PROCESS_START"):
@@ -632,17 +652,10 @@ class InstanceManager:
 
         instance_entry_service.container_id = container.id
 
-        # Scrip that is initially executed to setup the environment.
-        # 1. Add the SSH key of the user that owns the container to authorized_keys.
-        # FIXME: This key is not actually used for anything right now, since the ssh entry server
-        # uses the master key (docker base image authorized_keys) for authentication for all containers.
-        # 2. Store the instance ID as string in a file /etc/instance_id.
+        # Script that is initially executed to setup the environment.
         container_setup_script = (
             "#!/bin/bash\n"
             "set -e\n"
-            f'if ! grep -q "{self.instance.user.pub_key}" /home/user/.ssh/authorized_keys; then\n'
-            f'bash -c "echo {self.instance.user.pub_key} >> /home/user/.ssh/authorized_keys"\n'
-            "fi\n"
             f"echo -n {self.instance.id} > /etc/instance_id && chmod 400 /etc/instance_id\n"
         )
         if exercise.entry_service.disable_aslr:

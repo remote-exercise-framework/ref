@@ -43,5 +43,8 @@ futures = "0.3"
 # Random number generation (match russh's rand version)
 rand = "0.8"
 
+# UUID generation for error tracking
+uuid = { version = "1", features = ["v4"] }
+
 [dev-dependencies]
 tokio-test = "0.4"
