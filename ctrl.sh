@@ -75,6 +75,11 @@ Commands:
   restart
       Restart all services (disconnects currently connected users).
 
+  recreate [SERVICE...]
+      Rebuild and recreate containers from the new images. Use this
+      instead of restart when image contents changed (e.g. SPA or
+      webapp code).
+
   restart-web
       Restart only the web interface (users stay connected via SSH).
 
@@ -349,7 +354,7 @@ function build {
     (
         info "=> Building docker base image"
         cd 'ref-docker-base'
-        ./build.sh "$@"
+        ./build.sh
     )
     (
         info "=> Building release container"
@@ -454,6 +459,11 @@ function restart {
     execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref restart "$@"
 }
 
+function recreate {
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref build "$@"
+    execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref up -d --force-recreate "$@"
+}
+
 function ps {
     execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref ps "$@"
 }
@@ -502,6 +512,9 @@ case "$cmd" in
     ;;
     restart)
         restart "$@"
+    ;;
+    recreate)
+        recreate "$@"
     ;;
     restart-web)
         restart web "$@"
