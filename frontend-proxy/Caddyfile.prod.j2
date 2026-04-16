@@ -1,0 +1,61 @@
+{% if tls_mode == 'off' %}
+{
+	admin off
+	auto_https off
+}
+
+:8000 {
+	log {
+		output stdout
+		format console
+	}
+	import /etc/caddy/Caddyfile.routes
+}
+{% elif tls_mode == 'internal' %}
+{
+	admin off
+	default_sni {{ domain }}
+}
+
+{{ domain }}:8443 {
+	tls internal
+	log {
+		output stdout
+		format console
+	}
+	import /etc/caddy/Caddyfile.routes
+}
+
+:8443 {
+	tls internal
+	log {
+		output stdout
+		format console
+	}
+	import /etc/caddy/Caddyfile.routes
+}
+
+http://:8080 {
+{% if redirect_http_to_https %}
+	redir https://{{ domain }}:{{ https_host_port }}{uri} permanent
+{% else %}
+	log {
+		output stdout
+		format console
+	}
+	import /etc/caddy/Caddyfile.routes
+{% endif %}
+}
+{% elif tls_mode == 'acme' %}
+{
+	admin off
+}
+
+{{ domain }} {
+	log {
+		output stdout
+		format console
+	}
+	import /etc/caddy/Caddyfile.routes
+}
+{% endif %}

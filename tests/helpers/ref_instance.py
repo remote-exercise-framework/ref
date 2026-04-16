@@ -374,6 +374,7 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
             cgroup_parent=cgroup_parent,
             instances_cgroup_parent=instances_cgroup_parent,
             binfmt_support=self.config.binfmt_support,
+            tls_mode="off",
         )
 
         # For testing, we need to add port mappings that the template skips

@@ -1,6 +1,7 @@
 version: "3.7"
-{% if testing %}
 volumes:
+    caddy-data:
+{% if testing %}
     coverage-data:
         name: "{{ prefix }}_coverage_data"
 {% endif %}
@@ -125,21 +126,43 @@ services:
             dockerfile: frontend-proxy/Dockerfile
         environment:
             - HOT_RELOADING=${HOT_RELOADING:-false}
+            - TLS_MODE=${TLS_MODE:-off}
+            - DOMAIN=${TLS_DOMAIN:-}
+            - HTTPS_HOST_PORT=${HTTPS_HOST_PORT:-8443}
+            - REDIRECT_HTTP_TO_HTTPS=${TLS_REDIRECT_HTTP:-false}
         volumes:
             # Serve Flask's static assets directly from Caddy, skipping
             # uWSGI. Read-only to keep the proxy sandboxed.
             - ./webapp/ref/static:/srv/flask-static:ro
-    {% if not testing %}
+            # Persist Caddy's TLS certificates and ACME state across
+            # container restarts. Essential for acme mode (avoids
+            # hitting Let's Encrypt rate limits).
+            - caddy-data:/data
+    {%- if not testing %}
         ports:
+    {%- if tls_mode == 'off' %}
             - "${HTTP_HOST_PORT}:8000"
-    {% endif %}
+    {%- elif tls_mode == 'internal' %}
+            - "${HTTP_HOST_PORT}:8080"
+            - "${HTTPS_HOST_PORT}:8443"
+    {%- elif tls_mode == 'acme' %}
+            - "${HTTP_HOST_PORT}:80"
+            - "${HTTPS_HOST_PORT}:443"
+    {%- endif %}
+    {%- endif %}
         networks:
             - web-host
         depends_on:
             - web
         cgroup_parent: "{{ cgroup_parent }}-core.slice"
         healthcheck:
+    {%- if tls_mode == 'off' %}
             test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/static/favicon.ico"]
+    {%- elif tls_mode == 'internal' %}
+            test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://localhost:8443/static/favicon.ico"]
+    {%- elif tls_mode == 'acme' %}
+            test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://localhost:443/static/favicon.ico"]
+    {%- endif %}
             interval: 10s
             timeout: 3s
             retries: 5

@@ -1,0 +1,35 @@
+redir /spa /spa/ 308
+
+# /admin and /admin/ have no Flask view of their own; route both to
+# the exercise list (the first item in the admin navbar dropdown).
+redir /admin /admin/exercise/view 302
+redir /admin/ /admin/exercise/view 302
+
+handle_path /spa/* {
+	root * /srv/spa-dist
+
+	@immutable path /assets/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# Everything outside /assets/* is either index.html itself or a
+	# deep-link that try_files falls back to index.html. The header
+	# matcher evaluates against the current request path (before the
+	# try_files rewrite), so "not /assets/*" catches all of them.
+	@html not path /assets/*
+	header @html Cache-Control "no-cache"
+
+	try_files {path} {path}/ /index.html
+	file_server
+}
+
+handle_path /static/* {
+	root * /srv/flask-static
+	header Cache-Control "public, max-age=3600"
+	file_server
+}
+
+handle {
+	reverse_proxy web:8000 {
+		header_up X-Tinyproxy {remote_host}
+	}
+}

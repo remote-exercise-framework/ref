@@ -51,7 +51,15 @@ def build_default_settings() -> Dict[str, Any]:
         "docker_group_id": detect_docker_group_id(),
         "ports": {
             "ssh_host_port": 2222,
-            "http_host_port": 8000,
+            "http_host_port": 8080,
+            "https_host_port": 8443,
+        },
+        "tls": {
+            # off = plain HTTP, internal = self-signed, acme = Let's Encrypt
+            "mode": "internal",
+            "domain": None,
+            # Redirect HTTP to HTTPS (only applies to internal and acme modes).
+            "redirect_http_to_https": False,
         },
         "paths": {
             "data": "./data",
@@ -100,6 +108,18 @@ SETTINGS_YAML_SECTIONS = [
     (
         "ports",
         "# Host ports published by the ssh-reverse-proxy and web services.",
+    ),
+    (
+        "tls",
+        "# TLS configuration for the frontend-proxy (Caddy). Modes:\n"
+        "#   off      — plain HTTP on http_host_port (no TLS)\n"
+        "#   internal — self-signed certificate (HTTPS on https_host_port,\n"
+        "#              plain HTTP on http_host_port)\n"
+        "#   acme     — Let's Encrypt via ACME (requires a valid domain,\n"
+        "#              ports 80+443 reachable from the internet)\n"
+        "# Set redirect_http_to_https to true to redirect HTTP to HTTPS\n"
+        "# (only applies to internal and acme modes).\n"
+        "# After changing, run ./prepare.py && ./ctrl.sh restart.",
     ),
     (
         "paths",
@@ -151,6 +171,14 @@ def write_settings_yaml(settings: Dict[str, Any]) -> None:
 
 
 BACKFILL_DEFAULTS: Dict[str, Dict[str, Any]] = {
+    "ports": {
+        "https_host_port": 8443,
+    },
+    "tls": {
+        "mode": "off",
+        "domain": None,
+        "redirect_http_to_https": False,
+    },
     "paths": {
         "data": "./data",
         "exercises": "./exercises",
@@ -185,12 +213,25 @@ def load_settings_yaml() -> Dict[str, Any]:
         for obsolete in PORTS_TO_PRUNE:
             settings["ports"].pop(obsolete, None)
 
+    validate_settings(settings)
+
     # Always re-emit so the file tracks the current schema, key order, and
     # section comments. yaml.safe_load strips comments, so anything not
     # produced by write_settings_yaml is lost on every re-render — this is
     # intentional.
     write_settings_yaml(settings)
     return settings
+
+
+def validate_settings(settings: Dict[str, Any]) -> None:
+    """Validate cross-field constraints in the settings."""
+    tls_mode = settings.get("tls", {}).get("mode", "off")
+    tls_domain = settings.get("tls", {}).get("domain")
+    if tls_mode in ("internal", "acme") and not tls_domain:
+        sys.exit(
+            f"error: tls.domain must be set when tls.mode is '{tls_mode}'.\n"
+            f"Set it in {SETTINGS_YAML.name} and re-run ./prepare.py."
+        )
 
 
 def render_settings_env(settings: Dict[str, Any]) -> None:
@@ -218,9 +259,17 @@ def render_settings_env(settings: Dict[str, Any]) -> None:
         "",
         "# Host ports published by the ssh-reverse-proxy and frontend-proxy",
         "# services. frontend-proxy (Caddy) fronts the Flask web and the Vue",
-        "# SPA on a single host port.",
+        "# SPA on a single host port. When TLS is enabled, HTTP_HOST_PORT",
+        "# serves the HTTP→HTTPS redirect and HTTPS_HOST_PORT serves HTTPS.",
         f"SSH_HOST_PORT={settings['ports']['ssh_host_port']}",
         f"HTTP_HOST_PORT={settings['ports']['http_host_port']}",
+        f"HTTPS_HOST_PORT={settings['ports']['https_host_port']}",
+        "",
+        "# TLS mode for the frontend-proxy. off = plain HTTP,",
+        "# internal = self-signed certificate, acme = Let's Encrypt.",
+        f"TLS_MODE={settings['tls']['mode']}",
+        f"TLS_DOMAIN={settings['tls']['domain'] or ''}",
+        f"TLS_REDIRECT_HTTP={'true' if settings['tls'].get('redirect_http_to_https') else 'false'}",
         "",
         "# Flask session / CSRF signing key. Rotating invalidates all",
         "# existing user sessions.",
@@ -258,6 +307,7 @@ def generate_docker_compose(settings: Dict[str, Any]) -> None:
         cgroup_parent=cgroup_parent,
         instances_cgroup_parent=instances_cgroup_parent,
         binfmt_support=settings["runtime"]["binfmt_support"],
+        tls_mode=settings["tls"]["mode"],
     )
     COMPOSE_OUT.write_text(render_out)
 
