@@ -56,7 +56,7 @@ def build_default_settings() -> Dict[str, Any]:
         },
         "tls": {
             # off = plain HTTP, internal = self-signed, acme = Let's Encrypt
-            "mode": "internal",
+            "mode": "off",
             "domain": None,
             # Redirect HTTP to HTTPS (only applies to internal and acme modes).
             "redirect_http_to_https": False,

@@ -94,25 +94,11 @@ jobs:
       - name: Set up Python
         run: uv python install ${{ env.PYTHON_VERSION }}
 
-      - name: Install Python dependencies for ctrl.sh
-        run: pip install jinja2
+      - name: Install Python dependencies for prepare.py
+        run: pip install jinja2 pyyaml
 
-      - name: Create settings.env
-        run: |
-          DOCKER_GID=$(getent group docker | cut -d: -f3)
-          cat > settings.env << EOF
-          DEBUG=1
-          MAINTENANCE_ENABLED=0
-          ADMIN_PASSWORD=TestAdmin123!
-          DOCKER_GROUP_ID=${DOCKER_GID}
-          SSH_HOST_PORT=2222
-          HTTP_HOST_PORT=8000
-          SECRET_KEY=TestSecretKeyForCI12345
-          SSH_TO_WEB_KEY=TestSSHToWebKeyForCI
-          POSTGRES_PASSWORD=TestPostgresPassword123!
-          EOF
-          # Remove leading whitespace from each line
-          sed -i 's/^[[:space:]]*//' settings.env
+      - name: Generate configuration
+        run: ./prepare.py
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
