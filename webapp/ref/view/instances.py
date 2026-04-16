@@ -25,8 +25,10 @@ def get_newest_exercise_version(exercise: Exercise):
     exercises = Exercise.query.filter(Exercise.short_name == exercise.short_name).all()
     new_exercise = list(
         filter(
-            lambda e: e.version > exercise.version
-            and e.build_job_status == ExerciseBuildStatus.FINISHED,
+            lambda e: (
+                e.version > exercise.version
+                and e.build_job_status == ExerciseBuildStatus.FINISHED
+            ),
             exercises,
         )
     )
