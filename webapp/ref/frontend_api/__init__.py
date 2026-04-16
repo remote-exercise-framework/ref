@@ -40,5 +40,6 @@ def spa_api_error(
 
 
 # Importing the submodules registers their routes on `refbp`.
+from . import auth  # noqa: E402,F401
 from . import scoreboard  # noqa: E402,F401
 from . import students  # noqa: E402,F401
