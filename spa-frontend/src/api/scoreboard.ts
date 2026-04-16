@@ -39,3 +39,7 @@ export function getScoreboardConfig(): Promise<ScoreboardConfig> {
 export function getScoreboardSubmissions(): Promise<SubmissionsByChallenge> {
   return apiGet<SubmissionsByChallenge>('/api/scoreboard/submissions');
 }
+
+export function getScoreboardSubmissionsAdmin(): Promise<SubmissionsByChallenge> {
+  return apiGet<SubmissionsByChallenge>('/api/scoreboard/submissions/admin');
+}

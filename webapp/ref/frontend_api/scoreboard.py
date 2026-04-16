@@ -154,8 +154,67 @@ def api_scoreboard_config():
     )
 
 
+def _collect_submissions(*, include_admins: bool) -> dict:
+    """Build the challenge -> team -> entries mapping.
+
+    When *include_admins* is ``False``, submissions by admin users are
+    silently skipped and submissions before the assignment start time
+    are excluded so the public scoreboard only shows student work
+    within the configured window.
+    """
+    scores: dict[str, dict[str, list[dict]]] = defaultdict(lambda: defaultdict(list))
+
+    submissions = Submission.query.options(
+        selectinload(Submission.submission_test_results)
+    ).all()
+
+    for submission in submissions:
+        instance = submission.origin_instance
+        if instance is None:
+            continue
+        user = instance.user
+        if user is None:
+            continue
+        if not include_admins and user.is_admin:
+            continue
+        exercise = instance.exercise
+        if exercise is None:
+            continue
+        cfg = exercise.config
+        if cfg is None or cfg.category is None:
+            continue
+
+        if not include_admins and cfg.submission_deadline_start:
+            if submission.submission_ts < cfg.submission_deadline_start:
+                continue
+
+        if not submission.submission_test_results:
+            continue
+
+        total, breakdown = score_submission(
+            submission.submission_test_results,
+            cfg.per_task_scoring_policies,
+        )
+        if not breakdown:
+            continue
+        team = team_identity(user)
+        scores[exercise.short_name][team].append(
+            {
+                "ts": datetime_to_string(submission.submission_ts),
+                "score": total,
+                "tasks": breakdown,
+            }
+        )
+
+    for challenge in scores.values():
+        for entries in challenge.values():
+            entries.sort(key=lambda e: e["ts"])
+
+    return scores
+
+
 @refbp.route("/api/scoreboard/submissions", methods=("GET",))
-@limiter.limit("20 per minute")
+@limiter.limit("120 per minute")
 def api_scoreboard_submissions():
     """Team-grouped submission scores with per-task breakdown.
 
@@ -176,50 +235,26 @@ def api_scoreboard_submissions():
 
     ``tasks`` values are ``null`` for tasks whose underlying raw score was
     ``None`` (bool-returning tests). Such tasks contribute 0 to ``score``.
+
+    Submissions by admin users are excluded from the public scoreboard.
     """
     _scoreboard_enabled_or_abort()
+    return jsonify(_collect_submissions(include_admins=False))
 
-    scores: dict[str, dict[str, list[dict]]] = defaultdict(lambda: defaultdict(list))
 
-    # Eager-load test results; we always read them now that multi-task
-    # submissions are supported.
-    submissions = Submission.query.options(
-        selectinload(Submission.submission_test_results)
-    ).all()
+@refbp.route("/api/scoreboard/submissions/admin", methods=("GET",))
+@limiter.limit("120 per minute")
+def api_scoreboard_submissions_admin():
+    """Admin variant: includes submissions by admin users.
 
-    for submission in submissions:
-        instance = submission.origin_instance
-        if instance is None:
-            continue
-        exercise = instance.exercise
-        if exercise is None:
-            continue
-        cfg = exercise.config
-        if cfg is None or cfg.category is None:
-            continue
+    Requires an authenticated admin session; returns 403 otherwise.
+    Same response shape as the public endpoint.
+    """
+    from flask_login import current_user
 
-        if not submission.submission_test_results:
-            # Nothing was tested — no meaningful score to plot.
-            continue
+    _scoreboard_enabled_or_abort()
 
-        total, breakdown = score_submission(
-            submission.submission_test_results,
-            cfg.per_task_scoring_policies,
-        )
-        if not breakdown:
-            # Every task was discarded; nothing to show for this submission.
-            continue
-        team = team_identity(instance.user)
-        scores[exercise.short_name][team].append(
-            {
-                "ts": datetime_to_string(submission.submission_ts),
-                "score": total,
-                "tasks": breakdown,
-            }
-        )
+    if not current_user.is_authenticated or not current_user.is_admin:
+        abort(403)
 
-    for challenge in scores.values():
-        for entries in challenge.values():
-            entries.sort(key=lambda e: e["ts"])
-
-    return jsonify(scores)
+    return jsonify(_collect_submissions(include_admins=True))
