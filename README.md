@@ -20,7 +20,7 @@ To inspect or edit `settings.yaml` before the first build, run `./prepare.py` ma
 | `ports` | `ssh_host_port` | 2222 | SSH reverse-proxy listen port |
 | | `http_host_port` | 8080 | HTTP port (plain or redirect) |
 | | `https_host_port` | 8443 | HTTPS port |
-| `tls` | `mode` | `internal` | `off` (plain HTTP), `internal` (self-signed), or `acme` (Let's Encrypt) |
+| `tls` | `mode` | `off` | `off` (plain HTTP), `internal` (self-signed), or `acme` (Let's Encrypt) |
 | | `domain` | — | Required for `internal` and `acme` modes |
 | | `redirect_http_to_https` | `false` | Redirect HTTP port to HTTPS (`internal` and `acme` modes only) |
 | `paths` | `data` | `./data` | Persistent data directory on the host |
