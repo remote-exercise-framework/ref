@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useDisplay } from 'vuetify';
 import { useNavStore } from '../stores/nav';
 import { useTheme } from '../theme/useTheme';
 
 const nav = useNavStore();
 const theme = useTheme();
+const display = useDisplay();
 
 // import.meta.env.DEV is true when Vite serves the app via `vite dev`
 // (HMR); a production `vite build` bakes this to false. The banner is
@@ -32,6 +34,9 @@ const themeLabel = computed(() => {
       return 'Theme: auto — follow system (click for light)';
   }
 });
+
+const stackedNav = computed(() => display.lgAndDown.value);
+const appBarHeight = computed(() => (stackedNav.value ? 112 : 64));
 </script>
 
 <template>
@@ -49,7 +54,12 @@ const themeLabel = computed(() => {
         this instance publicly.
       </span>
     </v-system-bar>
-    <v-app-bar color="background" border="b" class="term-appbar">
+    <v-app-bar
+      color="background"
+      border="b"
+      :height="appBarHeight"
+      :class="['term-appbar', { 'term-appbar--stacked': stackedNav }]"
+    >
       <template #prepend>
         <v-app-bar-title class="term-appbar-title">
           <span class="term-hot">{{ nav.courseName }}</span>
