@@ -24,12 +24,12 @@ The test infrastructure (`tests/helpers/ref_instance.py`) automatically sets thi
 ./ctrl.sh build
 
 # Start services
-# For development, always use --debug and --hot-reloading:
-#   --debug         enables Flask debug mode and verbose logging
-#   --hot-reloading enables Flask auto-reload and runs the spa-frontend
-#                   under `vite dev` (Vite HMR) instead of a static build
-./ctrl.sh up --debug --hot-reloading
-./ctrl.sh up                            # production-style start, no HMR
+./ctrl.sh up --debug                    # debug mode, no HMR
+
+# Rebuild and recreate specific services (e.g. after code changes):
+./ctrl.sh recreate frontend-proxy      # SPA changes
+./ctrl.sh recreate web                  # webapp changes
+./ctrl.sh recreate frontend-proxy web   # both
 
 # Stop services
 ./ctrl.sh stop              # Keep containers
@@ -208,6 +208,10 @@ Client (ssh exercise@host -p 2222)
 - `/data/data/persistance/` - User submissions and instance data
 - `/data/ssh-proxy/` - SSH proxy state
 - `/data/log/` - Application logs
+
+## Data Directory
+
+Never create, edit, or delete files under `data/` unless explicitly asked by the user. This directory contains live exercise definitions, student data, and database files. The exercise import path is configured in `settings.yaml` (default: `ref/exercises`).
 
 ## Code Comments
 
