@@ -53,7 +53,9 @@ function buildSeries() {
   const teams = (props.submissions && props.submissions[props.challengeName]) || {};
   const baseline = findBaseline();
   const mark = getMarkLineColors();
-  return Object.entries(teams).map(([team, points], index) => {
+  return Object.entries(teams).filter(([, points]) =>
+    points.some((e) => Number(e.score) > 0),
+  ).map(([team, points], index) => {
     const parsed = points
       .map((entry) => {
         const d = parseApiDate(entry.ts);
@@ -132,8 +134,12 @@ function buildOption(): EChartsOption {
   const series = buildSeries();
   const xMin = earliestX(series);
   const common = buildCommonOptions(xMin);
+  const totalPoints = series.reduce((n, s) => n + s.data.length, 0);
   return {
     ...common,
+    // ECharts renders a broken zoom slider when there is only one data
+    // point — disable it entirely in that case.
+    ...(totalPoints < 2 ? { dataZoom: [] } : {}),
     tooltip: {
       ...(common.tooltip ?? {}),
       trigger: 'item',
@@ -168,7 +174,7 @@ function buildOption(): EChartsOption {
 function render() {
   if (!root.value) return;
   if (!chart) chart = mountChart(root.value);
-  chart.chart.setOption(buildOption());
+  chart.chart.setOption(buildOption(), { notMerge: true });
 }
 
 let offTheme: (() => void) | null = null;
