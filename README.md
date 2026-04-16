@@ -1,5 +1,5 @@
 ## Remote Exercise Framework (REF)
-The REF framework intends to provide students with an interactive, practical learning environment: For pre-defined tasks, each student can work in an indvidiual Docker container with automated goal verification aiding their progress.
+The REF framework intends to provide students with an interactive, practical learning environment: For pre-defined tasks, each student can work in an individual Docker container with automated goal verification aiding their progress.
 The framework consists of multiple components that have to be built the first time REF is set up and when it is updated. The framework heavily relies on Docker for the runtime environment itself as well as for deploying the different exercises to the students.
 
 The following describes how to build REF, how to run it, and how to upgrade it. To learn more about creating new exercises, head to [exercises.md](./EXERCISES.md).
@@ -51,8 +51,8 @@ The Flask web app (`/`, `/admin/*`, `/api/*`), the Vue student SPA
 a single Caddy reverse proxy (`frontend-proxy/`) on host port 8000.
 Students go to `http://<host>:8000/spa/register` (or whichever landing
 page is configured); admins go to `http://<host>:8000/admin/` (which
-redirects to the exercise view). The SSH entry point for student
-containers is unchanged on port 2222.
+redirects to the exercise view). Student SSH connections go through the
+SSH reverse proxy on port 2222.
 
 In production, `frontend-proxy` serves the Vue SPA as a static bundle
 that is baked into the image at `docker build` time via a multi-stage
@@ -186,14 +186,14 @@ After starting the application, the following services are running on the host:
 This services is the entry server for all SSH connections to the exercises. Based on the clients user name and the public key, incoming SSH connection are forwarded to a container of the respective exercise.
 
 ```
-Hostname: sshserver
+Hostname: ssh-reverse-proxy
 Port: 2222
 ```
 
-#### Webinterface
-The webinterface to manage the exercises and users. This endpoint is alow used by the student to register.
+#### Web Interface
+The web interface for managing exercises and users. Students also use it to register. All HTTP traffic is served through the `frontend-proxy` (Caddy) on port 8000, which reverse-proxies to the `web` (Flask) service internally.
 ```
-Hostname: web
+Hostname: frontend-proxy (host-facing), web (internal Flask app)
 Port: 8000
 User: 0
 Password: See settings.yaml (admin.password)
@@ -203,7 +203,7 @@ Password: See settings.yaml (admin.password)
 The database used to store all information.
 ```
 Hostname: db
-Port: Not expose to the host
+Port: Not exposed to the host
 User: ref
 Database name: ref
 Password: See settings.yaml (secrets.postgres_password)
@@ -216,4 +216,4 @@ The following features are disabled by default and can be enabled from the admin
 Allows students to be organized into named groups with a configurable maximum size. Students pick a group during registration, and admins can manage the available groups and reassign students afterwards. Enable via the `GROUPS_ENABLED` setting and configure the per-group capacity via `GROUP_SIZE`.
 
 #### Scoreboard
-A public leaderboard at `/spa/scoreboard` that ranks students based on their exercise submissions using a Formula 1 style, time-weighted strategy. Exercises can be grouped into assignments. Enable via `SCOREBOARD_ENABLED`; optionally set `LANDING_PAGE` to `scoreboard` to use it as the default landing page.
+A public leaderboard at `/spa/scoreboard` that ranks students based on their exercise submissions. Exercises can be grouped into assignments. Enable via `SCOREBOARD_ENABLED`; optionally set `LANDING_PAGE` to `scoreboard` to use it as the default landing page.
