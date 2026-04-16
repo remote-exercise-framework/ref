@@ -59,9 +59,7 @@ RUN groupadd -g 9999 user && useradd -g 9999 -u 9999 -d /home/user -m -s /bin/ba
 
 WORKDIR /root
 
-COPY container-keys/root_key.pub .ssh/authorized_keys
-RUN chown root:root .ssh/authorized_keys \
-    && chmod 644 .ssh/authorized_keys
+RUN mkdir -p .ssh && chmod 700 .ssh
 
 WORKDIR /home/user
 
@@ -77,11 +75,11 @@ set tabsize 4
 set tabstospaces
 EOF
 
-# Deploy the default ssh-key that is used for authentication by the ssh entry server as user "user".
-RUN mkdir .ssh
-COPY container-keys/user_key.pub .ssh/authorized_keys
-RUN chown root:root .ssh/authorized_keys \
-    && chmod 644 .ssh/authorized_keys
+RUN mkdir .ssh && chmod 700 .ssh
+
+# Directory for master keys volume-mounted from the host at runtime.
+# sshd_config references /etc/ssh/master_keys/%u for key lookup.
+RUN mkdir -p /etc/ssh/master_keys
 
 COPY sshd_config /etc/ssh/sshd_config
 
