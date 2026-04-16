@@ -1,5 +1,7 @@
 FROM python:3.13.1-bookworm
 
+ENV PYTHONIOENCODING=UTF-8
+
 ARG DOCKER_GROUP_ID
 
 # Install dependencies
