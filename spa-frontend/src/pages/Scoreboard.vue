@@ -9,10 +9,12 @@ import {
 import {
   getScoreboardConfig,
   getScoreboardSubmissions,
+  getScoreboardSubmissionsAdmin,
   type ScoreboardConfig,
   type SubmissionsByChallenge,
   type ChallengeCfg,
 } from '../api/scoreboard';
+import { useAuthStore } from '../stores/auth';
 import { strategy } from '../ranking';
 import {
   computeAssignmentStartTimes,
@@ -27,6 +29,9 @@ import Countdown from '../components/scoreboard/Countdown.vue';
 
 const POLL_INTERVAL_MS = 5000;
 
+const auth = useAuthStore();
+const adminView = ref(false);
+
 const config = ref<ScoreboardConfig | null>(null);
 const submissions = ref<SubmissionsByChallenge>({});
 const error = ref<string | null>(null);
@@ -40,9 +45,12 @@ let pollTimer: number | undefined;
 
 async function refresh() {
   try {
+    const fetchSubs = adminView.value
+      ? getScoreboardSubmissionsAdmin()
+      : getScoreboardSubmissions();
     const [cfg, subs] = await Promise.all([
       getScoreboardConfig(),
-      getScoreboardSubmissions(),
+      fetchSubs,
     ]);
     config.value = cfg;
     submissions.value = subs;
@@ -55,6 +63,11 @@ async function refresh() {
       error.value = e instanceof Error ? e.message : String(e);
     }
   }
+}
+
+function toggleAdminView() {
+  adminView.value = !adminView.value;
+  refresh();
 }
 
 onMounted(async () => {
@@ -127,7 +140,7 @@ const assignmentBoundaries = computed(() => {
   if (!config.value) return [];
   const now = Date.now();
   return computeAssignmentStartTimes(assignments.value).filter(
-    (d) => d.getTime() <= now,
+    (b) => b.date.getTime() <= now,
   );
 });
 
@@ -193,6 +206,11 @@ const challengeRanking = computed(() => {
           <span class="term-live-dot" />LIVE
         </span>
         <span class="term-eyebrow term-hot">{{ config.course_name }}</span>
+        <a
+          v-if="auth.isAdmin"
+          class="term-view-toggle"
+          @click.prevent="toggleAdminView"
+        >{{ adminView ? '[ admin view ]' : '[ user view ]' }}</a>
       </div>
       <h1
         class="term-display term-hot-glow"
@@ -292,3 +310,20 @@ const challengeRanking = computed(() => {
     </section>
   </div>
 </template>
+
+<style scoped>
+.term-view-toggle {
+  margin-left: auto;
+  font-family: var(--term-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: rgb(var(--v-theme-secondary));
+  cursor: pointer;
+  user-select: none;
+  transition: color 150ms ease;
+}
+.term-view-toggle:hover {
+  color: rgb(var(--v-theme-primary));
+  text-shadow: 0 0 10px rgba(var(--v-theme-hot-glow), var(--v-hot-glow-alpha));
+}
+</style>
