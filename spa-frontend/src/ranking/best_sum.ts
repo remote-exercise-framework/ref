@@ -17,23 +17,22 @@ function bestPerChallenge(
   assignments: Assignments,
   submissions: SubmissionsByChallenge,
 ): Record<string, Record<string, number>> {
-  const best: Record<string, Record<string, number>> = {};
+  const knownChallenges = new Set<string>();
   for (const challenges of Object.values(assignments || {})) {
-    for (const [name, cfg] of Object.entries(challenges || {})) {
-      const cStart = parseApiDate(cfg.start);
-      const cEnd = parseApiDate(cfg.end);
-      if (!cStart || !cEnd) continue;
-      const teams = (submissions && submissions[name]) || {};
-      if (!best[name]) best[name] = {};
-      for (const team of Object.keys(teams)) {
-        for (const entry of teams[team] || []) {
-          const ts = parseApiDate(entry.ts);
-          if (!ts || ts < cStart || ts > cEnd) continue;
-          const score = Number(entry.score);
-          if (!Number.isFinite(score)) continue;
-          if (!(team in best[name]) || score > best[name][team]) {
-            best[name][team] = score;
-          }
+    for (const name of Object.keys(challenges || {})) {
+      knownChallenges.add(name);
+    }
+  }
+  const best: Record<string, Record<string, number>> = {};
+  for (const [name, teams] of Object.entries(submissions || {})) {
+    if (!knownChallenges.has(name)) continue;
+    if (!best[name]) best[name] = {};
+    for (const team of Object.keys(teams)) {
+      for (const entry of teams[team] || []) {
+        const score = Number(entry.score);
+        if (!Number.isFinite(score)) continue;
+        if (!(team in best[name]) || score > best[name][team]) {
+          best[name][team] = score;
         }
       }
     }
@@ -52,7 +51,7 @@ export function getRanking(
       totals[team] = (totals[team] || 0) + score;
     }
   }
-  return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  return Object.entries(totals).filter(([, score]) => score > 0).sort((a, b) => b[1] - a[1]);
 }
 
 export function computeChartScoresOverTime(
@@ -74,20 +73,21 @@ export function computeChartScoresOverTime(
   }
 
   const events: Ev[] = [];
+  const knownChallenges = new Set<string>();
   for (const challenges of Object.values(assignments || {})) {
-    for (const [name, cfg] of Object.entries(challenges || {})) {
-      const cStart = parseApiDate(cfg.start);
-      const cEnd = parseApiDate(cfg.end);
-      if (!cStart || !cEnd) continue;
-      const teams = (submissions && submissions[name]) || {};
-      for (const team of Object.keys(teams)) {
-        for (const entry of teams[team] || []) {
-          const ts = parseApiDate(entry.ts);
-          if (!ts || ts < cStart || ts > cEnd) continue;
-          const score = Number(entry.score);
-          if (!Number.isFinite(score)) continue;
-          events.push({ ts, team, challenge: name, score });
-        }
+    for (const name of Object.keys(challenges || {})) {
+      knownChallenges.add(name);
+    }
+  }
+  for (const [name, teams] of Object.entries(submissions || {})) {
+    if (!knownChallenges.has(name)) continue;
+    for (const team of Object.keys(teams)) {
+      for (const entry of teams[team] || []) {
+        const ts = parseApiDate(entry.ts);
+        if (!ts) continue;
+        const score = Number(entry.score);
+        if (!Number.isFinite(score)) continue;
+        events.push({ ts, team, challenge: name, score });
       }
     }
   }
@@ -105,8 +105,8 @@ export function computeChartScoresOverTime(
     if (ev.score > prev) {
       totals[ev.team] += ev.score - prev;
       bestPer[ev.team][ev.challenge] = ev.score;
+      out[ev.team].push({ time: ev.ts.getTime(), score: totals[ev.team] });
     }
-    out[ev.team].push({ time: ev.ts.getTime(), score: totals[ev.team] });
   }
 
   for (const team of teamSet) {
