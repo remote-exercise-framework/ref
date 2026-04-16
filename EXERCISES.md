@@ -67,45 +67,32 @@ To ease your work and aid the students during solving the exercises, REF allows 
 > [!NOTE]
 > Automated solution checking requires to set `submission-test: True` in `settings.yml`
 
-The automated tests to run are described as a Python file called `submission_tests`. An exemplary file looks like this:
+The automated tests to run are described as a Python file called `submission_tests`. The simplest form returns a boolean indicating pass/fail:
 
 ```Python
 #!/usr/bin/env python3
 
-# custom imports for this task
 from pathlib import Path
-from typing import List, Optional
-
-import subprocess
-
-
-# REQUIRED IMPORTS
 import ref_utils as rf
+
 rf.ref_util_install_global_exception_hook()
-from ref_utils import print_ok, print_warn, print_err, assert_is_file, assert_is_exec, add_environment_test, add_submission_test, drop_privileges
-
-
-
+from ref_utils import print_ok, print_err, assert_is_file, assert_is_exec, environment_test, submission_test
 
 ################################################################
 
 TARGET_BIN = Path("/home/user/shellcode")
 
-@add_environment_test() # type: ignore
+@environment_test()  # type: ignore
 def test_environment() -> bool:
-    """
-    Test whether all files that should be submitted are in place.
-    """
+    """Check whether all required files are in place."""
     tests_passed = True
     tests_passed &= assert_is_exec(TARGET_BIN)
     return tests_passed
 
 
-@add_submission_test() # type: ignore
+@submission_test()  # type: ignore
 def test_submission() -> bool:
-    """
-    Test if the submitted code successfully solves the exercise.
-    """
+    """Check if the submitted code successfully solves the exercise."""
     ret, out = rf.run_with_payload(['make', '-B'])
     if ret != 0:
         print_err(f'[!] Failed to build! {out}')
@@ -116,17 +103,109 @@ def test_submission() -> bool:
     return True
 
 rf.run_tests()
-
 ```
 
-There's a lot going on, so let's dissect this step-by-step. The Python file needs to import ref_utils, which provides two types of tests and various convenience functions.
+The Python file imports `ref_utils`, which provides two types of tests and various convenience functions.
 
-Functions are converted into either an `environment test` or a `submission test` by using the respective decorator, which registers them. Conceptually, these two types are similar. When testing a submission, first all environment tests are run. If one fails, testing is aborted (and the user informed about the failure). In our example code above, the environment test merely checks whether the student created an executable called `shellcode`. Once all environment tests pass, the submission test(s) will be executed. This two-stage design enables to first test whether all prerequisites are in-place (for example, specific binaries have been compiled) via the environment tests before then checking whether their behavior matches the expected one via the submission tests. A failure in any test will abort the execution of subsequent ones.
+Functions are converted into either an `environment test` or a `submission test` by using the respective decorator, which registers them. When testing a submission, first all environment tests are run. If one fails, testing is aborted (and the student informed about the failure). In the example above, the environment test checks whether an executable called `shellcode` exists. Once all environment tests pass, the submission test is executed. This two-stage design lets you first verify prerequisites (e.g., that specific binaries have been compiled) before checking whether their behavior matches the expected one.
 
-When needed, both decorators accept an optional `group: str` argument (e.g., `@add_submission_test(group="task_part_one")`) by which specific tests can be grouped. Grouping allows to run multiple, independent test groups; in particular, a failure in test group "task_part_one" will not abort the running of "task_part_two".
+When needed, both decorators accept an optional `task_name` argument (e.g., `@submission_test(task_name="part_one")`) by which specific tests can be grouped into independent tasks. A failure in task `"part_one"` will not abort the running of `"part_two"`. Each task can have multiple `@environment_test` functions but only one `@submission_test`.
+
+Finally, `submission_tests` needs to call `rf.run_tests()` to execute all registered tests. To avoid leaking critical information (when hitting unexpected conditions in the submission tests themselves), `ref_utils` suppresses error output using `rf.ref_util_install_global_exception_hook()`. The `ref_utils` module provides various convenience functions, such as colored printing (`print_err`, `print_warn`, `print_ok`) or executing binaries with a specific payload (`rf.run_with_payload(..)`).
+
+### Scored Exercises
+
+The example above uses a boolean return value — the submission either passes or fails. For exercises that need a numeric score (e.g., code coverage percentage, number of tests passed, performance benchmarks), the `@submission_test` function can return a `TestResult` instead of a `bool`.
+
+A `TestResult` carries two fields:
+
+- `success` (`bool`) — whether the submission is considered successful.
+- `score` (`float | None`) — the numeric score achieved. This value is recorded per task and displayed on the scoreboard.
+
+Here is a minimal scored example:
+
+```Python
+#!/usr/bin/env python3
+
+from pathlib import Path
+import ref_utils as rf
+
+rf.ref_util_install_global_exception_hook()
+from ref_utils import (
+    print_ok,
+    print_err,
+    assert_is_file,
+    environment_test,
+    submission_test,
+    TestResult,
+)
+
+################################################################
+
+SO_PATH = Path("/home/user/libgenerator.so")
+
+@environment_test()  # type: ignore
+def test_environment() -> bool:
+    return assert_is_file(SO_PATH)  # type: ignore
 
 
-Finally, `submission_tests` needs to call `rf.run_tests()` to execute all registered tests. To avoid leaking critical information (when hitting unexpected conditions in the submission tests themselves), `ref_utils` suppresses error output using `rf.ref_util_install_global_exception_hook()`. The `ref_utils` module provides various convenience functions, such as colored printing (print_err, print_warn, print_ok) or executing binaries with a specific payload (rf.run_with_payload(..)).
+@submission_test()  # type: ignore
+def test_submission() -> TestResult:
+    coverage = run_coverage_measurement()  # your scoring logic here
+    print_ok(f"[+] You got {coverage:.02f}% coverage")
+    return TestResult(success=True, score=coverage)
+
+rf.run_tests()
+```
+
+The key differences from a pass/fail test:
+
+1. Import `TestResult` from `ref_utils`.
+2. Annotate the `@submission_test` function to return `TestResult` instead of `bool`.
+3. Return `TestResult(success=..., score=...)` where `score` is the raw numeric value.
+
+The raw score is stored in the database and shown on the scoreboard. Admins can optionally configure per-task **scoring policies** in the web interface to transform raw scores into final points. The available scoring modes are:
+
+| Mode | Description | Parameters |
+|------|-------------|------------|
+| `none` (default) | Pass raw score through unchanged | — |
+| `linear` | Linearly map a raw score range to points: `(raw - min_raw) / (max_raw - min_raw) * max_points`, clamped to `[0, max_points]` | `min_raw`, `max_raw`, `max_points` |
+| `threshold` | Award fixed points if raw score meets a threshold, otherwise 0 | `threshold`, `points` |
+| `tiered` | Multiple threshold tiers; the highest matching tier's points are awarded | `tiers` (list of `{above, points}`) |
+| `discard` | Omit the task from scoring entirely (contributes 0, hidden from breakdown) | — |
+
+#### Adapting behavior based on check vs. submit
+
+Students can run `task check` (quick feedback loop) or `task submit` (final graded submission). Use `rf.test_result_will_be_submitted()` to detect which mode the test is running in and adjust accordingly (e.g., run a shorter measurement during check, full measurement during submit):
+
+```Python
+@submission_test()  # type: ignore
+def test_submission() -> TestResult:
+    if rf.test_result_will_be_submitted():
+        duration = 1800  # 30 minutes for final submission
+    else:
+        duration = 10  # quick check
+    score = run_measurement(duration)
+    return TestResult(success=True, score=score)
+```
+
+#### Multi-task scored exercises
+
+Exercises with multiple independently scored parts combine `task_name` with `TestResult`:
+
+```Python
+@submission_test(task_name="correctness")  # type: ignore
+def test_correctness() -> TestResult:
+    passed = run_correctness_checks()
+    return TestResult(success=passed > 0, score=passed)
+
+@submission_test(task_name="performance")  # type: ignore
+def test_performance() -> TestResult:
+    throughput = measure_throughput()
+    return TestResult(success=True, score=throughput)
+```
+
+Each task produces its own `TestResult` and can have its own scoring policy configured in the admin interface. Tasks are independent — a failure in one does not affect the others.
 
 
 
