@@ -3,8 +3,11 @@
 import argparse
 import importlib.machinery
 import importlib.util
+import logging
+from logging.handlers import RotatingFileHandler
 import os
 import sys
+import traceback
 import typing as ty
 import shutil
 from pathlib import Path
@@ -32,12 +35,47 @@ with open("/etc/instance_id", "r") as f:  # type: ignore
 IS_SUBMISSION = os.path.isfile("/etc/is_submission")
 MAX_TEST_OUTPUT_LENGTH = 1024 * 64
 
+_LOG_PATH = "/var/log/ref-task.log"
+
+
+class _SecureRotatingFileHandler(RotatingFileHandler):
+    """RotatingFileHandler that enforces 0600 permissions on every file it creates."""
+
+    def _open(self):
+        old = os.umask(0o077)
+        try:
+            return super()._open()
+        finally:
+            os.umask(old)
+
+
+_error_logger = logging.getLogger("ref.task")
+_error_logger.setLevel(logging.ERROR)
+_log_handler = _SecureRotatingFileHandler(
+    _LOG_PATH, maxBytes=1024 * 1024, backupCount=1
+)
+_log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+_error_logger.addHandler(_log_handler)
+
 
 def finalize_request(req):
     signer = TimedSerializer(KEY, salt="from-container-to-web")
     req["instance_id"] = INSTANCE_ID
     req = signer.dumps(req)
     return req
+
+
+def server_post(url: str, **kwargs) -> requests.Response:
+    """POST to the submission server, handling connection errors gracefully."""
+    try:
+        return requests.post(url, **kwargs)
+    except requests.exceptions.RequestException:
+        _error_logger.error("Request to %s failed:\n%s", url, traceback.format_exc())
+        print_err("[!] Failed to connect to the submission server.")
+        print_err(
+            "[!] Please try again later. If this problem persists, contact a supervisor."
+        )
+        exit(1)
 
 
 def handle_response(resp, expected_status=(200,)) -> ty.Tuple[int, ty.Dict]:
@@ -101,7 +139,7 @@ def cmd_reset(_):
     )
     req = {}
     req = finalize_request(req)
-    res = requests.post("http://ssh-reverse-proxy:8000/api/instance/reset", json=req)
+    res = server_post("http://ssh-reverse-proxy:8000/api/instance/reset", json=req)
     handle_response(res)
 
 
@@ -178,23 +216,24 @@ def _run_tests(
     return captured_output.getvalue(), test_results
 
 
-def cmd_submit(_):
+def cmd_submit(args: argparse.Namespace):
     print_ok("[+] Submitting instance..", flush=True)
 
     test_output, test_results = _run_tests(result_will_be_submitted=True)
     any_test_failed = any([not t.success for t in test_results])
 
-    if any_test_failed:
-        print_warn(
-            "[!] Failing tests may indicate that your solution is erroneous or not complete yet."
-        )
-        print_warn("[!] Are you sure you want to submit? [y/n] ", end="")
-        if not user_answered_yes():
-            exit(0)
-    else:
-        print_ok("[+] Are you sure you want to submit? [y/n] ", end="")
-        if not user_answered_yes():
-            exit(0)
+    if not args.yes:
+        if any_test_failed:
+            print_warn(
+                "[!] Failing tests may indicate that your solution is erroneous or not complete yet."
+            )
+            print_warn("[!] Are you sure you want to submit? [y/n] ", end="")
+            if not user_answered_yes():
+                exit(0)
+        else:
+            print_ok("[+] Are you sure you want to submit? [y/n] ", end="")
+            if not user_answered_yes():
+                exit(0)
 
     if len(test_output) > MAX_TEST_OUTPUT_LENGTH:
         print_err(
@@ -213,7 +252,7 @@ def cmd_submit(_):
     req = {"output": test_output, "test_results": [asdict(e) for e in test_results]}
 
     req = finalize_request(req)
-    res = requests.post("http://ssh-reverse-proxy:8000/api/instance/submit", json=req)
+    res = server_post("http://ssh-reverse-proxy:8000/api/instance/submit", json=req)
     _, ret = handle_response(res)
     print_ok(ret)
 
@@ -273,6 +312,12 @@ def main():
     submit_parser = subparsers.add_parser(
         "submit",
         help="Submit the current state of your work for grading. Your whole instance is submitted.",
+    )
+    submit_parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Skip confirmation prompt and submit immediately.",
     )
     submit_parser.set_defaults(func=cmd_submit)
 
