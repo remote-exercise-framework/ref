@@ -13,6 +13,7 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
 /// Per-connection state stored in the SSH server.
 pub struct ConnectionState {
@@ -529,9 +530,14 @@ impl server::Handler for SshConnection {
         {
             Ok(f) => f,
             Err(e) => {
-                error!("Failed to connect to container: {}", e);
-                let msg = format!("Error: Failed to connect to container: {}\r\n", e);
+                let error_id = Uuid::new_v4();
+                error!("Failed to connect to container [error_id={}]: {}", error_id, e);
+                let msg = format!(
+                    "Error: Internal error (id: {}). If this issue persists, please contact a supervisor and provide the error id.\r\n",
+                    error_id
+                );
                 session.data(channel_id, CryptoVec::from_slice(msg.as_bytes()))?;
+                session.close(channel_id)?;
                 return Ok(());
             }
         };
@@ -620,8 +626,10 @@ impl server::Handler for SshConnection {
         {
             Ok(f) => f,
             Err(e) => {
-                error!("Failed to connect to container: {}", e);
+                let error_id = Uuid::new_v4();
+                error!("Failed to connect to container [error_id={}]: {}", error_id, e);
                 session.channel_failure(channel_id)?;
+                session.close(channel_id)?;
                 return Ok(());
             }
         };
@@ -689,8 +697,10 @@ impl server::Handler for SshConnection {
         {
             Ok(f) => f,
             Err(e) => {
-                error!("Failed to connect to container: {}", e);
+                let error_id = Uuid::new_v4();
+                error!("Failed to connect to container [error_id={}]: {}", error_id, e);
                 session.channel_failure(channel_id)?;
+                session.close(channel_id)?;
                 return Ok(());
             }
         };
