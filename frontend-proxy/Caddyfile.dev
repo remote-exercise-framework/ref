@@ -1,0 +1,33 @@
+{
+	admin off
+	auto_https off
+}
+
+:8000 {
+	log {
+		output stdout
+		format console
+	}
+
+	redir /spa /spa/ 308
+
+	# /admin and /admin/ have no Flask view of their own; route both to
+	# the exercise list (the first item in the admin navbar dropdown).
+	redir /admin /admin/exercise/view 302
+	redir /admin/ /admin/exercise/view 302
+
+	handle /spa/* {
+		reverse_proxy spa-frontend:5173
+	}
+
+	handle_path /static/* {
+		root * /srv/flask-static
+		file_server
+	}
+
+	handle {
+		reverse_proxy web:8000 {
+			header_up X-Tinyproxy {remote_host}
+		}
+	}
+}

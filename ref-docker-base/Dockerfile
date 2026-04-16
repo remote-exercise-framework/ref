@@ -2,8 +2,9 @@ FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# 1. Install packages necessary for setup
-RUN apt update && apt install -y \
+RUN apt update
+
+RUN apt install -y \
     build-essential \
     ca-certificates \
     gcc gcc-multilib g++-multilib \
@@ -32,10 +33,17 @@ RUN apt update && apt install -y \
     strace \
     attr \
     pkg-config \
-    libcairo2-dev
+    libcairo2-dev \
+    gnuplot \
+    curl
 
-COPY requirements.txt /tmp/requirements.txt
-RUN python3 -m pip install --break-system-packages -r /tmp/requirements.txt && rm /tmp/requirements.txt
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+# Install Python dependencies using uv
+COPY pyproject.toml /tmp/pyproject.toml
+RUN cd /tmp && uv pip install --system --break-system-packages . && rm /tmp/pyproject.toml
 
 RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
     && chmod 555 /usr/bin/wait-for
@@ -43,16 +51,8 @@ RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -
 COPY wait-for-host /usr/bin/wait-for-host
 RUN  chmod 555 /usr/bin/wait-for-host
 
-RUN cd /tmp && git clone https://github.com/rofl0r/microsocks.git \
-    && cd microsocks \
-    && make install \
-    && cd .. && rm -rf /tmp/microsocks
-
 # 2. Setup related stuff
 RUN mkdir -p /run/sshd
-
-# Group and user that is used to run the socks proxy related stuff.
-RUN groupadd -g 9911 socks && useradd -g 9911 -u 9911 -s /bin/false socks
 
 # Create user and use its home as workdir
 RUN groupadd -g 9999 user && useradd -g 9999 -u 9999 -d /home/user -m -s /bin/bash user
@@ -135,9 +135,21 @@ COPY mypyrc /etc/mypyrc
 RUN echo "unset environment LINES" >> .gdbinit && \
     echo "unset environment COLUMNS" >> .gdbinit
 
-# Import and install ref-utils
-COPY ref-utils /home/ref-utils
-RUN cd /home/ref-utils && \
-    python3 -m pip install --break-system-packages .
+# Import and install ref-utils in editable mode so a runtime bind-mount of
+# the host source at /opt/ref-utils live-updates the package without a rebuild.
+COPY ref-utils /opt/ref-utils
+RUN cd /opt/ref-utils && \
+    uv pip install --system --break-system-packages -e .
+
+# Install coverage for code coverage collection during e2e tests
+RUN uv pip install --system --break-system-packages coverage
+
+# Copy sitecustomize.py for automatic coverage collection
+# Ubuntu 24.04 uses Python 3.12
+COPY coverage/sitecustomize.py /usr/lib/python3/dist-packages/sitecustomize.py
+RUN chmod 644 /usr/lib/python3/dist-packages/sitecustomize.py
+
+# Create coverage data directory (student containers write to /shared)
+RUN mkdir -p /shared && chmod 777 /shared
 
 RUN rm -rf /tmp/*

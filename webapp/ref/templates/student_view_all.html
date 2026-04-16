@@ -15,6 +15,7 @@ Students
             <th scope="col">#id</th>
             <th scope="col">#Mat.</th>
             <th scope="col">Name</th>
+            <th scope="col">Group</th>
             <th scope="col">#Instances<br>#Submissions</th>
             <th scope='col'></th>
             </tr>
@@ -33,6 +34,15 @@ Students
                 {% endif %}
                 {% if student.is_grading_assistant %}
                 <span class="badge badge-primary">Grading Assistant</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if student.group %}
+                {{ student.group.name }}
+                <br>
+                <small class="text-muted">{{ student.group.users|length }} / {{ max_group_size }}</small>
+                {% else %}
+                —
                 {% endif %}
             </td>
             <td>

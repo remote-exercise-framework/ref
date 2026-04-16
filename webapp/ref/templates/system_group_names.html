@@ -1,0 +1,65 @@
+{% extends "admin_base.html" %}
+
+{% block title %}
+Group Names
+{% endblock %}
+
+{% block admin_content %}
+
+{% if not groups_enabled %}
+<div class="alert alert-warning" role="alert">
+    <strong>Groups are disabled.</strong>
+    Predefined group names defined here have no effect until the
+    <em>Groups enabled</em> switch is turned on in
+    <a href="{{ url_for('ref.view_system_settings') }}">System &rarr; Settings</a>.
+</div>
+{% endif %}
+
+<div class="mb-3">
+    <a class="btn btn-primary" role="button" href="{{ url_for('ref.group_names_create') }}">New List</a>
+</div>
+
+{% if lists %}
+<div class="card">
+    <h4 class="card-header">
+        Predefined Group Name Lists
+    </h4>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th scope="col">#ID</th>
+                <th scope="col">Name</th>
+                <th scope="col">#Names</th>
+                <th scope="col">Enabled at registration</th>
+                <th scope="col"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lst in lists %}
+            <tr>
+                <td scope="row">{{ lst.id }}</td>
+                <td scope="row">{{ lst.name }}</td>
+                <td scope="row">{{ lst.names|length }}</td>
+                <td scope="row">
+                    {% if lst.enabled_for_registration %}
+                    <span class="badge badge-success">yes</span>
+                    {% else %}
+                    <span class="badge badge-secondary">no</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="btn-group">
+                        <a role="button" class="btn btn-outline-success" href="{{ url_for('ref.group_names_edit', list_id=lst.id) }}">Edit</a>
+                        <a role="button" class="btn btn-outline-danger confirm" href="{{ url_for('ref.group_names_delete', list_id=lst.id, next=request.path) }}">Delete</a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<h6 class="text-center">No predefined lists defined yet.</h6>
+{% endif %}
+
+{% endblock %}

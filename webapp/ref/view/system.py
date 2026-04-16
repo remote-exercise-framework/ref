@@ -1,43 +1,52 @@
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
-from flask import current_app, redirect, render_template
+from flask import current_app, render_template
 from functools import partial
-from ref import db, refbp
+from ref import refbp
 from ref.core import DockerClient, admin_required
 from ref.core.util import redirect_to_next
-from ref.model import InstanceEntryService, InstanceService, Submission, Instance
+from ref.model import InstanceEntryService, InstanceService, Instance
 
 
 @dataclass
-class danglingNetwork():
+class danglingNetwork:
     id: str
     name: str
 
+
 @dataclass
-class DanglingContainer():
+class DanglingContainer:
     id: str
     name: str
     status: str
+
 
 def _get_dangling_networks():
     dangling_networks = []
 
     d = DockerClient()
-    networks = d.networks(filters={'name': current_app.config['DOCKER_RESSOURCE_PREFIX']})
+    networks = d.networks(
+        filters={"name": current_app.config["DOCKER_RESSOURCE_PREFIX"]}
+    )
 
-    ssh_container = d.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
+    ssh_proxy_container = d.container(
+        current_app.config["SSH_REVERSE_PROXY_CONTAINER_NAME"]
+    )
 
     for network in networks:
         connected_containers = d.get_connected_container(network)
 
-        if connected_containers and set(connected_containers) != set([ssh_container.id]):
-            #Containers connected (besides the SSH container), ignore it
+        if connected_containers and set(connected_containers) != set(
+            [ssh_proxy_container.id]
+        ):
+            # Containers connected (besides the SSH proxy container), ignore it
             continue
 
         dn = danglingNetwork(network.id, network.name)
         dangling_networks.append(dn)
 
     return dangling_networks
+
 
 def _is_in_db(container_id):
     """
@@ -47,51 +56,71 @@ def _is_in_db(container_id):
         Else, False.
     """
     return (
-        InstanceService.query.filter(InstanceService.container_id == container_id).one_or_none()
-        or InstanceEntryService.query.filter(InstanceEntryService.container_id == container_id).one_or_none()
-        )
+        InstanceService.query.filter(
+            InstanceService.container_id == container_id
+        ).one_or_none()
+        or InstanceEntryService.query.filter(
+            InstanceEntryService.container_id == container_id
+        ).one_or_none()
+    )
 
-def _is_connected_to_sshserver(dc, ssh_container, container):
+
+def _is_connected_to_ssh_proxy(dc, ssh_proxy_container, container):
     """
-    Check whether the container is connected to the SSH server.
+    Check whether the container is connected to the SSH reverse proxy.
     Returns:
-        True, if the container is connected to the SSH server
+        True, if the container is connected to the SSH reverse proxy
         Else, False.
     """
-    if ssh_container == container:
+    if ssh_proxy_container == container:
         return container, True
 
     containers = dc.container_transitive_closure_get_containers(container)
 
-    return container, ssh_container.id in containers
+    return container, ssh_proxy_container.id in containers
+
 
 def _get_dangling_container():
     dangling_container = []
     dc = DockerClient()
-    #Get all container that have a name that contains the provided prefix
-    containers = dc.containers(include_stopped=True, sparse=True, filters={'name': current_app.config['DOCKER_RESSOURCE_PREFIX']})
-    ssh_container = dc.container(current_app.config['SSHSERVER_CONTAINER_NAME'])
+    # Get all container that have a name that contains the provided prefix
+    containers = dc.containers(
+        include_stopped=True,
+        sparse=True,
+        filters={"name": current_app.config["DOCKER_RESSOURCE_PREFIX"]},
+    )
+    ssh_proxy_container = dc.container(
+        current_app.config["SSH_REVERSE_PROXY_CONTAINER_NAME"]
+    )
 
     executor = ThreadPoolExecutor(max_workers=16)
-    is_connected_to_ssh = {}
     is_connected_to_ssh_futures = set()
 
-    is_connected_to_sshserver = partial(_is_connected_to_sshserver, dc, ssh_container)
+    is_connected_to_ssh_proxy_fn = partial(
+        _is_connected_to_ssh_proxy, dc, ssh_proxy_container
+    )
 
     for container in containers:
         if not _is_in_db(container.id):
             container.reload()
-            dangling_container.append(DanglingContainer(container.id, container.name, container.status))
-        is_connected_to_ssh_futures.add(executor.submit(is_connected_to_sshserver, container))
+            dangling_container.append(
+                DanglingContainer(container.id, container.name, container.status)
+            )
+        is_connected_to_ssh_futures.add(
+            executor.submit(is_connected_to_ssh_proxy_fn, container)
+        )
 
     for future in is_connected_to_ssh_futures:
         c, is_connected = future.result()
         if not is_connected:
-            dangling_container.append(DanglingContainer(container.id, container.name, container.status))
+            dangling_container.append(
+                DanglingContainer(container.id, container.name, container.status)
+            )
 
     executor.shutdown()
 
     return dangling_container
+
 
 def _get_old_submissions():
     """
@@ -107,7 +136,8 @@ def _get_old_submissions():
 
     return list(sorted(list(ret), key=lambda e: e.id))
 
-@refbp.route('/system/gc/delete_dangling_networks')
+
+@refbp.route("/system/gc/delete_dangling_networks")
 @admin_required
 def system_gc_delete_dangling_networks():
     """
@@ -122,7 +152,8 @@ def system_gc_delete_dangling_networks():
 
     return redirect_to_next()
 
-@refbp.route('/system/gc/delete_dangling_container')
+
+@refbp.route("/system/gc/delete_dangling_container")
 @admin_required
 def system_gc_delete_dangling_container():
     """
@@ -137,13 +168,15 @@ def system_gc_delete_dangling_container():
 
     return redirect_to_next()
 
-@refbp.route('/system/gc/delete_old_submissions')
+
+@refbp.route("/system/gc/delete_old_submissions")
 @admin_required
 def system_gc_delete_old_submission():
-    #TODO: Implement
+    # TODO: Implement
     return redirect_to_next()
 
-@refbp.route('/system/gc')
+
+@refbp.route("/system/gc")
 @admin_required
 def system_gc():
     """
@@ -152,4 +185,9 @@ def system_gc():
     dangling_networks = _get_dangling_networks()
     dangling_container = _get_dangling_container()
     old_submissions = _get_old_submissions()
-    return render_template('system_gc.html', dangling_networks=dangling_networks, dangling_container=dangling_container, old_submissions=old_submissions)
+    return render_template(
+        "system_gc.html",
+        dangling_networks=dangling_networks,
+        dangling_container=dangling_container,
+        old_submissions=old_submissions,
+    )

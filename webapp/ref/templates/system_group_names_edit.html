@@ -1,0 +1,29 @@
+{% extends "admin_base.html" %}
+{% import "wtf_bootstrap_utils.html" as wtf_utils %}
+
+{% block title %}
+{% if lst %}Edit Group Name List: {{ lst.name }}{% else %}New Group Name List{% endif %}
+{% endblock %}
+
+{% block admin_content %}
+
+<form autocomplete="off" method="POST">
+    {{ form.csrf_token }}
+    <div class="row">
+        <div class="col-lg-8 col-md-12">
+            <div class="form-group">
+                {{ wtf_utils.render_field(form.name, "text") }}
+            </div>
+            <div class="form-group">
+                {{ wtf_utils.render_field(form.enabled_for_registration, "checkbox") }}
+            </div>
+            <div class="form-group">
+                {{ wtf_utils.render_textarea(form.names, rows=20, style="font-family: monospace") }}
+            </div>
+            {{ wtf_utils.render_submit(form.submit) }}
+            <a role="button" class="btn btn-secondary" href="{{ url_for('ref.group_names_view_all') }}">Cancel</a>
+        </div>
+    </div>
+</form>
+
+{% endblock %}

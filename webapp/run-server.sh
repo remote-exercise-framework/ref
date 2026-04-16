@@ -26,6 +26,8 @@ echo "[+] DB is up, starting webserver."
 
 function on_signal() {
     uwsgi --stop "$pid_file_path"
+    # Allow time for coverage data to be written
+    sleep 2
     exit 0
 }
 

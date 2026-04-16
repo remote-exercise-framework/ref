@@ -1,6 +1,3 @@
-[submodule "ssh-wrapper/openssh-portable"]
-	path = ssh-wrapper/openssh-portable
-	url = https://github.com/remote-exercise-framework/ref-openssh-portable.git
 [submodule "ref-docker-base/ref-utils"]
 	path = ref-docker-base/ref-utils
 	url = https://github.com/remote-exercise-framework/ref-utils.git

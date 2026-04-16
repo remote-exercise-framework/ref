@@ -1,0 +1,5 @@
+exclude = [
+    "webapp/ref/static/ace-builds",
+    "ref-linux",
+    "ref-docker-base/ref-utils",
+]

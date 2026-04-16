@@ -7,11 +7,11 @@ mkdir -p data
 
 function txt {
     case "$1" in
-        bold) tput bold 2>/dev/null ;;
-        reset) tput sgr0 2>/dev/null ;;
-        red) tput setaf 1 2>/dev/null ;;
-        green) tput setaf 2 2>/dev/null ;;
-        yellow) tput setaf 3 2>/dev/null ;;
+        bold) tput bold 2>/dev/null || true ;;
+        reset) tput sgr0 2>/dev/null || true ;;
+        red) tput setaf 1 2>/dev/null || true ;;
+        green) tput setaf 2 2>/dev/null || true ;;
+        yellow) tput setaf 3 2>/dev/null || true ;;
     esac
 }
 
@@ -63,7 +63,8 @@ Commands:
         --debug-toolbar       Enable the debug toolbar (never use in production).
         --maintenance         Only allow admin users to login.
         --disable-telegram    Disable error reporting via telegram.
-        --hot-reloading       Enable hot reloading of the server (except .html, .js, .sh files).
+        --hot-reloading       Enable hot reloading of the web server (Python)
+                              and of the spa-frontend container (Vite HMR).
 
   down
       Stop and delete all services and networks. Disconnects all users and orphans running instances.
@@ -149,11 +150,14 @@ if [[ $# -lt 1 ]]; then
 fi
 
 submodules=(
-    "ssh-wrapper/openssh-portable/README.md"
     "ref-docker-base/ref-utils/README.md"
-    "ref-linux/README"
     "webapp/ref/static/ace-builds/README.md"
 )
+
+# ref-linux is only needed for production, not for building/testing
+if [[ -z "${REF_CI_RUN:-}" ]]; then
+    submodules+=("ref-linux/README")
+fi
 
 for m in "${submodules[@]}"; do
     if [[ ! -f "$m" ]]; then
@@ -218,9 +222,34 @@ fi
 
 #Check the .env files used to parametrize the docker-compose file.
 ENV_SETTINGS_FILE="settings.env"
+YAML_SETTINGS_FILE="settings.yaml"
 
-if [[ ! -f $ENV_SETTINGS_FILE ]]; then
-    error "Please copy template.env to $ENV_SETTINGS_FILE and adapt the values"
+# First-run bootstrap: if no configuration exists yet, run prepare.py to
+# generate settings.yaml (with secure random secrets), settings.env,
+# docker-compose.yml, and the container SSH host keys. prepare.py refuses to
+# run if settings.yaml already exists, so this branch only triggers on a
+# fresh setup.
+if [[ ! -f $YAML_SETTINGS_FILE && ! -f $ENV_SETTINGS_FILE ]]; then
+    info "No configuration found, running ./prepare.py for first-run setup"
+    if ! ./prepare.py; then
+        error "Failed to run prepare.py"
+        exit 1
+    fi
+fi
+
+if [[ ! -f $YAML_SETTINGS_FILE || ! -f $ENV_SETTINGS_FILE ]]; then
+    error "Configuration is incomplete: expected both $YAML_SETTINGS_FILE and $ENV_SETTINGS_FILE."
+    error "Delete any leftover file and re-run ./prepare.py to regenerate from scratch."
+    exit 1
+fi
+
+if [[ ! -f "docker-compose.yml" ]]; then
+    error "docker-compose.yml is missing. Delete $YAML_SETTINGS_FILE and re-run ./prepare.py to regenerate it."
+    exit 1
+fi
+
+if [[ ! -f "container-keys/root_key" || ! -f "container-keys/user_key" ]]; then
+    error "Container SSH keys are missing. Delete $YAML_SETTINGS_FILE and re-run ./prepare.py to regenerate them."
     exit 1
 fi
 
@@ -246,6 +275,13 @@ if [[ -z "$HTTP_HOST_PORT" ]]; then
     error "Please set HTTP_HOST_PORT in $ENV_SETTINGS_FILE to the port the entry ssh server should be expose on the host"
     exit 1
 fi
+
+# The spa-frontend service is gated behind the `dev` compose profile so it
+# is only started when --hot-reloading is active. Activate the profile for
+# every ctrl.sh subcommand so profile-gated services can still be
+# built/stopped/inspected; the `up` function unsets this again for prod
+# mode so spa-frontend does not get started there.
+export COMPOSE_PROFILES=dev
 
 if [[ -z "$SECRET_KEY" ]]; then
     error "Please set SECRET_KEY in $ENV_SETTINGS_FILE to a random string"
@@ -284,11 +320,6 @@ else
     fi
 fi
 
-# Generate docker-compose files and generate keys.
-if ! ./prepare.py; then
-    error "Failed to run prepare.py"
-    exit 1
-fi
 
 function update {
     (
@@ -327,7 +358,36 @@ function build {
     )
 }
 
+function check_submodule_sync {
+    # Check if submodules match the commits tracked by the main repo
+    local out_of_sync=()
+    while IFS= read -r line; do
+        # git submodule status prefixes with '-' (not init), '+' (wrong commit), or ' ' (ok)
+        if [[ "$line" == +* ]]; then
+            # Extract submodule path (second field)
+            local path
+            path=$(echo "$line" | awk '{print $2}')
+            out_of_sync+=("$path")
+        fi
+    done < <(git submodule status --recursive)
+
+    if [[ ${#out_of_sync[@]} -gt 0 ]]; then
+        warning "The following submodules do not match the commits tracked by the repository:"
+        for sm in "${out_of_sync[@]}"; do
+            warning "  - $sm"
+        done
+        read -r -p "$(txt bold)$(txt yellow)[?] Update submodules to match? [Y/n] $(txt reset)" answer
+        if [[ -z "$answer" || "$answer" =~ ^[Yy] ]]; then
+            info "=> Updating submodules"
+            git submodule update --init --recursive
+        else
+            warning "Continuing with mismatched submodules."
+        fi
+    fi
+}
+
 function up {
+    check_submodule_sync
     export REAL_HOSTNAME="$(hostname)"
     export DEBUG=false
     export DISABLE_RESPONSE_CACHING=false
@@ -368,6 +428,12 @@ function up {
             ;;
         esac
     done
+
+    if [[ "$HOT_RELOADING" != "true" ]]; then
+        # Prod mode: skip the profile-gated spa-frontend service. Caddy
+        # serves the baked SPA bundle from the frontend-proxy image.
+        unset COMPOSE_PROFILES
+    fi
 
     execute_cmd $DOCKER_COMPOSE -p ref --env-file $ENV_SETTINGS_FILE up "$@"
 }
@@ -412,11 +478,6 @@ function flask-cmd {
     execute_cmd $DOCKER_COMPOSE --env-file $ENV_SETTINGS_FILE -p ref run --rm web bash -c "FLASK_APP=ref python3 -m flask $*"
 }
 
-function are_you_sure {
-    read -r -p "$(txt bold)$(txt green)Are you sure? [y/N] $(txt reset)" yes_no
-    [[ "$yes_no" =~ ^[Yy]$ ]]
-}
-
 cmd="$1"
 shift
 
@@ -431,22 +492,18 @@ case "$cmd" in
         up "$@"
     ;;
     down)
-        are_you_sure || exit 0
         down "$@"
     ;;
     logs)
         log "$@"
     ;;
     stop)
-        are_you_sure || exit 0
         stop "$@"
     ;;
     restart)
-        are_you_sure || exit 0
         restart "$@"
     ;;
     restart-web)
-        are_you_sure || exit 0
         restart web "$@"
     ;;
     ps)

@@ -84,7 +84,8 @@ ChallengeResponseAuthentication no
 UsePAM yes
 
 AllowAgentForwarding no
-AllowTcpForwarding no
+# AllowTcpForwarding no  # TODO: Control via webapp permissions
+AllowTcpForwarding yes
 #GatewayPorts no
 X11Forwarding no
 #X11DisplayOffset 10

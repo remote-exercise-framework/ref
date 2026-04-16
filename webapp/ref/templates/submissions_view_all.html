@@ -20,6 +20,8 @@
                     <th scope="col">#Instance</th>
                     <th scope="col">User</th>
                     <th scope="col">Exercise</th>
+                    <th scope="col">Raw Score</th>
+                    <th scope="col">Passed</th>
                     <th scope="col">Created</th>
                     <th></th>
                 </tr>
@@ -32,6 +34,19 @@
                         <td scope="row">{{ instance.id }}</td>
                         <td scope="row">{{ instance.user.full_name }}</td>
                         <td scope="row">{{ instance.exercise.short_name }} (v{{ instance.exercise.version}})</td>
+                        {% if instance.exercise.submission_test_enabled %}
+                            <td scope="row">{{ "%.2f"|format(submission.test_score) if submission.test_score is not none else '-' }}</td>
+                            {% if submission.test_passed is none %}
+                                <td scope="row">-</td>
+                            {% elif submission.test_passed %}
+                                <td scope="row" class="text-success">Yes</td>
+                            {% else %}
+                                <td scope="row" class="text-danger">No</td>
+                            {% endif %}
+                        {% else %}
+                            <td scope="row">Disabled</td>
+                            <td scope="row">Disabled</td>
+                        {% endif %}
                         <td scope="row">{{ moment(submission.submission_ts).fromNow() }}</td>
                         <td>
                             <a role="button" class="btn btn-outline-success" onclick="displayToast('Copied to clipboard'); return copyStringToClipboard('ssh instance-{{ instance.id  }}@{{ ssh_host }} -p {{ ssh_port }}')">SSH Command</a>

@@ -1,4 +1,0 @@
-colorama
-itsdangerous
-pip-chill
-requests

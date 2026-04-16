@@ -1,0 +1,32 @@
+[run]
+branch = True
+parallel = True
+source = /app/ref, /home/ref-utils
+include =
+    /app/ref/*
+    /home/ref-utils/ref_utils/*
+    /home/user/*
+omit = */tests/*, */__pycache__/*, */migrations/*, */site-packages/*
+data_file = /coverage-data/.coverage
+
+[paths]
+# Map container paths to repository paths for combining
+source =
+    ref/
+    /app/ref/
+ref_utils =
+    ref-docker-base/ref-utils/ref_utils/
+    /home/ref-utils/ref_utils/
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+    raise NotImplementedError
+    if __name__ == .__main__.:
+
+[html]
+directory = /coverage-data/htmlcov
+
+[xml]
+output = /coverage-data/coverage.xml

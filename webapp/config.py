@@ -1,50 +1,60 @@
 import os
 
+
 def env_var_to_bool_or_false(env_key):
     val = os.environ.get(env_key, False)
     if val is False:
         return val
     assert isinstance(val, str)
-    return val == '1' or val.lower() == 'true'
+    return val == "1" or val.lower() == "true"
 
-class Config():
+
+class Config:
     """
     A configuration that can be loaded via the .from_object() method provided by the Flask
     config object.
     """
-class ReleaseConfig(Config):
-    BASEDIR = '/data'
-    DATADIR = os.path.join(BASEDIR, 'data')
-    DBDIR = os.path.join(DATADIR, 'db')
 
-    POSTGRES_USER = os.environ['POSTGRES_USER']
-    POSTGRES_DB = os.environ['POSTGRES_DB']
-    POSTGRES_PASSWORD = os.environ['POSTGRES_PASSWORD']
-    SQLALCHEMY_DATABASE_URI = f'postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@db/{POSTGRES_DB}'
+
+class ReleaseConfig(Config):
+    BASEDIR = "/data"
+    DATADIR = os.path.join(BASEDIR, "data")
+    DBDIR = os.path.join(DATADIR, "db")
+    LOG_DIR = os.path.join(BASEDIR, "logs")
+
+    POSTGRES_USER = os.environ["POSTGRES_USER"]
+    POSTGRES_DB = os.environ["POSTGRES_DB"]
+    POSTGRES_PASSWORD = os.environ["POSTGRES_PASSWORD"]
+    SQLALCHEMY_DATABASE_URI = (
+        f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@db/{POSTGRES_DB}"
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    EXERCISES_PATH = '/exercises'
-    IMPORTED_EXERCISES_PATH = os.path.join(DATADIR, 'imported_exercises')
-    PERSISTANCE_PATH =  os.path.join(DATADIR, 'persistance')
-    SQLALCHEMY_MIGRATE_REPO = 'migrations'
+    EXERCISES_PATH = "/exercises"
+    IMPORTED_EXERCISES_PATH = os.path.join(DATADIR, "imported_exercises")
+    PERSISTANCE_PATH = os.path.join(DATADIR, "persistance")
+    SQLALCHEMY_MIGRATE_REPO = "migrations"
 
     LOGIN_DISABLED = False
 
-    ADMIN_PASSWORD = os.environ['ADMIN_PASSWORD']
-    SSH_HOST_PORT = os.environ['SSH_HOST_PORT']
+    ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
+    SSH_HOST_PORT = os.environ["SSH_HOST_PORT"]
 
     # The container name of the ssh entry server.
     # NOTE: Filled during initialization.
     SSHSERVER_CONTAINER_NAME = None
+    # Optional additional SSH proxy container (e.g., Rust SSH proxy)
+    # NOTE: Filled during initialization if available.
+    RUST_SSH_PROXY_CONTAINER_NAME = None
 
-    SECRET_KEY = os.environ['SECRET_KEY']
-    SSH_TO_WEB_KEY = os.environ['SSH_TO_WEB_KEY']
+    SECRET_KEY = os.environ["SECRET_KEY"]
+    SSH_TO_WEB_KEY = os.environ["SSH_TO_WEB_KEY"]
 
-    #Docker image that servers as base for all exercises
-    BASE_IMAGE_NAME = 'remote-exercises-framework-exercise-base:latest'
+    # Docker image that servers as base for all exercises
+    BASE_IMAGE_NAME = "remote-exercises-framework-exercise-base:latest"
 
-    #Prefix for container and network names created by REF
-    DOCKER_RESSOURCE_PREFIX = 'ref-ressource-'
+    # Prefix for container and network names created by REF
+    DOCKER_RESSOURCE_PREFIX = "ref-ressource-"
 
     # This is a hard limit and determines howmany CPUs an instance
     # can use.
@@ -59,15 +69,15 @@ class ReleaseConfig(Config):
     If --memory-swap is unset, the container is allowed to use X*2 swap in adddition
     to the 'real' memory.
     """
-    INSTANCE_CONTAINER_MEM_LIMIT = '256m'
+    INSTANCE_CONTAINER_MEM_LIMIT = "256m"
 
     # Must be >= INSTANCE_CONTAINER_MEM_LIMIT.
     # The size of the swap is INSTANCE_CONTAINER_MEM_PLUS_SWAP_LIMIT - INSTANCE_CONTAINER_MEM_LIMIT.
     # So, setting it to the same value as INSTANCE_CONTAINER_MEM_LIMIT disables
     # swapping.
-    INSTANCE_CONTAINER_MEM_PLUS_SWAP_LIMIT = '256m'
+    INSTANCE_CONTAINER_MEM_PLUS_SWAP_LIMIT = "256m"
 
-    INSTANCE_CONTAINER_MEM_KERNEL_LIMIT = '256m'
+    INSTANCE_CONTAINER_MEM_KERNEL_LIMIT = "256m"
 
     # Number of PIDs an instance is allowed to allocate.
     INSTANCE_CONTAINER_PIDS_LIMIT = 512
@@ -75,12 +85,12 @@ class ReleaseConfig(Config):
     # The capabilities granted by default to instance containers.
     INSTANCE_CAP_WHITELIST = [
         # Capabilities needed to run the per instance SSH-Server inside the container.
-        'SYS_CHROOT',
-        'SETUID',
-        'SETGID',
-        'CHOWN',
-        'CAP_DAC_OVERRIDE',
-        'AUDIT_WRITE', # sshd audit logging
+        "SYS_CHROOT",
+        "SETUID",
+        "SETGID",
+        "CHOWN",
+        "CAP_DAC_OVERRIDE",
+        "AUDIT_WRITE",  # sshd audit logging
     ]
 
     # The parent cgroup for REF. This group has two child groups.
@@ -88,20 +98,25 @@ class ReleaseConfig(Config):
     # a another one for the instance containers. For now we leave the cgroup
     # settings alone, such that both child groups are guranteed 50% CPU time
     # in case of contention.
-    INSTANCES_CGROUP_PARENT = os.environ.get('INSTANCES_CGROUP_PARENT', None)
+    INSTANCES_CGROUP_PARENT = os.environ.get("INSTANCES_CGROUP_PARENT", None)
 
-    #If True, only admin are allowed to use the API.
-    MAINTENANCE_ENABLED = env_var_to_bool_or_false('MAINTENANCE_ENABLED')
+    # If True, only admin are allowed to use the API.
+    MAINTENANCE_ENABLED = env_var_to_bool_or_false("MAINTENANCE_ENABLED")
 
     # TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
     # TELEGRAM_BOT_CHAT_ID = os.environ.get('TELEGRAM_BOT_CHAT_ID')
 
-    DISABLE_TELEGRAM = env_var_to_bool_or_false('DISABLE_TELEGRAM')
+    DISABLE_TELEGRAM = env_var_to_bool_or_false("DISABLE_TELEGRAM")
 
-    DEBUG_TOOLBAR = env_var_to_bool_or_false('DEBUG_TOOLBAR')
+    DEBUG_TOOLBAR = env_var_to_bool_or_false("DEBUG_TOOLBAR")
     DEBUG_TB_ENABLED = DEBUG_TOOLBAR
 
-    DISABLE_RESPONSE_CACHING = env_var_to_bool_or_false('DISABLE_RESPONSE_CACHING')
+    DISABLE_RESPONSE_CACHING = env_var_to_bool_or_false("DISABLE_RESPONSE_CACHING")
+
+    # Flask-Limiter rate limiting (enabled by default, can be disabled for testing)
+    # Set RATELIMIT_ENABLED=0 or RATELIMIT_ENABLED=false to disable
+    _ratelimit_env = os.environ.get("RATELIMIT_ENABLED", "1")
+    RATELIMIT_ENABLED = _ratelimit_env == "1" or _ratelimit_env.lower() == "true"
 
     # The port we are listinging on for TCP forwarding requests.
     SSH_PROXY_LISTEN_PORT = 8001
@@ -111,11 +126,22 @@ class ReleaseConfig(Config):
 
     SSH_PROXY_CONNECTION_TIMEOUT = 120
 
+    # Timeout in seconds for waiting to acquire database advisory lock.
+    # If exceeded, DatabaseLockTimeoutError is raised.
+    DB_LOCK_TIMEOUT_SECONDS = 60
+
+    # Log a warning if acquiring the database lock takes longer than this.
+    DB_LOCK_SLOW_THRESHOLD_SECONDS = 5
+
+
 class DebugConfig(ReleaseConfig):
     debug = True
     DEBUG = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
     TEMPLATES_AUTO_RELOAD = True
 
-    #SQLALCHEMY_ECHO = True
-    #LOGIN_DISABLED = False
+    # SQLALCHEMY_ECHO = True
+    # LOGIN_DISABLED = False
+
+
+# TestConfig is in config_test.py to avoid triggering env var lookups at import time

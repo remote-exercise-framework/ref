@@ -1,0 +1,6 @@
+pyproject.toml
+setup.py
+remote_exercise_framework.egg-info/PKG-INFO
+remote_exercise_framework.egg-info/SOURCES.txt
+remote_exercise_framework.egg-info/dependency_links.txt
+remote_exercise_framework.egg-info/top_level.txt

@@ -1,33 +1,11 @@
 version: "3.7"
+volumes:
+    caddy-data:
+{% if testing %}
+    coverage-data:
+        name: "{{ prefix }}_coverage_data"
+{% endif %}
 services:
-    sshserver:
-        init: true
-        environment:
-            - DEBUG=${DEBUG:?"DEBUG not set"}
-            - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
-        build:
-            context: ./ssh-wrapper
-            args:
-                SSH_TO_WEB_KEY: ${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
-    {% if not testing %}
-        ports:
-            - "${SSH_HOST_PORT:?SSH_HOST_PORT not set}:4444"
-    {% endif %}
-        volumes:
-            - ./ssh-wrapper/ssh-wrapper.py:/usr/bin/ssh-wrapper.py:ro
-            - ./ssh-wrapper/ssh-server-keys:/ssh-server-keys:rw
-        networks:
-            - ssh-and-host
-            - ssh-proxy-and-ssh
-            - web-and-ssh
-        cgroup_parent: "{{ cgroup_parent }}-core.slice"
-        cap_drop:
-            - ALL
-        cap_add:
-            - SYS_CHROOT
-            - SETUID
-            - SETGID
-            - CHOWN
     db:
         init: true
         image: postgres:17.2
@@ -43,7 +21,6 @@ services:
             - REAL_HOSTNAME=${REAL_HOSTNAME}
         networks:
             - web-and-db
-            - ssh-proxy-and-db
         cgroup_parent: "{{ cgroup_parent }}-core.slice"
         cap_drop:
             - ALL
@@ -66,14 +43,15 @@ services:
 
     web:
         init: true
+        hostname: web
         security_opt:
             #Needed for mounting overlay inside containers
             - apparmor:unconfined
         environment:
             - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD not set}
             - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
-            - DEBUG=${DEBUG:?DEBUG not set}
-            - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
+            - DEBUG=${DEBUG:-0}
+            - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:-0}
             - POSTGRES_USER=ref
             - POSTGRES_DB=ref
             - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
@@ -84,8 +62,14 @@ services:
             - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
             - HOT_RELOADING=${HOT_RELOADING}
             - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
+            - RATELIMIT_ENABLED=${RATELIMIT_ENABLED}
+            - DOCKER_RESSOURCE_PREFIX=${DOCKER_RESSOURCE_PREFIX:-}
             - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
             - REAL_HOSTNAME=${REAL_HOSTNAME}
+{% if testing %}
+            - COVERAGE_PROCESS_START=/coverage-config/.coveragerc
+            - COVERAGE_CONTAINER_NAME=web
+{% endif %}
         cap_add:
             - SYS_ADMIN
         build:
@@ -108,59 +92,138 @@ services:
             - {{ exercises_path }}:/exercises
             #Make docker availabe inside the container
             - /var/run/docker.sock:/var/run/docker.sock
-        {% if not testing %}
-        ports:
-            - "${HTTP_HOST_PORT}:8000"
-        {% endif %}
+            #Source for ref-utils, bind-mounted read-only into student
+            #instances so edits on the host apply without rebuilding images.
+            - type: bind
+              source: {{ ref_utils_path }}
+              target: /ref-utils
+              read_only: true
+{% if testing %}
+            - coverage-data:/coverage-data:rw
+            - ./coverage:/coverage-config:ro
+{% endif %}
         networks:
             - web-host
             - web-and-ssh
             - web-and-db
         depends_on:
             - db
-            - sshserver
         cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
-    ssh-proxy:
+    # Caddy reverse proxy that fronts the whole web interface on a single
+    # host port. Routes /spa/* to the SPA (vite dev in dev mode, baked
+    # static bundle in prod) and /static/* directly from webapp/ref/static;
+    # everything else is reverse-proxied to the Flask web container. The
+    # SPA build artifact is baked into this image at docker build time via
+    # a multi-stage Dockerfile, so prod does not need `vite preview` or a
+    # shared volume. Dev selection is done at container start by
+    # entrypoint.sh based on $HOT_RELOADING.
+    frontend-proxy:
         init: true
-        command: "bash -c \"cd /app && python -c 'import ref; ref.create_ssh_proxy()'\""
-        environment:
-            - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD not set}
-            - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
-            - DEBUG=${DEBUG:?DEBUG not set}
-            - MAINTENANCE_ENABLED=${MAINTENANCE_ENABLED:?MAINTENANCE_ENABLED not set}
-            - POSTGRES_USER=ref
-            - POSTGRES_DB=ref
-            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set}
-            - SECRET_KEY=${SECRET_KEY:?SECRET_KEY not set}
-            - SSH_HOST_PORT=${SSH_HOST_PORT:?SSH_HOST_PORT not set}
-            - ADMIN_SSH_KEY=${ADMIN_SSH_KEY}
-            - DISABLE_TELEGRAM=${DISABLE_TELEGRAM}
-            - DEBUG_TOOLBAR=${DEBUG_TOOLBAR}
-            - HOT_RELOADING=${HOT_RELOADING}
-            - DISABLE_RESPONSE_CACHING=${DISABLE_RESPONSE_CACHING}
-            - INSTANCES_CGROUP_PARENT={{ instances_cgroup_parent }}
-            - REAL_HOSTNAME=${REAL_HOSTNAME}
+        hostname: frontend-proxy
         build:
-            context: "./webapp"
-            args:
-                #Pass the hosts docker group id, since we are using the docker socket from the host.
-                DOCKER_GROUP_ID: ${DOCKER_GROUP_ID:?DOCKER_GROUP_ID not set}
+            context: .
+            dockerfile: frontend-proxy/Dockerfile
+        environment:
+            - HOT_RELOADING=${HOT_RELOADING:-false}
+            - TLS_MODE=${TLS_MODE:-off}
+            - DOMAIN=${TLS_DOMAIN:-}
+            - HTTPS_HOST_PORT=${HTTPS_HOST_PORT:-8443}
+            - REDIRECT_HTTP_TO_HTTPS=${TLS_REDIRECT_HTTP:-false}
         volumes:
-            #Persistance folder (db, templates, ...)
-            #The mounts need to be propageted, thus we can mount mounts created
-            #in this container from the host into other containers
-            - type: bind
-              source: {{ data_path }} # NOTE: Indented with two spaces!!!
-              target: /data # NOTE: Indented with two spaces!!!
-            #The webinterface, only needed for live updating during development
-            - ./webapp/:/app
+            # Serve Flask's static assets directly from Caddy, skipping
+            # uWSGI. Read-only to keep the proxy sandboxed.
+            - ./webapp/ref/static:/srv/flask-static:ro
+            # Persist Caddy's TLS certificates and ACME state across
+            # container restarts. Essential for acme mode (avoids
+            # hitting Let's Encrypt rate limits).
+            - caddy-data:/data
+    {%- if not testing %}
+        ports:
+    {%- if tls_mode == 'off' %}
+            - "${HTTP_HOST_PORT}:8000"
+    {%- elif tls_mode == 'internal' %}
+            - "${HTTP_HOST_PORT}:8080"
+            - "${HTTPS_HOST_PORT}:8443"
+    {%- elif tls_mode == 'acme' %}
+            - "${HTTP_HOST_PORT}:80"
+            - "${HTTPS_HOST_PORT}:443"
+    {%- endif %}
+    {%- endif %}
         networks:
-            - ssh-proxy-and-ssh
-            - ssh-proxy-and-db
+            - web-host
         depends_on:
-            - db
-            - sshserver
+            - web
+        cgroup_parent: "{{ cgroup_parent }}-core.slice"
+        healthcheck:
+    {%- if tls_mode == 'off' %}
+            test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/static/favicon.ico"]
+    {%- elif tls_mode == 'internal' %}
+            test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://localhost:8443/static/favicon.ico"]
+    {%- elif tls_mode == 'acme' %}
+            test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://localhost:443/static/favicon.ico"]
+    {%- endif %}
+            interval: 10s
+            timeout: 3s
+            retries: 5
+            start_period: 5s
+
+    # Vue 3 + Vuetify SPA dev server. Only started in the `dev` compose
+    # profile (ctrl.sh adds --profile dev when --hot-reloading is set).
+    # In dev it runs `vite dev` with HMR against the host bind-mounted
+    # source; frontend-proxy reverse-proxies /spa/* to this container's
+    # port 5173 (including Vite's HMR websocket). In prod this service
+    # is not started at all — frontend-proxy serves the baked SPA bundle.
+    spa-frontend:
+        init: true
+        hostname: spa-frontend
+        profiles:
+            - dev
+        build:
+            context: ./spa-frontend
+        environment:
+            - HOT_RELOADING=${HOT_RELOADING:-false}
+        volumes:
+            # Bind-mount the host source so Vite sees live edits. The
+            # anonymous volume below shields node_modules from the overlay
+            # so deps installed at build time remain available.
+            - ./spa-frontend/:/spa-frontend
+            - /spa-frontend/node_modules
+        networks:
+            - web-host
+        depends_on:
+            - web
+        cgroup_parent: "{{ cgroup_parent }}-core.slice"
+
+    # Rust-based SSH reverse proxy
+    ssh-reverse-proxy:
+        init: true
+        hostname: ssh-reverse-proxy
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+        build:
+            context: ./ssh-reverse-proxy
+            dockerfile: Dockerfile
+        environment:
+            - SSH_LISTEN_ADDR=0.0.0.0:2222
+            - API_BASE_URL=http://web:8000
+            - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
+            - CONTAINER_SSH_PORT=13370
+            - RUST_LOG=ref_ssh_proxy=info,russh=warn
+        volumes:
+            - ./container-keys:/keys:ro
+            - ./data/ssh-proxy:/data
+    {% if not testing %}
+        ports:
+            - "${SSH_HOST_PORT:-2222}:2222"
+    {% endif %}
+        networks:
+            - web-and-ssh
+            - ssh-and-host
+        depends_on:
+            - web
         cgroup_parent: "{{ cgroup_parent }}-core.slice"
 
 networks:
@@ -168,35 +231,23 @@ networks:
     web-host:
         driver: bridge
         driver_opts:
-            com.docker.network.bridge.name: "brref-webhost{{ 't' if testing }}"
-    #Interface between the SSH entry server and the webinterface.
-    #This interface is used by the SSH server to retrive information
-    #on how a incoming connection should be routed.
+            com.docker.network.bridge.name: "br-{{ 'reft-' + bridge_id + '-wh' if testing else 'whost-ref' }}"
+    #Interface between the SSH reverse proxy and the webinterface.
+    #This interface is used by the SSH proxy to retrieve information
+    #on how an incoming connection should be routed.
     web-and-ssh:
         driver: bridge
         internal: true
         driver_opts:
-            com.docker.network.bridge.name: "brref-webtossh{{ 't' if testing }}"
-    #This network connects the SSH entry server to the host.
+            com.docker.network.bridge.name: "br-{{ 'reft-' + bridge_id + '-ws' if testing else 'w2ssh-ref' }}"
+    #This network connects the SSH reverse proxy to the host.
     ssh-and-host:
         driver: bridge
         driver_opts:
-            com.docker.network.bridge.name: "brref-sshhost{{ 't' if testing }}"
+            com.docker.network.bridge.name: "br-{{ 'reft-' + bridge_id + '-sh' if testing else 'shost-ref' }}"
     #Connect web to postgres
     web-and-db:
         driver: bridge
         internal: true
         driver_opts:
-            com.docker.network.bridge.name: "brref-webtodb{{ 't' if testing }}"
-
-    ssh-proxy-and-ssh:
-        driver: bridge
-        internal: true
-        driver_opts:
-            com.docker.network.bridge.name: "brref-sshpro{{ 't' if testing }}"
-
-    ssh-proxy-and-db:
-        driver: bridge
-        internal: true
-        driver_opts:
-            com.docker.network.bridge.name: "brref-prodb{{ 't' if testing }}"
+            com.docker.network.bridge.name: "br-{{ 'reft-' + bridge_id + '-wd' if testing else 'w2db-ref' }}"

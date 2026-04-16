@@ -1,8 +1,25 @@
-from .docker import DockerClient
-from .error import InconsistentStateError, inconsistency_on_error
-from .exercise import ExerciseConfigError, ExerciseManager
-from .image import ExerciseImageManager
-from .instance import InstanceManager
-from .security import admin_required, grading_assistant_required
-from .util import (AnsiColorUtil, utc_datetime_to_local_tz, datetime_to_string,
-                   failsafe, unavailable_during_maintenance, datetime_transmute_into_local)
+from .docker import DockerClient as DockerClient
+from .error import InconsistentStateError as InconsistentStateError
+from .error import inconsistency_on_error as inconsistency_on_error
+from .exercise import ExerciseConfigError as ExerciseConfigError
+from .exercise import ExerciseManager as ExerciseManager
+from .image import ExerciseImageManager as ExerciseImageManager
+from .instance import InstanceManager as InstanceManager
+from .user import UserManager as UserManager
+from .security import admin_required as admin_required
+from .security import grading_assistant_required as grading_assistant_required
+from .util import AnsiColorUtil as AnsiColorUtil
+from .util import utc_datetime_to_local_tz as utc_datetime_to_local_tz
+from .util import datetime_to_string as datetime_to_string
+from .util import failsafe as failsafe
+from .util import unavailable_during_maintenance as unavailable_during_maintenance
+from .util import datetime_transmute_into_local as datetime_transmute_into_local
+from .scoring import (
+    apply_scoring as apply_scoring,
+    score_submission as score_submission,
+    team_identity as team_identity,
+    validate_scoring_policy as validate_scoring_policy,
+)
+from .task_discovery import (
+    extract_task_names_from_submission_tests as extract_task_names_from_submission_tests,
+)
