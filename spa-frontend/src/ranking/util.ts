@@ -69,16 +69,11 @@ export function getBadges(
 ): Badges {
   const out: Badges = {};
   for (const challenges of Object.values(assignments || {})) {
-    for (const [challenge, cfg] of Object.entries(challenges || {})) {
-      const cStart = parseApiDate(cfg.start);
-      const cEnd = parseApiDate(cfg.end);
-      if (!cStart || !cEnd) continue;
+    for (const [challenge] of Object.entries(challenges || {})) {
       const teams = (submissions && submissions[challenge]) || {};
       for (const team of Object.keys(teams)) {
         let earned = false;
         for (const entry of teams[team] || []) {
-          const ts = parseApiDate(entry.ts);
-          if (!ts || ts < cStart || ts > cEnd) continue;
           if (Number(entry.score) > 0) {
             earned = true;
             break;
@@ -138,18 +133,20 @@ export function getActiveAssignmentName(
   return activeName ?? upcomingName;
 }
 
+export type AssignmentBoundary = { name: string; date: Date };
+
 export function computeAssignmentStartTimes(
   assignments: Assignments,
-): Date[] {
-  const times: Date[] = [];
-  for (const challenges of Object.values(assignments || {})) {
+): AssignmentBoundary[] {
+  const boundaries: AssignmentBoundary[] = [];
+  for (const [name, challenges] of Object.entries(assignments || {})) {
     let earliest: Date | null = null;
     for (const ch of Object.values(challenges || {}) as ChallengeCfg[]) {
       const s = parseApiDate(ch.start);
       if (s && (!earliest || s < earliest)) earliest = s;
     }
-    if (earliest) times.push(earliest);
+    if (earliest) boundaries.push({ name, date: earliest });
   }
-  times.sort((a, b) => a.getTime() - b.getTime());
-  return times;
+  boundaries.sort((a, b) => a.date.getTime() - b.date.getTime());
+  return boundaries;
 }

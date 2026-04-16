@@ -13,10 +13,11 @@ import {
   type ManagedChart,
 } from './chartSetup';
 import type { ScoresOverTime } from '../../ranking/types';
+import type { AssignmentBoundary } from '../../ranking/util';
 
 const props = defineProps<{
   scoresOverTime: ScoresOverTime;
-  assignmentBoundaries: Date[];
+  assignmentBoundaries: AssignmentBoundary[];
 }>();
 
 const root = ref<HTMLDivElement | null>(null);
@@ -58,15 +59,15 @@ function buildSeries() {
             verticalAlign: 'middle' as const,
             color: mark.label,
             formatter: ({ dataIndex }: { dataIndex: number }) =>
-              `Assignment ${dataIndex + 1}`,
+              props.assignmentBoundaries[dataIndex]?.name ?? `Assignment ${dataIndex + 1}`,
           },
           lineStyle: {
             color: mark.line,
             type: 'dashed' as const,
             width: 1,
           },
-          data: props.assignmentBoundaries.map((time) => ({
-            xAxis: time.getTime(),
+          data: props.assignmentBoundaries.map((b) => ({
+            xAxis: b.date.getTime(),
           })),
         }
       : undefined,
@@ -95,15 +96,19 @@ function dataRange(series: Array<{ data: Array<{ value: [number, number] }> }>):
 function buildOption(): EChartsOption {
   const series = buildSeries();
   const { min: dataMin, max: dataMax } = dataRange(series);
-  const boundaries = props.assignmentBoundaries.map((d) => d.getTime());
+  const boundaries = props.assignmentBoundaries.map((b) => b.date.getTime());
   const allMins = [dataMin, ...boundaries].filter((n) => Number.isFinite(n));
   const allMaxs = [dataMax, ...boundaries].filter((n) => Number.isFinite(n));
   const xMin = allMins.length ? Math.min(...allMins) : 0;
   const xMax = allMaxs.length ? Math.max(...allMaxs) : 0;
   const pad = xMax > xMin ? (xMax - xMin) * 0.02 : 0;
   const common = buildCommonOptions(xMin - pad, xMax + pad);
+  const totalPoints = series.reduce((n, s) => n + s.data.length, 0);
   return {
     ...common,
+    // ECharts renders a broken zoom slider when there is only one data
+    // point — disable it entirely in that case.
+    ...(totalPoints < 2 ? { dataZoom: [] } : {}),
     tooltip: {
       ...(common.tooltip ?? {}),
       trigger: 'axis',
@@ -131,7 +136,7 @@ function buildOption(): EChartsOption {
 function render() {
   if (!root.value) return;
   if (!chart) chart = mountChart(root.value);
-  chart.chart.setOption(buildOption());
+  chart.chart.setOption(buildOption(), { notMerge: true });
 }
 
 let offTheme: (() => void) | null = null;
