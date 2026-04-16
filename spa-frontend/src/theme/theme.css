@@ -182,6 +182,27 @@ body.theme-light .term-live-dot {
   pointer-events: auto;
 }
 
+.term-appbar--stacked .v-toolbar__content {
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 0.35rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+}
+
+.term-appbar--stacked .term-nav-center {
+  position: static;
+  left: auto;
+  top: auto;
+  transform: none;
+  order: 3;
+  width: 100%;
+  justify-content: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+
 /* Give every Vuetify input a little more vertical breathing room so
    error messages (rendered in .v-input__details) never crowd the next
    field. Applies across every form in the SPA. */
