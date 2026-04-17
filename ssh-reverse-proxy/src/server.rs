@@ -1,6 +1,6 @@
 //! SSH server implementation using russh.
 
-use crate::api::ApiClient;
+use crate::api::{ApiClient, ApiError, ApiErrorKind};
 use crate::channel::{ChannelForwarder, ContainerEvent, DirectTcpIpForwarder, RemoteForwardManager, ShellForwarder, X11ForwardState, channel_msg_to_event};
 use russh::ChannelReadHalf;
 use crate::config::Config;
@@ -31,6 +31,11 @@ pub struct ConnectionState {
     pub x11_forwarding_allowed: bool,
     /// Welcome message to display
     pub welcome_message: Option<String>,
+    /// If set, the backend failed during provisioning after we had already
+    /// validated the student's key. Auth is accepted so we can deliver this
+    /// message over the session channel instead of producing a bare
+    /// "Permission denied"; shell/exec/subsystem handlers emit it and close.
+    pub startup_error: Option<String>,
     /// Active channels
     pub channels: HashMap<ChannelId, ChannelContext>,
     /// Remote port forwarding manager
@@ -75,6 +80,7 @@ impl Default for ConnectionState {
             tcp_forwarding_allowed: false,
             x11_forwarding_allowed: false,
             welcome_message: None,
+            startup_error: None,
             channels: HashMap::new(),
             remote_forward_manager: None,
             x11_states: HashMap::new(),
@@ -175,6 +181,72 @@ impl SshConnection {
     fn format_pubkey(key: &russh::keys::PublicKey) -> String {
         // Use the standard OpenSSH format
         key.to_string()
+    }
+
+    /// Decide how to react to a backend API failure that happens after the
+    /// student's public key has already been validated.
+    ///
+    /// - 4xx (`ClientError`) → return `Some(Auth::Reject)`: the key is known
+    ///   but not authorized for this exercise, or a similar caller-side
+    ///   problem the student might resolve by registering the right key.
+    /// - 5xx / transport / decode (`ServerError`) → stash an operator-facing
+    ///   message in `state.startup_error` and return `None` so the caller
+    ///   proceeds to accept auth. The message is delivered to the student
+    ///   by `shell_request`/`exec_request`/`subsystem_request` and includes
+    ///   a tracking UUID that is also logged here.
+    fn handle_startup_api_error(
+        &mut self,
+        stage: &str,
+        user: &str,
+        err: &ApiError,
+    ) -> Option<Auth> {
+        match err.kind {
+            ApiErrorKind::ClientError => {
+                error!("{} rejected auth for user {}: {}", stage, user, err);
+                Some(Auth::Reject {
+                    proceed_with_methods: None,
+                    partial_success: false,
+                })
+            }
+            ApiErrorKind::ServerError => {
+                let error_id = Uuid::new_v4();
+                error!(
+                    "{} backend failure for user {} [error_id={}]: {}",
+                    stage, user, error_id, err
+                );
+                self.state.startup_error = Some(format!(
+                    "The {} environment could not be started.\r\n\
+                     Please contact the course staff and include error code {}.\r\n",
+                    self.state.exercise_name, error_id
+                ));
+                None
+            }
+        }
+    }
+
+    /// If a startup error was recorded during auth, deliver it to the client
+    /// on the given channel and close the channel with exit status 1.
+    /// Returns `true` if an error was delivered.
+    ///
+    /// `shell`/`exec`/`subsystem` requests use `want_reply=true`, so we send
+    /// `channel_success` before writing the message and closing. Without the
+    /// explicit reply, `ssh host cmd` and SFTP clients can hang waiting for
+    /// a request-level response in the outage path.
+    fn emit_startup_error_if_any(
+        &mut self,
+        channel_id: ChannelId,
+        session: &mut Session,
+    ) -> Result<bool, russh::Error> {
+        let Some(msg) = self.state.startup_error.clone() else {
+            return Ok(false);
+        };
+        session.channel_success(channel_id)?;
+        // stderr (extended_data type 1) so interactive clients and scripts
+        // both route it to the user's stderr.
+        session.extended_data(channel_id, 1, CryptoVec::from_slice(msg.as_bytes()))?;
+        session.exit_status_request(channel_id, 1)?;
+        session.close(channel_id)?;
+        Ok(true)
     }
 
     /// Spawn a task to forward events from container to client.
@@ -396,43 +468,37 @@ impl server::Handler for SshConnection {
                 );
             }
             Err(e) => {
-                eprintln!("[SSH-PROXY] ssh_authenticated FAILED: {}", e);
-                std::io::stderr().flush().ok();
-                error!("Failed to get user permissions: {}", e);
-                return Ok(Auth::Reject {
-                    proceed_with_methods: None,
-                    partial_success: false,
-                });
+                if let Some(auth) = self.handle_startup_api_error("ssh_authenticated", user, &e) {
+                    return Ok(auth);
+                }
             }
         }
 
-        // Provision the container
-        eprintln!("[SSH-PROXY] Calling provision API...");
-        std::io::stderr().flush().ok();
-        match self
-            .api_client
-            .provision(&self.state.exercise_name, &key_str)
-            .await
-        {
-            Ok(provision) => {
-                eprintln!("[SSH-PROXY] Provisioned container at {} (as_root={})", provision.ip, provision.as_root);
-                std::io::stderr().flush().ok();
-                self.state.container_ip = Some(provision.ip.clone());
-                self.state.as_root = provision.as_root;
-                self.state.welcome_message = provision.welcome_message;
-                info!(
-                    "Provisioned container at {} for exercise {} (as_root={})",
-                    provision.ip, self.state.exercise_name, provision.as_root
-                );
-            }
-            Err(e) => {
-                eprintln!("[SSH-PROXY] Provision FAILED: {}", e);
-                std::io::stderr().flush().ok();
-                error!("Failed to provision container: {}", e);
-                return Ok(Auth::Reject {
-                    proceed_with_methods: None,
-                    partial_success: false,
-                });
+        // Provision the container (skip if we already recorded a startup error)
+        if self.state.startup_error.is_none() {
+            eprintln!("[SSH-PROXY] Calling provision API...");
+            std::io::stderr().flush().ok();
+            match self
+                .api_client
+                .provision(&self.state.exercise_name, &key_str)
+                .await
+            {
+                Ok(provision) => {
+                    eprintln!("[SSH-PROXY] Provisioned container at {} (as_root={})", provision.ip, provision.as_root);
+                    std::io::stderr().flush().ok();
+                    self.state.container_ip = Some(provision.ip.clone());
+                    self.state.as_root = provision.as_root;
+                    self.state.welcome_message = provision.welcome_message;
+                    info!(
+                        "Provisioned container at {} for exercise {} (as_root={})",
+                        provision.ip, self.state.exercise_name, provision.as_root
+                    );
+                }
+                Err(e) => {
+                    if let Some(auth) = self.handle_startup_api_error("provision", user, &e) {
+                        return Ok(auth);
+                    }
+                }
             }
         }
 
@@ -500,6 +566,10 @@ impl server::Handler for SshConnection {
         session: &mut Session,
     ) -> Result<(), Self::Error> {
         debug!("Shell requested on channel {:?}", channel_id);
+
+        if self.emit_startup_error_if_any(channel_id, session)? {
+            return Ok(());
+        }
 
         let container_ip = match &self.state.container_ip {
             Some(ip) => ip.clone(),
@@ -601,6 +671,10 @@ impl server::Handler for SshConnection {
     ) -> Result<(), Self::Error> {
         debug!("Exec requested on channel {:?}: {:?}", channel_id, String::from_utf8_lossy(data));
 
+        if self.emit_startup_error_if_any(channel_id, session)? {
+            return Ok(());
+        }
+
         let container_ip = match &self.state.container_ip {
             Some(ip) => ip.clone(),
             None => {
@@ -671,6 +745,10 @@ impl server::Handler for SshConnection {
         session: &mut Session,
     ) -> Result<(), Self::Error> {
         debug!("Subsystem '{}' requested on channel {:?}", name, channel_id);
+
+        if self.emit_startup_error_if_any(channel_id, session)? {
+            return Ok(());
+        }
 
         let container_ip = match &self.state.container_ip {
             Some(ip) => ip.clone(),

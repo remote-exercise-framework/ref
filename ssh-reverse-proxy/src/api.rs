@@ -3,9 +3,79 @@
 use anyhow::{anyhow, Result};
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, error, instrument};
+
+/// Error kind for API calls that drive the SSH auth path.
+///
+/// The SSH proxy uses this to decide whether a backend failure should be
+/// surfaced to the student as an auth rejection (they did something wrong)
+/// or as an operational error (the backend broke and it's not their fault).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApiErrorKind {
+    /// HTTP 4xx — the request itself is invalid. Most commonly a key that is
+    /// not registered for this exercise, or the exercise name is unknown.
+    /// These are treated as genuine auth rejections.
+    ClientError,
+    /// HTTP 5xx, transport failure, or response decoding failure. The student
+    /// cannot resolve these themselves; the proxy accepts auth and delivers
+    /// an operational-error message over the channel so they know to
+    /// contact staff.
+    ServerError,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("{kind:?}: {detail}")]
+pub struct ApiError {
+    pub kind: ApiErrorKind,
+    /// Human-readable detail for logging. Includes the HTTP status and raw
+    /// body when available so staff can correlate with web logs.
+    pub detail: String,
+}
+
+impl ApiError {
+    /// Classify an HTTP failure by status code: 4xx → `ClientError`,
+    /// else → `ServerError`. Use this for endpoints where a 4xx genuinely
+    /// reflects caller input (e.g. a pubkey the backend doesn't recognize).
+    fn from_status_unsigned(status: StatusCode, body: &str) -> Self {
+        let kind = if status.is_client_error() {
+            ApiErrorKind::ClientError
+        } else {
+            ApiErrorKind::ServerError
+        };
+        Self {
+            kind,
+            detail: format!("HTTP {}: {}", status, body),
+        }
+    }
+
+    /// Any non-2xx is treated as `ServerError`. Use this for HMAC-signed
+    /// endpoints (e.g. `/api/provision`), where a 4xx typically means the
+    /// signature check on the web side failed — an operational problem
+    /// (stale `SSH_TO_WEB_KEY`, clock skew, etc.), not something the
+    /// student can resolve.
+    fn from_status_signed(status: StatusCode, body: &str) -> Self {
+        Self {
+            kind: ApiErrorKind::ServerError,
+            detail: format!("HTTP {}: {}", status, body),
+        }
+    }
+
+    fn transport(err: reqwest::Error) -> Self {
+        Self {
+            kind: ApiErrorKind::ServerError,
+            detail: format!("transport error: {}", err),
+        }
+    }
+
+    fn decode(err: impl std::fmt::Display) -> Self {
+        Self {
+            kind: ApiErrorKind::ServerError,
+            detail: format!("response decode error: {}", err),
+        }
+    }
+}
 
 /// API client for communicating with the REF web server.
 #[derive(Clone)]
@@ -158,12 +228,16 @@ impl ApiClient {
     }
 
     /// Authenticate an SSH connection and get user permissions.
+    ///
+    /// Returns a typed `ApiError` so the SSH layer can distinguish genuine
+    /// auth failures (4xx — reject the SSH auth) from operational failures
+    /// (5xx/transport/decode — accept auth and show an error message).
     #[instrument(skip(self, pubkey))]
     pub async fn ssh_authenticated(
         &self,
         exercise_name: &str,
         pubkey: &str,
-    ) -> Result<SshAuthenticatedResponse> {
+    ) -> std::result::Result<SshAuthenticatedResponse, ApiError> {
         let request = SshAuthenticatedRequest {
             name: exercise_name.to_string(),
             pubkey: pubkey.to_string(),
@@ -178,27 +252,22 @@ impl ApiClient {
             .post(&url)
             .json(&request)
             .send()
-            .await?;
+            .await
+            .map_err(ApiError::transport)?;
 
         let status = response.status();
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            use std::io::Write;
-            // Escape newlines for single-line logging
             let body_escaped = body.replace('\n', "\\n").replace('\r', "\\r");
-            eprintln!("[SSH-PROXY] ssh_authenticated FAILED: status={}, body={}", status, body_escaped);
-            std::io::stderr().flush().ok();
             error!("[API] ssh_authenticated FAILED: status={}, body={}", status, body_escaped);
-            return Err(anyhow!(
-                "SSH authentication failed with status: {}",
-                status
-            ));
+            return Err(ApiError::from_status_unsigned(status, &body_escaped));
         }
 
-        let body_text = response.text().await?;
+        let body_text = response.text().await.map_err(ApiError::transport)?;
         info!("[API] ssh_authenticated response: {}", body_text);
 
-        let auth_response: SshAuthenticatedResponse = serde_json::from_str(&body_text)?;
+        let auth_response: SshAuthenticatedResponse =
+            serde_json::from_str(&body_text).map_err(ApiError::decode)?;
         debug!(
             "Authenticated: instance_id={}, forwarding={}",
             auth_response.instance_id, auth_response.tcp_forwarding_allowed
@@ -207,41 +276,43 @@ impl ApiClient {
     }
 
     /// Provision a container and get connection details.
+    ///
+    /// Returns a typed `ApiError` for the same reasons as `ssh_authenticated`.
     #[instrument(skip(self, pubkey))]
     pub async fn provision(
         &self,
         exercise_name: &str,
         pubkey: &str,
-    ) -> Result<ProvisionResponse> {
+    ) -> std::result::Result<ProvisionResponse, ApiError> {
         let request = ProvisionRequest {
             exercise_name: exercise_name.to_string(),
             pubkey: pubkey.to_string(),
         };
-        let payload = serde_json::to_string(&request)?;
+        let payload = serde_json::to_string(&request).map_err(ApiError::decode)?;
         let signed = self.sign_payload(&payload);
 
         let url = format!("{}/api/provision", self.base_url);
         debug!("Provisioning container for exercise: {}", exercise_name);
 
-        // Send signed string as JSON (Python: requests.post(..., json=signed_string))
         let response = self
             .client
             .post(&url)
             .json(&signed)
             .send()
-            .await?;
+            .await
+            .map_err(ApiError::transport)?;
 
-        if !response.status().is_success() {
-            let status = response.status();
+        let status = response.status();
+        if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            return Err(anyhow!(
-                "Provisioning failed with status {}: {}",
-                status,
-                body
-            ));
+            let body_escaped = body.replace('\n', "\\n").replace('\r', "\\r");
+            error!("[API] provision FAILED: status={}, body={}", status, body_escaped);
+            return Err(ApiError::from_status_signed(status, &body_escaped));
         }
 
-        let provision_response: ProvisionResponse = response.json().await?;
+        let body_text = response.text().await.map_err(ApiError::transport)?;
+        let provision_response: ProvisionResponse =
+            serde_json::from_str(&body_text).map_err(ApiError::decode)?;
         debug!("Provisioned container at IP: {}", provision_response.ip);
         Ok(provision_response)
     }
@@ -276,5 +347,38 @@ mod tests {
         let signed1 = client.sign_payload(r#"{"username": "test"}"#);
         let signed2 = client.sign_payload(r#"{"username": "test"}"#);
         assert_eq!(signed1, signed2);
+    }
+
+    #[test]
+    fn unsigned_4xx_is_client_error() {
+        let err = ApiError::from_status_unsigned(StatusCode::FORBIDDEN, "nope");
+        assert_eq!(err.kind, ApiErrorKind::ClientError);
+    }
+
+    #[test]
+    fn unsigned_5xx_is_server_error() {
+        let err = ApiError::from_status_unsigned(StatusCode::INTERNAL_SERVER_ERROR, "boom");
+        assert_eq!(err.kind, ApiErrorKind::ServerError);
+    }
+
+    #[test]
+    fn signed_4xx_is_server_error() {
+        // HMAC validation failures from signed endpoints surface as 4xx but
+        // are operational problems (e.g. key rotation / drift), not the
+        // student's fault.
+        let err = ApiError::from_status_signed(StatusCode::BAD_REQUEST, "bad signature");
+        assert_eq!(err.kind, ApiErrorKind::ServerError);
+    }
+
+    #[test]
+    fn signed_5xx_is_server_error() {
+        let err = ApiError::from_status_signed(StatusCode::INTERNAL_SERVER_ERROR, "boom");
+        assert_eq!(err.kind, ApiErrorKind::ServerError);
+    }
+
+    #[test]
+    fn decode_error_is_server_error() {
+        let err = ApiError::decode("parse fail");
+        assert_eq!(err.kind, ApiErrorKind::ServerError);
     }
 }
