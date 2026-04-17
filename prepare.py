@@ -15,7 +15,6 @@ regenerate ``settings.yaml`` from scratch (destroying all existing secrets).
 
 import argparse
 import secrets
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -30,7 +29,6 @@ SETTINGS_ENV = REPO_ROOT / "settings.env"
 COMPOSE_TEMPLATE = "docker-compose.template.yml"
 COMPOSE_OUT = REPO_ROOT / "docker-compose.yml"
 CONTAINER_KEYS_DIR = REPO_ROOT / "container-keys"
-DOCKER_BASE_KEYS_DIR = REPO_ROOT / "ref-docker-base" / "container-keys"
 
 SECRET_BYTES = 32
 
@@ -322,8 +320,6 @@ def generate_ssh_keys() -> None:
             subprocess.check_call(
                 ["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(key_path)]
             )
-
-    shutil.copytree(CONTAINER_KEYS_DIR, DOCKER_BASE_KEYS_DIR, dirs_exist_ok=True)
 
 
 def parse_args() -> argparse.Namespace:

@@ -472,7 +472,6 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
     def _generate_ssh_keys(self):
         """Generate SSH keys needed for container communication."""
         container_keys_dir = self._ref_root / "container-keys"
-        ref_docker_base_keys = self._ref_root / "ref-docker-base" / "container-keys"
 
         container_keys_dir.mkdir(parents=True, exist_ok=True)
 
@@ -484,13 +483,6 @@ DOCKER_RESSOURCE_PREFIX={docker_prefix}
                     check=True,
                     capture_output=True,
                 )
-
-        # Copy keys to ref-docker-base if it exists
-        if ref_docker_base_keys.parent.exists():
-            ref_docker_base_keys.mkdir(parents=True, exist_ok=True)
-            for key_file in container_keys_dir.iterdir():
-                if key_file.name != ".gitkeep":
-                    shutil.copy2(key_file, ref_docker_base_keys / key_file.name)
 
     def _write_config_files(self):
         """Write the configuration files."""

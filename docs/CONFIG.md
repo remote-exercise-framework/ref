@@ -63,8 +63,9 @@ Downstream rendering steps (run in both modes):
    `testing=False` / `bridge_id=""` are the only values still hard-coded in
    `prepare.py`.
 3. `generate_ssh_keys()` creates ed25519 SSH host keys in `container-keys/`
-   if missing (existing keys are left alone) and mirrors them into
-   `ref-docker-base/container-keys/` for the base image build.
+   if missing (existing keys are left alone). At runtime the directory is
+   bind-mounted into `web` and `ssh-reverse-proxy`; `web` in turn mounts the
+   `.pub` files into student containers at `/etc/ssh/master_keys/{user,root}`.
 
 `ctrl.sh` handles the first-run case automatically: if neither
 `settings.yaml` nor `settings.env` exists, it invokes `./prepare.py` before
@@ -262,9 +263,10 @@ config dataclass.
   flag, compose falls back to its default `.env` lookup, finds nothing, and
   every `${VAR:?...}` placeholder fails. Always go through `ctrl.sh`, or
   replicate its `--env-file` / shell-export pattern manually.
-- **`container-keys/` and `ref-docker-base/container-keys/` must stay in
-  sync.** `prepare.py` copies the former into the latter so the base image
-  build picks them up. If you rotate the host keys, re-run `./prepare.py`
-  or rebuild the base image.
+- **`container-keys/` is bind-mounted live into student containers.**
+  Rotating the files on the host takes effect on the next student container
+  start — no image rebuild needed. The `web` container mounts the directory
+  read-only and re-mounts the `.pub` files into each student container at
+  `/etc/ssh/master_keys/{user,root}`.
 - **`settings.yaml` and `settings.env` are mode `0600` by design.** Do not
   loosen the permissions — they contain plaintext secrets.
