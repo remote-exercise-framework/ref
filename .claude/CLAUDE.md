@@ -213,6 +213,10 @@ Client (ssh exercise@host -p 2222)
 
 Never create, edit, or delete files under `data/` unless explicitly asked by the user. This directory contains live exercise definitions, student data, and database files. The exercise import path is configured in `settings.yaml` (default: `ref/exercises`).
 
+## Exercise Source Definitions
+
+The authoritative, editable exercise definitions live in `exercises/` at the repo root (e.g. `exercises/01_sqlite_generator/settings.yml`). This is where to go when asked to modify "the exercises" — bump a `version:`, change `build-cmd`, adjust resource limits, etc. `backup_exercises/` is a stale copy and should not be edited. The live, imported copy under `data/data/imported_exercises/` is managed by the webapp and must not be edited directly.
+
 ## Code Comments
 
 - Do not reference line numbers in comments (e.g., "see ssh.py lines 397-404"). Line numbers change frequently and become outdated. Reference functions, classes, or use direct code references instead.
