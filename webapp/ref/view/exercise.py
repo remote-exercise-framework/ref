@@ -28,7 +28,11 @@ from ref.core import (
 )
 from ref.core.logging import get_logger
 from ref.core.security import sanitize_path_is_subdir
-from ref.core.util import datetime_transmute_into_local, redirect_to_next
+from ref.core.util import (
+    datetime_transmute_into_local,
+    redirect_to_next,
+    utc_datetime_to_local_tz,
+)
 from ref.model import Exercise, ExerciseConfig
 from ref.model.enums import ExerciseBuildStatus
 
@@ -503,12 +507,16 @@ def exercise_edit_config(short_name):
         form.short_name.data = config.short_name
         form.category.data = config.category
         form.submission_deadline_start.data = (
-            config.submission_deadline_start.strftime("%Y-%m-%dT%H:%M")
+            utc_datetime_to_local_tz(config.submission_deadline_start).strftime(
+                "%Y-%m-%dT%H:%M"
+            )
             if config.submission_deadline_start
             else ""
         )
         form.submission_deadline_end.data = (
-            config.submission_deadline_end.strftime("%Y-%m-%dT%H:%M")
+            utc_datetime_to_local_tz(config.submission_deadline_end).strftime(
+                "%Y-%m-%dT%H:%M"
+            )
             if config.submission_deadline_end
             else ""
         )

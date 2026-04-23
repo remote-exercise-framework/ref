@@ -1,6 +1,11 @@
 {% extends "admin_base.html" %}
 {% import "wtf_bootstrap_utils.html" as wtf_utils %}
 
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+{% endblock %}
+
 {% block title %}
 Edit Exercise: {{ short_name }}
 {% endblock %}
@@ -25,10 +30,16 @@ Edit Exercise: {{ short_name }}
 
             <div class="row mb-3">
                 <div class="col-md-6">
-                    {{ wtf_utils.render_field(form.submission_deadline_start, "datetime-local") }}
+                    {{ wtf_utils.render_field(form.submission_deadline_start, "text") }}
+                    <small class="form-text text-muted">
+                        Interpreted as {{ settings.TIMEZONE.value }} (system timezone).
+                    </small>
                 </div>
                 <div class="col-md-6">
-                    {{ wtf_utils.render_field(form.submission_deadline_end, "datetime-local") }}
+                    {{ wtf_utils.render_field(form.submission_deadline_end, "text") }}
+                    <small class="form-text text-muted">
+                        Interpreted as {{ settings.TIMEZONE.value }} (system timezone).
+                    </small>
                 </div>
             </div>
 
@@ -326,6 +337,41 @@ Edit Exercise: {{ short_name }}
         host.appendChild(makeCard(taskName));
     });
     serialize();
+})();
+</script>
+
+<script>
+(function () {
+    function parseIsoLocal(s) {
+        var m = s && s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+        if (!m) return null;
+        return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+    }
+    function init(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var initial = parseIsoLocal(el.value);
+        flatpickr(el, {
+            enableTime: true,
+            time_24hr: true,
+            minuteIncrement: 1,
+            allowInput: true,
+            dateFormat: "Y-m-d\\TH:i",
+            altInput: true,
+            altFormat: "Y-m-d H:i",
+            defaultDate: initial,
+            defaultHour: initial ? initial.getHours() : 23,
+            defaultMinute: initial ? initial.getMinutes() : 59,
+            locale: { firstDayOfWeek: 1 },
+        });
+    }
+    // bootstrap-material-design rewrites form-control inputs on
+    // $(document).ready (wrapping them in .bmd-form-group), which clobbers
+    // flatpickr if we init first. Run on `load` so BMD has finished.
+    window.addEventListener("load", function () {
+        init("submission_deadline_start");
+        init("submission_deadline_end");
+    });
 })();
 </script>
 {% endblock %}

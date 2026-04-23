@@ -389,11 +389,19 @@ def setup_jinja(app: Flask):
         ret = ansi2html.Ansi2HTMLConverter().convert(s, full=False)
         return ret
 
+    from ref.core.util import datetime_to_string
+
+    def localdt(ts):
+        if ts is None:
+            return "—"
+        return datetime_to_string(ts)
+
     app.jinja_env.filters["quote_plus"] = lambda u: urllib.parse.quote_plus(u)
     app.jinja_env.filters["any"] = any
     app.jinja_env.filters["all"] = all
     app.jinja_env.filters["not"] = lambda e: [not x for x in e]
     app.jinja_env.filters["ansi2html"] = ansi2html_filter
+    app.jinja_env.filters["localdt"] = localdt
 
     def syntax_highlight(val):
         try:

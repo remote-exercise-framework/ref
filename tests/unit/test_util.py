@@ -4,15 +4,19 @@ Unit Tests for ref/core/util.py
 Tests for utility functions that don't require Flask/DB context.
 """
 
+import datetime
+
 import pytest
 from unittest.mock import MagicMock, patch
 from colorama import Fore, Style
 
 from ref.core.util import (
     AnsiColorUtil,
+    datetime_to_string,
     is_db_serialization_error,
     is_deadlock_error,
     ssh_key_basename,
+    utc_datetime_to_local_tz,
 )
 
 
@@ -268,3 +272,57 @@ class TestSshKeyBasename:
 
     def test_unknown_algo_falls_back_to_rsa(self):
         assert ssh_key_basename("bogus-algo AAAA") == "id_rsa"
+
+
+@pytest.mark.offline
+class TestUtcDatetimeToLocalTz:
+    """Conversion of naive-UTC datetimes (as stored in the DB) to the
+    configured system timezone, for display purposes."""
+
+    def test_converts_naive_utc_to_berlin_cest(self):
+        naive_utc = datetime.datetime(2026, 4, 26, 15, 59)
+        with patch("ref.core.util.SystemSettingsManager") as ssm:
+            ssm.TIMEZONE.value = "Europe/Berlin"
+            local = utc_datetime_to_local_tz(naive_utc)
+        assert local.strftime("%Y-%m-%dT%H:%M") == "2026-04-26T17:59"
+
+    def test_converts_naive_utc_to_berlin_cet_in_winter(self):
+        naive_utc = datetime.datetime(2026, 1, 15, 12, 0)
+        with patch("ref.core.util.SystemSettingsManager") as ssm:
+            ssm.TIMEZONE.value = "Europe/Berlin"
+            local = utc_datetime_to_local_tz(naive_utc)
+        assert local.strftime("%Y-%m-%dT%H:%M") == "2026-01-15T13:00"
+
+    def test_utc_timezone_is_identity(self):
+        naive_utc = datetime.datetime(2026, 4, 26, 15, 59)
+        with patch("ref.core.util.SystemSettingsManager") as ssm:
+            ssm.TIMEZONE.value = "UTC"
+            local = utc_datetime_to_local_tz(naive_utc)
+        assert local.strftime("%Y-%m-%dT%H:%M") == "2026-04-26T15:59"
+
+    def test_crosses_day_boundary(self):
+        naive_utc = datetime.datetime(2026, 4, 26, 23, 30)
+        with patch("ref.core.util.SystemSettingsManager") as ssm:
+            ssm.TIMEZONE.value = "Europe/Berlin"
+            local = utc_datetime_to_local_tz(naive_utc)
+        assert local.strftime("%Y-%m-%dT%H:%M") == "2026-04-27T01:30"
+
+
+@pytest.mark.offline
+class TestDatetimeToString:
+    """Human-readable formatting of DB-stored (naive UTC) datetimes."""
+
+    def test_naive_utc_formatted_in_system_tz(self):
+        naive_utc = datetime.datetime(2026, 4, 26, 15, 59, 0)
+        with patch("ref.core.util.SystemSettingsManager") as ssm:
+            ssm.TIMEZONE.value = "Europe/Berlin"
+            s = datetime_to_string(naive_utc)
+        assert s == "26/04/2026 17:59:00"
+
+    def test_aware_datetime_preserves_its_tz(self):
+        from dateutil import tz as _tz
+
+        aware_utc = datetime.datetime(2026, 4, 26, 15, 59, 0, tzinfo=_tz.gettz("UTC"))
+        # Aware datetimes pass through without re-conversion.
+        s = datetime_to_string(aware_utc)
+        assert s == "26/04/2026 15:59:00"
