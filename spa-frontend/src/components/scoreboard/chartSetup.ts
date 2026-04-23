@@ -163,6 +163,58 @@ export function unmountChart(instance: ManagedChart | null) {
   instance.chart.dispose();
 }
 
+type DataZoomEntry = {
+  id?: string;
+  start?: number;
+  end?: number;
+  startValue?: number | string;
+  endValue?: number | string;
+};
+
+type LegendEntry = {
+  selected?: Record<string, boolean>;
+};
+
+// Carry the user-interactive chart state (zoom window, legend toggles) from
+// the live chart into the next option payload. Without this, polling
+// re-renders with `notMerge: true` would wipe the user's view every few
+// seconds.
+export function applyPreservedState(
+  chart: EChartsInstance,
+  option: EChartsOption,
+): EChartsOption {
+  const current = chart.getOption() as {
+    dataZoom?: DataZoomEntry[];
+    legend?: LegendEntry[];
+  };
+
+  const nextDz = option.dataZoom;
+  const prevDz = current.dataZoom;
+  if (Array.isArray(nextDz) && Array.isArray(prevDz) && prevDz.length > 0) {
+    option.dataZoom = nextDz.map((entry) => {
+      const z = entry as DataZoomEntry;
+      const prior = prevDz.find((p) => p.id === z.id);
+      if (!prior) return entry;
+      return {
+        ...entry,
+        ...(prior.start !== undefined ? { start: prior.start } : {}),
+        ...(prior.end !== undefined ? { end: prior.end } : {}),
+        ...(prior.startValue !== undefined ? { startValue: prior.startValue } : {}),
+        ...(prior.endValue !== undefined ? { endValue: prior.endValue } : {}),
+      };
+    });
+  }
+
+  const prevLegend = current.legend?.[0]?.selected;
+  if (prevLegend && option.legend) {
+    const legendList = Array.isArray(option.legend) ? option.legend : [option.legend];
+    legendList[0] = { ...legendList[0], selected: { ...prevLegend } };
+    option.legend = Array.isArray(option.legend) ? legendList : legendList[0];
+  }
+
+  return option;
+}
+
 export function getTeamColor(team: string): string {
   let idx = teamIndices.get(team);
   if (idx === undefined) {

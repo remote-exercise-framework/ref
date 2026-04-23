@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { EChartsOption } from 'echarts';
 import {
+  applyPreservedState,
   buildCommonOptions,
   formatTooltipDate,
   getMarkLineColors,
@@ -31,6 +32,7 @@ type PlotPoint = {
 
 const root = ref<HTMLDivElement | null>(null);
 let chart: ManagedChart | null = null;
+let lastRenderedChallenge: string | null = null;
 
 function findBaseline(): number | null {
   for (const challenges of Object.values(props.assignments || {})) {
@@ -173,8 +175,17 @@ function buildOption(): EChartsOption {
 
 function render() {
   if (!root.value) return;
+  const firstMount = !chart;
   if (!chart) chart = mountChart(root.value);
-  chart.chart.setOption(buildOption(), { notMerge: true });
+  // Reset zoom/legend when the user switches to a different challenge — the
+  // x-axis and team set are effectively a new chart. Preserve state only
+  // across data polls for the same challenge.
+  const sameChallenge = !firstMount && lastRenderedChallenge === props.challengeName;
+  const option = sameChallenge
+    ? applyPreservedState(chart.chart, buildOption())
+    : buildOption();
+  chart.chart.setOption(option, { notMerge: true });
+  lastRenderedChallenge = props.challengeName;
 }
 
 let offTheme: (() => void) | null = null;
