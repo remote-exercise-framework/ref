@@ -216,12 +216,43 @@ impl SshConnection {
                 );
                 self.state.startup_error = Some(format!(
                     "The {} environment could not be started.\r\n\
-                     Please contact the course staff and include error code {}.\r\n",
+                     This may be a temporary issue — please try connecting again in a moment.\r\n\
+                     If the problem persists, contact the course staff and include error code {}.\r\n",
                     self.state.exercise_name, error_id
                 ));
                 None
             }
         }
+    }
+
+    /// Deliver a UUID-tagged failure message to the client when a runtime
+    /// container connection fails (after auth has already succeeded). Logs
+    /// the underlying error server-side, writes a retry-recommending message
+    /// to the channel's stderr, sets a non-zero exit status, and closes the
+    /// channel. Always returns `()` for the caller to bubble up.
+    fn emit_container_failure(
+        &self,
+        channel_id: ChannelId,
+        session: &mut Session,
+        stage: &str,
+        err: &anyhow::Error,
+    ) -> Result<(), russh::Error> {
+        let error_id = Uuid::new_v4();
+        error!(
+            "{} container connection failed [error_id={}]: {:#}",
+            stage, error_id, err
+        );
+        let msg = format!(
+            "Failed to connect to your {} environment.\r\n\
+             This may be a temporary issue — please try connecting again in a moment.\r\n\
+             If the problem persists, contact the course staff and include error code {}.\r\n",
+            self.state.exercise_name, error_id
+        );
+        session.channel_success(channel_id)?;
+        session.extended_data(channel_id, 1, CryptoVec::from_slice(msg.as_bytes()))?;
+        session.exit_status_request(channel_id, 1)?;
+        session.close(channel_id)?;
+        Ok(())
     }
 
     /// If a startup error was recorded during auth, deliver it to the client
@@ -568,14 +599,7 @@ impl server::Handler for SshConnection {
         {
             Ok(f) => f,
             Err(e) => {
-                let error_id = Uuid::new_v4();
-                error!("Failed to connect to container [error_id={}]: {}", error_id, e);
-                let msg = format!(
-                    "Error: Internal error (id: {}). If this issue persists, please contact a supervisor and provide the error id.\r\n",
-                    error_id
-                );
-                session.data(channel_id, CryptoVec::from_slice(msg.as_bytes()))?;
-                session.close(channel_id)?;
+                self.emit_container_failure(channel_id, session, "shell", &e)?;
                 return Ok(());
             }
         };
@@ -668,10 +692,7 @@ impl server::Handler for SshConnection {
         {
             Ok(f) => f,
             Err(e) => {
-                let error_id = Uuid::new_v4();
-                error!("Failed to connect to container [error_id={}]: {}", error_id, e);
-                session.channel_failure(channel_id)?;
-                session.close(channel_id)?;
+                self.emit_container_failure(channel_id, session, "exec", &e)?;
                 return Ok(());
             }
         };
@@ -743,10 +764,7 @@ impl server::Handler for SshConnection {
         {
             Ok(f) => f,
             Err(e) => {
-                let error_id = Uuid::new_v4();
-                error!("Failed to connect to container [error_id={}]: {}", error_id, e);
-                session.channel_failure(channel_id)?;
-                session.close(channel_id)?;
+                self.emit_container_failure(channel_id, session, "subsystem", &e)?;
                 return Ok(());
             }
         };

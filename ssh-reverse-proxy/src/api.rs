@@ -85,6 +85,11 @@ pub struct ApiClient {
     signing_key: Vec<u8>,
 }
 
+/// Per-request timeout for web API calls. The web side can stall under load
+/// (e.g. waiting for Docker to start a container during provision); 30s gives
+/// it room while still bounding the SSH session if the web is wedged.
+const WEB_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// Response from /api/getkeys
 #[derive(Debug, Deserialize)]
 pub struct GetKeysResponse {
@@ -135,8 +140,12 @@ struct ProvisionRequest {
 impl ApiClient {
     /// Create a new API client.
     pub fn new(base_url: String, signing_key: Vec<u8>) -> Self {
+        let client = Client::builder()
+            .timeout(WEB_REQUEST_TIMEOUT)
+            .build()
+            .expect("failed to build reqwest client");
         Self {
-            client: Client::new(),
+            client,
             base_url,
             signing_key,
         }
