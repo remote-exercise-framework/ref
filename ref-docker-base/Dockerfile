@@ -92,7 +92,7 @@ RUN mkdir .ssh && chmod 700 .ssh
 # sshd_config references /etc/ssh/master_keys/%u for key lookup.
 RUN mkdir -p /etc/ssh/master_keys
 
-COPY sshd_config /etc/ssh/sshd_config
+COPY --chmod=0644 sshd_config /etc/ssh/sshd_config
 
 # Replace /bin/sh with a shell that does not drop privileges
 # in case euid != uid.
