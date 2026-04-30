@@ -348,116 +348,88 @@ impl server::Handler for SshConnection {
         user: &str,
         public_key: &russh::keys::PublicKey,
     ) -> Result<Auth, Self::Error> {
-        use std::io::Write;
-        eprintln!("[SSH-PROXY] auth_publickey called: user={}", user);
-        std::io::stderr().flush().ok();
         info!("[AUTH] Auth attempt started: user={}", user);
 
         // Store the exercise name from the username
         self.state.exercise_name = user.to_string();
 
-        // Format the public key for comparison
-        eprintln!("[SSH-PROXY] Formatting public key...");
-        std::io::stderr().flush().ok();
         let key_str = Self::format_pubkey(public_key);
-        eprintln!("[SSH-PROXY] Client public key: {}", key_str);
-        std::io::stderr().flush().ok();
         info!("[AUTH] Client public key: {}", key_str);
 
         // Helper to check if key is in cache
         let check_key_in_cache = |cache: &[String], key: &str| -> bool {
             let key_parts: Vec<&str> = key.split_whitespace().collect();
-            eprintln!("[SSH-PROXY] Client key parts count: {}", key_parts.len());
-            std::io::stderr().flush().ok();
             if key_parts.len() >= 2 {
-                eprintln!("[SSH-PROXY] Client key type: {}, data (first 40): {}...",
+                debug!(
+                    "Client key type={}, data prefix={}",
                     key_parts[0],
-                    &key_parts[1][..std::cmp::min(40, key_parts[1].len())]);
-                std::io::stderr().flush().ok();
+                    &key_parts[1][..std::cmp::min(40, key_parts[1].len())]
+                );
+            } else {
+                debug!("Client key has unexpected parts count: {}", key_parts.len());
             }
 
             for (i, k) in cache.iter().enumerate() {
                 let cached_parts: Vec<&str> = k.split_whitespace().collect();
                 if cached_parts.len() >= 2 {
-                    eprintln!("[SSH-PROXY] Cached key {}: type={}, data (first 40): {}...",
-                        i, cached_parts[0],
-                        &cached_parts[1][..std::cmp::min(40, cached_parts[1].len())]);
-                    std::io::stderr().flush().ok();
                     if key_parts.len() >= 2 && key_parts[1] == cached_parts[1] {
-                        eprintln!("[SSH-PROXY] Found matching key at index {}", i);
-                        std::io::stderr().flush().ok();
+                        debug!("Found matching cached key at index {}", i);
                         return true;
                     }
                 } else {
-                    eprintln!("[SSH-PROXY] Cached key {} has {} parts: {:?}", i, cached_parts.len(), k);
-                    std::io::stderr().flush().ok();
+                    debug!(
+                        "Cached key {} has unexpected parts count: {}",
+                        i,
+                        cached_parts.len()
+                    );
                 }
             }
-            eprintln!("[SSH-PROXY] No matching key found in cache");
-            std::io::stderr().flush().ok();
+            debug!("No matching key found in cache");
             false
         };
 
-        // Check if the key is in our valid keys cache
-        eprintln!("[SSH-PROXY] Checking key against cache...");
-        std::io::stderr().flush().ok();
         let mut is_valid = {
             let cache = self.valid_keys.lock().await;
-            eprintln!("[SSH-PROXY] Cache has {} keys", cache.len());
-            std::io::stderr().flush().ok();
             info!("[AUTH] Checking key against {} cached keys", cache.len());
             check_key_in_cache(&cache, &key_str)
         };
 
         // If not found, refresh keys and try again (for newly registered users)
         if !is_valid {
-            eprintln!("[SSH-PROXY] Key not in cache, refreshing on-demand...");
-            std::io::stderr().flush().ok();
             info!("[AUTH] Key not in cache, refreshing keys on-demand");
             match self.api_client.get_keys().await {
                 Ok(keys) => {
                     let mut cache = self.valid_keys.lock().await;
-                    eprintln!("[SSH-PROXY] On-demand refresh got {} keys", keys.len());
-                    std::io::stderr().flush().ok();
                     info!("[AUTH] On-demand refresh got {} keys", keys.len());
                     *cache = keys;
                     is_valid = check_key_in_cache(&cache, &key_str);
                 }
                 Err(e) => {
-                    eprintln!("[SSH-PROXY] Failed to refresh keys: {}", e);
-                    std::io::stderr().flush().ok();
                     error!("[AUTH] Failed to refresh keys on-demand: {}", e);
                 }
             }
         }
 
         if !is_valid {
-            eprintln!("[SSH-PROXY] REJECTED: Invalid public key for user {}", user);
-            std::io::stderr().flush().ok();
             error!("[AUTH] REJECTED: Invalid public key for user {}", user);
             return Ok(Auth::Reject {
                 proceed_with_methods: None,
                 partial_success: false,
             });
         }
-        eprintln!("[SSH-PROXY] Key validation passed for user {}", user);
-        std::io::stderr().flush().ok();
         info!("[AUTH] Key validation passed for user {}", user);
 
         // Store the authenticated key
         self.state.pubkey = Some(key_str.clone());
 
         // Get user permissions from API
-        eprintln!("[SSH-PROXY] Calling ssh_authenticated API...");
-        std::io::stderr().flush().ok();
+        debug!("[AUTH] Calling ssh_authenticated API");
         match self
             .api_client
             .ssh_authenticated(&self.state.exercise_name, &key_str)
             .await
         {
             Ok(auth_response) => {
-                eprintln!("[SSH-PROXY] ssh_authenticated succeeded: instance_id={}", auth_response.instance_id);
-                std::io::stderr().flush().ok();
                 // TODO: Use API response for permissions when webapp supports it
                 // For now, mock all permissions as allowed (per user request)
                 self.state.tcp_forwarding_allowed = true;  // Mocked: always allow
@@ -476,16 +448,13 @@ impl server::Handler for SshConnection {
 
         // Provision the container (skip if we already recorded a startup error)
         if self.state.startup_error.is_none() {
-            eprintln!("[SSH-PROXY] Calling provision API...");
-            std::io::stderr().flush().ok();
+            debug!("[AUTH] Calling provision API");
             match self
                 .api_client
                 .provision(&self.state.exercise_name, &key_str)
                 .await
             {
                 Ok(provision) => {
-                    eprintln!("[SSH-PROXY] Provisioned container at {} (as_root={})", provision.ip, provision.as_root);
-                    std::io::stderr().flush().ok();
                     self.state.container_ip = Some(provision.ip.clone());
                     self.state.as_root = provision.as_root;
                     self.state.welcome_message = provision.welcome_message;
@@ -502,8 +471,7 @@ impl server::Handler for SshConnection {
             }
         }
 
-        eprintln!("[SSH-PROXY] Auth complete - returning Accept");
-        std::io::stderr().flush().ok();
+        debug!("[AUTH] Auth complete - returning Accept");
         Ok(Auth::Accept)
     }
 
@@ -1127,52 +1095,39 @@ fn spawn_key_refresh_task(
 
 /// Run the SSH server.
 pub async fn run_server(config: Config) -> Result<()> {
-    use std::io::Write;
-    eprintln!("[SSH-PROXY] run_server: Creating API client...");
-    std::io::stderr().flush().ok();
-
+    debug!("run_server: Creating API client");
     let api_client = ApiClient::from_env(
         config.api.base_url.clone(),
         &config.api.signing_key_env,
     )?;
 
-    eprintln!("[SSH-PROXY] run_server: Loading container keys...");
-    std::io::stderr().flush().ok();
-
-    // Load container keys
+    debug!("run_server: Loading container keys");
     let container_keys = ContainerKeys::load(&config.container.keys_dir)?;
-
-    eprintln!("[SSH-PROXY] run_server: Creating server...");
-    std::io::stderr().flush().ok();
 
     let mut server = SshServer::new(config.clone(), api_client.clone(), container_keys);
 
-    // Initial key refresh with retries (web server may not be ready yet)
-    eprintln!("[SSH-PROXY] run_server: Initial key refresh...");
-    std::io::stderr().flush().ok();
-
+    info!("Performing initial key refresh");
     let max_retries = 30;
     let mut retry_count = 0;
     loop {
         match server.refresh_keys().await {
             Ok(_) => {
-                eprintln!("[SSH-PROXY] run_server: Keys refreshed successfully");
-                std::io::stderr().flush().ok();
+                info!("Initial key refresh succeeded");
                 break;
             }
             Err(e) => {
                 retry_count += 1;
                 if retry_count >= max_retries {
-                    eprintln!("[SSH-PROXY] run_server: Failed to fetch keys after {} retries: {}", max_retries, e);
-                    std::io::stderr().flush().ok();
+                    error!(
+                        "Failed to fetch keys after {} retries: {}",
+                        max_retries, e
+                    );
                     return Err(anyhow::anyhow!(
                         "Failed to fetch keys after {} retries: {}",
                         max_retries,
                         e
                     ));
                 }
-                eprintln!("[SSH-PROXY] run_server: Key refresh attempt {} failed: {}. Retrying...", retry_count, e);
-                std::io::stderr().flush().ok();
                 warn!(
                     "Failed to fetch keys (attempt {}/{}): {}. Retrying in 1s...",
                     retry_count, max_retries, e
@@ -1182,21 +1137,20 @@ pub async fn run_server(config: Config) -> Result<()> {
         }
     }
 
-    // Spawn background task to periodically refresh keys (every 60 seconds)
-    eprintln!("[SSH-PROXY] run_server: Spawning key refresh task...");
-    std::io::stderr().flush().ok();
+    debug!("Spawning periodic key refresh task");
     spawn_key_refresh_task(api_client, Arc::clone(&server.valid_keys), 60);
 
     // Load or generate host key (persisted across restarts)
     let key_path = &config.server.host_key_path;
     let key = if key_path.exists() {
-        eprintln!("[SSH-PROXY] run_server: Loading host key from {:?}", key_path);
-        std::io::stderr().flush().ok();
+        info!("Loading host key from {:?}", key_path);
         russh::keys::PrivateKey::read_openssh_file(key_path)
             .context(format!("Failed to load host key from {:?}", key_path))?
     } else {
-        eprintln!("[SSH-PROXY] run_server: Generating new host key (path {:?} does not exist)", key_path);
-        std::io::stderr().flush().ok();
+        info!(
+            "Generating new host key (path {:?} does not exist)",
+            key_path
+        );
         let key = russh::keys::PrivateKey::random(
             &mut rand::thread_rng(),
             russh::keys::Algorithm::Ed25519,
@@ -1208,8 +1162,7 @@ pub async fn run_server(config: Config) -> Result<()> {
         }
         key.write_openssh_file(key_path, russh::keys::ssh_key::LineEnding::LF)
             .context(format!("Failed to save host key to {:?}", key_path))?;
-        eprintln!("[SSH-PROXY] run_server: Saved host key to {:?}", key_path);
-        std::io::stderr().flush().ok();
+        info!("Saved host key to {:?}", key_path);
         key
     };
 
@@ -1222,14 +1175,10 @@ pub async fn run_server(config: Config) -> Result<()> {
     };
 
     let addr: std::net::SocketAddr = config.server.listen_addr.parse()?;
-    eprintln!("[SSH-PROXY] run_server: Starting SSH server on {}...", addr);
-    std::io::stderr().flush().ok();
     info!("Starting SSH server on {}", addr);
 
     server.run_on_address(Arc::new(russh_config), addr).await?;
 
-    eprintln!("[SSH-PROXY] run_server: Server terminated");
-    std::io::stderr().flush().ok();
-
+    info!("SSH server terminated");
     Ok(())
 }
