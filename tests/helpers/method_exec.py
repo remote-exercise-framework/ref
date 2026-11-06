@@ -297,7 +297,16 @@ def enable_exercise(ref_instance: "REFInstance", exercise_id: int) -> bool:
         if exercise is None:
             return False
 
-        # Set default flag like the view does
+        # Clear the flag on the other versions first, like the view does:
+        # provisioning looks the default exercise up with one_or_none(), so
+        # two defaults of the same short name make every login fail.
+        others = Exercise.query.filter(
+            Exercise.short_name == exercise.short_name,
+            Exercise.id != exercise.id,
+        ).all()
+        for other in others:
+            other.is_default = False
+
         exercise.is_default = True
         current_app.db.session.commit()
         return True

@@ -137,6 +137,20 @@ struct ProvisionRequest {
     pubkey: String,
 }
 
+/// Request body for /api/welcome
+#[derive(Serialize)]
+struct WelcomeRequest {
+    instance_id: i64,
+    pubkey: String,
+}
+
+/// Response from /api/welcome
+#[derive(Debug, Deserialize)]
+pub struct WelcomeResponse {
+    #[serde(default)]
+    pub welcome_message: Option<String>,
+}
+
 impl ApiClient {
     /// Create a new API client.
     pub fn new(base_url: String, signing_key: Vec<u8>) -> Self {
@@ -324,6 +338,50 @@ impl ApiClient {
             serde_json::from_str(&body_text).map_err(ApiError::decode)?;
         debug!("Provisioned container at IP: {}", provision_response.ip);
         Ok(provision_response)
+    }
+
+    /// Fetch the welcome banner for an already-provisioned instance.
+    ///
+    /// Called once per interactive session rather than once per
+    /// connection: a shared connection (OpenSSH `ControlMaster`) is
+    /// authenticated once but carries sessions that each need the
+    /// current state, e.g. the student's latest submission.
+    #[instrument(skip(self, pubkey))]
+    pub async fn welcome(
+        &self,
+        instance_id: i64,
+        pubkey: &str,
+    ) -> std::result::Result<Option<String>, ApiError> {
+        let request = WelcomeRequest {
+            instance_id,
+            pubkey: pubkey.to_string(),
+        };
+        let payload = serde_json::to_string(&request).map_err(ApiError::decode)?;
+        let signed = self.sign_payload(&payload);
+
+        let url = format!("{}/api/welcome", self.base_url);
+        debug!("Fetching welcome banner for instance {}", instance_id);
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&signed)
+            .send()
+            .await
+            .map_err(ApiError::transport)?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            let body_escaped = body.replace('\n', "\\n").replace('\r', "\\r");
+            error!("[API] welcome FAILED: status={}, body={}", status, body_escaped);
+            return Err(ApiError::from_status_signed(status, &body_escaped));
+        }
+
+        let body_text = response.text().await.map_err(ApiError::transport)?;
+        let welcome_response: WelcomeResponse =
+            serde_json::from_str(&body_text).map_err(ApiError::decode)?;
+        Ok(welcome_response.welcome_message)
     }
 }
 

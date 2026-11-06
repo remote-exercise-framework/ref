@@ -25,11 +25,17 @@ pub struct ConnectionState {
     pub container_ip: Option<String>,
     /// Whether to connect as root
     pub as_root: bool,
+    /// The instance this connection was provisioned to, as reported by
+    /// `/api/ssh-authenticated`. Used to refresh the welcome banner per
+    /// session.
+    pub instance_id: Option<i64>,
     /// Whether TCP forwarding is allowed
     pub tcp_forwarding_allowed: bool,
     /// Whether X11 forwarding is allowed
     pub x11_forwarding_allowed: bool,
-    /// Welcome message to display
+    /// Welcome banner captured at provisioning time. Only a fallback:
+    /// interactive sessions fetch a current one, since a connection can
+    /// outlive the state the banner describes.
     pub welcome_message: Option<String>,
     /// If set, the backend failed during provisioning after we had already
     /// validated the student's key. Auth is accepted so we can deliver this
@@ -77,6 +83,7 @@ impl Default for ConnectionState {
             pubkey: None,
             container_ip: None,
             as_root: false,
+            instance_id: None,
             tcp_forwarding_allowed: false,
             x11_forwarding_allowed: false,
             welcome_message: None,
@@ -280,6 +287,38 @@ impl SshConnection {
         Ok(true)
     }
 
+    /// The banner to print at the start of an interactive session.
+    ///
+    /// Fetched from the web app per session, because a connection can
+    /// outlive the state the banner describes: with OpenSSH connection
+    /// sharing the student authenticates once and every later session
+    /// runs over that same transport, so the banner captured during
+    /// provisioning would keep reporting, for instance, that they have
+    /// no submission after they just made one.
+    ///
+    /// Falls back to the provisioning-time banner if the lookup fails,
+    /// so a transient web error costs freshness, not the banner.
+    async fn current_welcome_message(&self) -> Option<String> {
+        let (Some(instance_id), Some(pubkey)) =
+            (self.state.instance_id, self.state.pubkey.as_deref())
+        else {
+            return self.state.welcome_message.clone();
+        };
+
+        match self.api_client.welcome(instance_id, pubkey).await {
+            Ok(Some(welcome)) => Some(welcome),
+            Ok(None) => None,
+            Err(e) => {
+                warn!(
+                    "Failed to refresh welcome banner for instance {}: {}. \
+                     Falling back to the one from provisioning.",
+                    instance_id, e
+                );
+                self.state.welcome_message.clone()
+            }
+        }
+    }
+
     /// Spawn a task to forward events from container to client.
     fn spawn_event_forwarder(
         mut read_half: ChannelReadHalf,
@@ -465,6 +504,7 @@ impl server::Handler for SshConnection {
                 // For now, mock all permissions as allowed (per user request)
                 self.state.tcp_forwarding_allowed = true;  // Mocked: always allow
                 self.state.x11_forwarding_allowed = true;  // Mocked: always allow
+                self.state.instance_id = Some(auth_response.instance_id);
                 debug!(
                     "User authenticated: instance_id={}, forwarding={}, x11={} (mocked: always allowed)",
                     auth_response.instance_id, self.state.tcp_forwarding_allowed, self.state.x11_forwarding_allowed
@@ -537,7 +577,7 @@ impl server::Handler for SshConnection {
         pix_width: u32,
         pix_height: u32,
         _modes: &[(russh::Pty, u32)],
-        _session: &mut Session,
+        session: &mut Session,
     ) -> Result<(), Self::Error> {
         debug!(
             "PTY requested: term={}, size={}x{}",
@@ -554,6 +594,10 @@ impl server::Handler for SshConnection {
                 pix_height,
             });
         }
+
+        // `pty-req` is sent with want_reply=true. Clients that wait for the
+        // reply (e.g. paramiko) hang forever without it.
+        session.channel_success(channel_id)?;
 
         Ok(())
     }
@@ -574,6 +618,7 @@ impl server::Handler for SshConnection {
             Some(ip) => ip.clone(),
             None => {
                 error!("No container IP available");
+                session.channel_failure(channel_id)?;
                 return Ok(());
             }
         };
@@ -619,10 +664,17 @@ impl server::Handler for SshConnection {
         // Request shell on container
         if let Err(e) = forwarder.request_shell().await {
             error!("Failed to request shell on container: {}", e);
+            // `shell` is sent with want_reply=true: answer before writing,
+            // so clients that wait for the reply do not hang.
+            session.channel_success(channel_id)?;
             let msg = format!("Error: Failed to start shell: {}\r\n", e);
             session.data(channel_id, CryptoVec::from_slice(msg.as_bytes()))?;
+            session.exit_status_request(channel_id, 1)?;
+            session.close(channel_id)?;
             return Ok(());
         }
+
+        session.channel_success(channel_id)?;
 
         // Get read half and spawn forwarder task
         if let Some(read_half) = forwarder.take_read_half() {
@@ -640,7 +692,7 @@ impl server::Handler for SshConnection {
             .map(|ctx| ctx.pty_params.is_some())
             .unwrap_or(false);
         if has_pty {
-            if let Some(ref welcome) = self.state.welcome_message {
+            if let Some(welcome) = self.current_welcome_message().await {
                 let msg = format!("{}\r\n", welcome.replace('\n', "\r\n"));
                 session.data(channel_id, CryptoVec::from_slice(msg.as_bytes()))?;
             }

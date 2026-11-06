@@ -65,39 +65,14 @@ def _verify_signed_body(req):
     return content, None
 
 
-def start_and_return_instance(
-    instance: Instance, requesting_user: User, requests_root_access: bool
-):
-    """Return ip/cmd/welcome for the given instance, starting it if needed.
+def build_welcome_message(instance: Instance, requesting_user: User) -> str:
+    """Render the banner shown at the start of an interactive session.
 
-    The returned response is ready to be forwarded as the final reply to
-    the SSH reverse proxy. Raises ``ApiRequestError`` with a pre-built
-    error response when the instance's underlying image is missing.
+    Everything in here is state that can change while a student is
+    connected (a new submission, a passing deadline, a new
+    message-of-the-day), so this is rendered per session rather than
+    once per connection.
     """
-    log.info(f"Start of instance {instance} was requested.")
-
-    if not ExerciseImageManager(instance.exercise).is_build():
-        log.error(
-            f"User {instance.user} has an instance ({instance}) of an exercise that is not built. Possibly someone deleted the docker image?"
-        )
-        raise ApiRequestError(
-            error_response(
-                "Inconsistent build state! Please notify the system administrator immediately"
-            )
-        )
-
-    instance_manager = InstanceManager(instance)
-    if not instance_manager.is_running():
-        log.info(f"Instance ({instance}) is not running. Starting..")
-        instance_manager.start()
-
-    try:
-        ip = instance_manager.get_entry_ip()
-    except Exception:
-        log.error("Failed to get IP of instance. Stopping instance..", exc_info=True)
-        instance_manager.stop()
-        raise
-
     exercise: Exercise = instance.exercise
 
     header = SystemSettingsManager.SSH_WELCOME_MSG.value or ""
@@ -145,12 +120,47 @@ def start_and_return_instance(
         else:
             welcome_message += f"    Deadline: {deadline} ({since_in_str})\n"
 
-    welcome_message = welcome_message.rstrip()
+    return welcome_message.rstrip()
+
+
+def start_and_return_instance(
+    instance: Instance, requesting_user: User, requests_root_access: bool
+):
+    """Return ip/cmd/welcome for the given instance, starting it if needed.
+
+    The returned response is ready to be forwarded as the final reply to
+    the SSH reverse proxy. Raises ``ApiRequestError`` with a pre-built
+    error response when the instance's underlying image is missing.
+    """
+    log.info(f"Start of instance {instance} was requested.")
+
+    if not ExerciseImageManager(instance.exercise).is_build():
+        log.error(
+            f"User {instance.user} has an instance ({instance}) of an exercise that is not built. Possibly someone deleted the docker image?"
+        )
+        raise ApiRequestError(
+            error_response(
+                "Inconsistent build state! Please notify the system administrator immediately"
+            )
+        )
+
+    instance_manager = InstanceManager(instance)
+    if not instance_manager.is_running():
+        log.info(f"Instance ({instance}) is not running. Starting..")
+        instance_manager.start()
+
+    try:
+        ip = instance_manager.get_entry_ip()
+    except Exception:
+        log.error("Failed to get IP of instance. Stopping instance..", exc_info=True)
+        instance_manager.stop()
+        raise
 
     resp = {
         "ip": ip,
         "cmd": instance.exercise.entry_service.cmd,
-        "welcome_message": welcome_message,
+        "welcome_message": build_welcome_message(instance, requesting_user),
+        "instance_id": instance.id,
         "as_root": requests_root_access and requesting_user.is_admin,
     }
     log.info(f"Instance was started! resp={resp}")
@@ -513,6 +523,59 @@ def api_getuserinfo():
         )
     log.info("User not found")
     return error_response("Failed to find user associated to given pubkey")
+
+
+@refbp.route("/api/welcome", methods=("GET", "POST"))
+@limiter.exempt
+def api_welcome():
+    """Return the current welcome banner for an already-provisioned instance.
+
+    The SSH reverse proxy calls this once per interactive session. A
+    connection can outlive the state the banner describes — OpenSSH
+    connection sharing authenticates once and then runs every later
+    session over the same transport — so the banner is rendered per
+    session instead of being reused from provisioning time.
+
+    Unlike ``/api/provision`` this neither creates nor starts anything;
+    it only reads the instance the proxy was already given.
+
+    Body: signed ``{"instance_id": int, "pubkey": str}``.
+    """
+    content, err = _verify_signed_body(request)
+    if err is not None:
+        return err
+
+    pubkey = content.get("pubkey", None)
+    if not pubkey:
+        log.warning("Missing pubkey")
+        return error_response("Invalid request")
+
+    instance_id = content.get("instance_id", None)
+    try:
+        instance_id = int(instance_id)
+    except (TypeError, ValueError):
+        log.warning(f"Invalid instance id {instance_id}")
+        return error_response("Invalid instance ID")
+
+    user: User = User.query.filter(User.pub_key == pubkey).one_or_none()
+    if not user:
+        log.warning("Unable to find user with provided publickey")
+        return error_response("Unknown public key")
+
+    instance: Instance = Instance.query.filter(Instance.id == instance_id).one_or_none()
+    if not instance:
+        log.warning(f"Invalid instance_id={instance_id}")
+        return error_response("Invalid instance ID")
+
+    # Only the owner may see their own banner; admins and grading
+    # assistants reach other users' instances through introspection.
+    if instance.user.id != user.id and not (user.is_admin or user.is_grading_assistant):
+        log.warning(
+            f"User {user} requested the banner of instance {instance} they do not own"
+        )
+        return error_response("Insufficient permissions")
+
+    return ok_response({"welcome_message": build_welcome_message(instance, user)})
 
 
 @refbp.route("/api/header", methods=("GET", "POST"))
