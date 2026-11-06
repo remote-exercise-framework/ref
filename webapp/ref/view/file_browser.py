@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 
+import charset_normalizer
 from flask import Response, abort, current_app, render_template, request, url_for
 from itsdangerous import URLSafeTimedSerializer
 
@@ -12,11 +13,19 @@ from ref.core.logging import get_logger
 
 log = get_logger(__name__)
 
+# Editor is not a data viewer; cap the bytes we'll load into memory per request.
+MAX_FILE_BROWSER_BYTES = 5 * 1024 * 1024
+
 
 @dataclasses.dataclass
 class PathSignatureToken:
     # Path prefix a request is allowed to access
     path_prefix: str
+
+
+def _alert_response(message: str, status: int) -> Response:
+    rendered_alert = render_template("file_browser/alert.html", error_message=message)
+    return Response(rendered_alert, status=status)
 
 
 def _get_file_list(dir_path, base_dir_path, list_hidden_files=False):
@@ -108,13 +117,36 @@ def file_browser_load_file():
 
     response = None
     if final_path.is_file():
-        # If the current path belongs to a file, return the file content.
-        content = None
+        # Cap the actual read: the file can grow between stat() and read(), so
+        # only trusting os.stat() would be racy. Read one byte over the limit
+        # so we can distinguish "exactly at limit" from "exceeds limit".
         try:
-            with open(final_path, "r") as f:
-                content = f.read()
-        except Exception:
-            return Response("Error while reading file: {e}", status=400)
+            with open(final_path, "rb") as f:
+                raw = f.read(MAX_FILE_BROWSER_BYTES + 1)
+        except Exception as e:
+            log.warning(f"Error while reading file {final_path}", exc_info=True)
+            return _alert_response(f"Error while reading file: {e}", 400)
+
+        if len(raw) > MAX_FILE_BROWSER_BYTES:
+            return _alert_response(
+                f"File too large to display (max {MAX_FILE_BROWSER_BYTES} bytes).",
+                400,
+            )
+
+        # Source/text files don't contain NUL bytes; reject binaries early so we
+        # don't hand the editor garbage.
+        if b"\x00" in raw[:8192]:
+            return _alert_response("Binary file is not displayable.", 400)
+
+        try:
+            content = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            match = charset_normalizer.from_bytes(raw).best()
+            if match is None:
+                return _alert_response(
+                    "Unable to decode file: unknown text encoding.", 400
+                )
+            content = str(match)
 
         file_extension = final_path.suffix
 

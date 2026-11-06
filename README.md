@@ -191,6 +191,16 @@ git pull && git submodule update --init --recursive
 
 In case the update fails, remove the `data` directory and move the backup to `data`.
 
+### Backups
+All recoverable state lives under `data/`, so any backup must include that
+directory to be useful. Each instance's persistence directory contains
+overlayfs-derived folders that should be excluded:
+
+```
+--exclude '**/entry-merged/**'
+--exclude '**/entry-work/**'
+```
+
 ### Services
 After starting the application, the following services are running on the host:
 

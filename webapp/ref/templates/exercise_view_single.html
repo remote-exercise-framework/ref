@@ -20,9 +20,9 @@
     <dt class="col-sm-3">Submission Tests Enabled</dt>
     <dd class="col-sm-9">{{ exercise.submission_test_enabled }}</dd>
     <dt class="col-sm-3">Deadline Start</dt>
-    <dd class="col-sm-9">{{ moment(exercise.submission_deadline_start).format()  }}</dd>
+    <dd class="col-sm-9">{{ exercise.submission_deadline_start | localdt }} <small class="text-muted">({{ settings.TIMEZONE.value }})</small></dd>
     <dt class="col-sm-3">Deadline End</dt>
-    <dd class="col-sm-9">{{ moment(exercise.submission_deadline_end).format()  }}</dd>
+    <dd class="col-sm-9">{{ exercise.submission_deadline_end | localdt }} <small class="text-muted">({{ settings.TIMEZONE.value }})</small></dd>
     <dt class="col-sm-3">Build Status</dt>
     <dd class="col-sm-9">{{ exercise.build_job_status }}</dd>
     <dt class="col-sm-3">Build Result</dt><dd class="col-sm-9"></dd>

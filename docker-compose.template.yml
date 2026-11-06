@@ -213,7 +213,7 @@ services:
             - API_BASE_URL=http://web:8000
             - SSH_TO_WEB_KEY=${SSH_TO_WEB_KEY:?SSH_TO_WEB_KEY not set}
             - CONTAINER_SSH_PORT=13370
-            - RUST_LOG=ref_ssh_proxy=info,russh=warn
+            - RUST_LOG=ssh_reverse_proxy=info,russh=warn
         volumes:
             - ./container-keys:/keys:ro
             - ./data/ssh-proxy:/data

@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { EChartsOption } from 'echarts';
 import {
+  applyPreservedState,
   buildCommonOptions,
   formatTooltipDate,
   getMarkLineColors,
@@ -135,8 +136,10 @@ function buildOption(): EChartsOption {
 
 function render() {
   if (!root.value) return;
+  const firstMount = !chart;
   if (!chart) chart = mountChart(root.value);
-  chart.chart.setOption(buildOption(), { notMerge: true });
+  const option = firstMount ? buildOption() : applyPreservedState(chart.chart, buildOption());
+  chart.chart.setOption(option, { notMerge: true });
 }
 
 let offTheme: (() => void) | null = null;

@@ -71,6 +71,8 @@
         function load_file(fileName) {
             let url = "{{ url_for('ref.file_browser_load_file')  }}";
 
+            $('#error-log').empty();
+
             $.post(url, { 'path': fileName, 'token': token, 'hide_hidden_files': hide_hidden_files}, function (response) {
                 console.log(response)
 
@@ -97,6 +99,9 @@
                         load_file(current_path)
                     });
                 }
+            })
+            .fail(function (error) {
+                $('#error-log').html(error.responseText);
             });
         }
 

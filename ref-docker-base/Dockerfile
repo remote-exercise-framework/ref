@@ -2,13 +2,12 @@ FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt update
-
-RUN apt install -y \
+RUN apt update && apt install -y \
     build-essential \
     ca-certificates \
     gcc gcc-multilib g++-multilib \
     git \
+    golang \
     iproute2 iputils-ping net-tools \
     libssl-dev libffi-dev \
     make \
@@ -19,6 +18,8 @@ RUN apt install -y \
     netcat-traditional \
     hexcurse \
     clang \
+    lld \
+    mold \
     socat \
     man-db \
     rsync \
@@ -44,6 +45,16 @@ ENV PATH="/root/.local/bin:$PATH"
 # Install Python dependencies using uv
 COPY pyproject.toml /tmp/pyproject.toml
 RUN cd /tmp && uv pip install --system --break-system-packages . && rm /tmp/pyproject.toml
+
+# Install Rust toolchain via rustup (system-wide, stable, default profile:
+# rustc, cargo, rust-std, rust-docs, rustfmt, clippy).
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain stable --profile default --no-modify-path \
+    && rustup component add rust-analyzer \
+    && chmod -R a+rX "$RUSTUP_HOME" "$CARGO_HOME"
 
 RUN wget -4 https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -O /usr/bin/wait-for \
     && chmod 555 /usr/bin/wait-for
@@ -81,7 +92,7 @@ RUN mkdir .ssh && chmod 700 .ssh
 # sshd_config references /etc/ssh/master_keys/%u for key lookup.
 RUN mkdir -p /etc/ssh/master_keys
 
-COPY sshd_config /etc/ssh/sshd_config
+COPY --chmod=0644 sshd_config /etc/ssh/sshd_config
 
 # Replace /bin/sh with a shell that does not drop privileges
 # in case euid != uid.
