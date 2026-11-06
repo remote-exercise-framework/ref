@@ -188,6 +188,41 @@ for that rather than expecting a clean bump.
       as PRs instead of accumulating
 - [ ] Bump base images and CI actions in a separate change
 
+## Pre-existing problems found while testing
+
+None of these come from the dependency work — no Python source in `webapp/` or
+`tests/` was touched by it.
+
+- **The test web client was calling routes that no longer exist.**
+  `register_student` posted to `/student/getkey` and `restore_student_key` to
+  `/student/restoreKey`, both removed when student-facing views moved to the SPA
+  in commit `31179f1`. Both helpers returned `False` on the resulting 404 rather
+  than raising, so the failure surfaced as a bare "registration should succeed"
+  assertion with nothing pointing at the cause, and cascaded into every e2e test
+  that needs a student. Fixed to use `POST /api/v2/registration` and
+  `POST /api/v2/restore-key`.
+- **`test_join_and_cap` had two bugs, one hiding the other.** It gave every
+  student in its loop the same placeholder public key, which the unique index on
+  the key hash rejected on the second insert. With that fixed, its teardown
+  failed instead: it asked `if not g.users` to decide which groups were empty
+  before the user deletions had been flushed, so the relationship still reported
+  its old members, those groups survived, and deleting the `GroupNameList` they
+  reference hit `fk_user_group_source_list_id`. Now it flushes first and deletes
+  the groups the list produced before the list.
+- **`WEB_CONTAINER_NAME` can go unset and fail much later.** `create_app` sets
+  it from `DockerClient.container_name_by_hostname("web")` inside a
+  `try`/`except Exception` that logs, calls `failsafe()` and carries on, while
+  `ref/core/instance.py` reads `current_app.config["WEB_CONTAINER_NAME"]`
+  unconditionally. When many REF stacks start at once and the Docker daemon is
+  saturated, the lookup can fail and the `KeyError` only appears later, during
+  instance start. This is the concrete mechanism behind one of the remaining
+  flakes.
+- **`ref/services_api/ssh.py` logging does not reach the captured container
+  logs.** Its `log.info`/`log.warning` calls are absent while its `print`-style
+  `[API]` lines come through, so a rejection in `process_instance_request` can be
+  seen happening without seeing which branch caused it. That is the main obstacle
+  to diagnosing the parallel flakiness.
+
 ## Open questions
 
 - Can the Dependabot page be read from here at all, or will this always be a
@@ -199,19 +234,30 @@ for that rather than expecting a clean bump.
 
 ## Current status
 
-**Done (2026-11-06 18:00):**
+**Done.** Every component relocked and audit-clean, all five images build, the
+full suite is green apart from known pre-existing flakiness, and `ruff`, `ruff
+format` and `mypy` all pass. Committed as `34cc64d` and `887e671` on `dev` and
+pushed; `ref-utils` went out separately as `27c1fbd`.
 
-- **Python, all four components: clean.** `pip-audit` reports zero advisories for
-  `webapp`, `tests`, `ref-docker-base` and `ref-docker-base/ref-utils`.
-- **Pinning strategy changed** (see the decision log): the manifests now declare
-  direct dependencies with `>=` floors and let `uv.lock` do the pinning.
-- **Rust: 8 advisories down to 1**, and the survivor is not reachable (below).
-  russh 0.55 -> 0.65, which needed real API work.
-- **npm: 22 advisories down to 0.** Required the major bumps; `npm audit` had
-  said no fix existed, which was only true at the versions we were on.
-- **Base images and CI actions bumped** within their existing majors.
+### Test suite
 
-**Next:** rebuild all images and run the full test suite, then `ruff` and `mypy`.
+| run | result |
+|---|---|
+| before the test fixes | 49 failed, 290 passed, 3 skipped, 11 errors |
+| after | **3 failed, 347 passed, 3 skipped** |
+
+The three stragglers are pre-existing flakiness under `-n 10`, not regressions.
+Each of their files passes on its own: `test_rust_ssh_proxy.py` 24/24,
+`test_grading_workflow.py` 17 passed + 1 skipped, `test_user_isolation.py`
+10/10, `test_submission_workflow.py` 5/5. The set also moves between runs — one
+of the three had passed in the previous run — which is what flakiness looks
+like.
+
+**The russh 0.65 rewrite is verified**, by suites other than the one named after
+it: `test_ssh_key_types.py` passes 9/9 with real RSA, Ed25519 and ECDSA
+connections plus SFTP file operations, `test_exercise_lifecycle.py` 20/20, and
+`test_ssh_welcome_banner.py` 3/3. All of that traffic goes through the rewritten
+accept/reject path.
 
 **Blocked:** nothing.
 
@@ -413,6 +459,41 @@ provides `/usr/bin/docker`.
 - **`requires-python >=3.12`** means REF no longer claims to support 3.10/3.11.
   Nothing in the project ran on those, but a developer on an older host will now
   get a resolution error rather than a silent mismatch.
+
+## Pre-existing problems found while testing
+
+None of these come from the dependency work — no Python source in `webapp/` or
+`tests/` was touched by it.
+
+- **The test web client was calling routes that no longer exist.**
+  `register_student` posted to `/student/getkey` and `restore_student_key` to
+  `/student/restoreKey`, both removed when student-facing views moved to the SPA
+  in commit `31179f1`. Both helpers returned `False` on the resulting 404 rather
+  than raising, so the failure surfaced as a bare "registration should succeed"
+  assertion with nothing pointing at the cause, and cascaded into every e2e test
+  that needs a student. Fixed to use `POST /api/v2/registration` and
+  `POST /api/v2/restore-key`.
+- **`test_join_and_cap` had two bugs, one hiding the other.** It gave every
+  student in its loop the same placeholder public key, which the unique index on
+  the key hash rejected on the second insert. With that fixed, its teardown
+  failed instead: it asked `if not g.users` to decide which groups were empty
+  before the user deletions had been flushed, so the relationship still reported
+  its old members, those groups survived, and deleting the `GroupNameList` they
+  reference hit `fk_user_group_source_list_id`. Now it flushes first and deletes
+  the groups the list produced before the list.
+- **`WEB_CONTAINER_NAME` can go unset and fail much later.** `create_app` sets
+  it from `DockerClient.container_name_by_hostname("web")` inside a
+  `try`/`except Exception` that logs, calls `failsafe()` and carries on, while
+  `ref/core/instance.py` reads `current_app.config["WEB_CONTAINER_NAME"]`
+  unconditionally. When many REF stacks start at once and the Docker daemon is
+  saturated, the lookup can fail and the `KeyError` only appears later, during
+  instance start. This is the concrete mechanism behind one of the remaining
+  flakes.
+- **`ref/services_api/ssh.py` logging does not reach the captured container
+  logs.** Its `log.info`/`log.warning` calls are absent while its `print`-style
+  `[API]` lines come through, so a rejection in `process_instance_request` can be
+  seen happening without seeing which branch caused it. That is the main obstacle
+  to diagnosing the parallel flakiness.
 
 ## Open questions
 

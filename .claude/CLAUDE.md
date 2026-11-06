@@ -167,7 +167,7 @@ REF is a containerized platform for hosting programming exercises with isolated 
 
    Student-facing pages (registration, restore-key, public scoreboard) are served by the Vue SPA under `/spa/*` and talk to `ref/frontend_api/`. Admin pages live under `ref/view/` as Jinja-rendered HTML.
 
-2. **Frontend Proxy** (`frontend-proxy/`) - Caddy 2 container that fronts the Flask `web` service and the Vue SPA on a **single host port** (`HTTP_HOST_PORT`, default 8000). Multi-stage Dockerfile: stage 1 builds the SPA with Node; stage 2 is `caddy:2-alpine` with `dist/` baked in at `/srv/spa-dist`. Routes:
+2. **Frontend Proxy** (`frontend-proxy/`) - Caddy 2 container that fronts the Flask `web` service and the Vue SPA on a **single host port** (`HTTP_HOST_PORT`, default 8000). Multi-stage Dockerfile: stage 1 builds the SPA with Node; stage 2 is a Caddy 2 alpine image with `dist/` baked in at `/srv/spa-dist`. Routes:
    - `/spa/*` → `spa-frontend:5173` (dev) or baked `/srv/spa-dist` via `file_server` (prod)
    - `/static/*` → bind-mount of `webapp/ref/static` served directly
    - `/admin`, `/admin/` → 302 to `/admin/exercise/view`
@@ -186,7 +186,7 @@ REF is a containerized platform for hosting programming exercises with isolated 
    - Contains `ref-utils` for submission testing
    - `task`/`_task` scripts for submission testing, `reset-env` for container reset
 
-5. **Database** - PostgreSQL 17.2 storing users, groups, exercises, instances, submissions, grades, system settings
+5. **Database** - PostgreSQL 17 storing users, groups, exercises, instances, submissions, grades, system settings (exact tag in `docker-compose.template.yml`)
 
 ### Connection Flow
 

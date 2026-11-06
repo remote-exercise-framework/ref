@@ -119,8 +119,8 @@ Isolated Docker container per student/exercise based on Ubuntu 24.04.
 Caddy-based reverse proxy container that serves the web interface over
 HTTP and/or HTTPS depending on `tls.mode` in `settings.yaml`. Built from
 a multi-stage Dockerfile that compiles the SPA bundle (stage 1:
-`node:22-alpine`, `npm run build`) and copies it into a
-`caddy:2.8-alpine` runtime image (stage 2) along with Python 3 and
+a Node alpine image, `npm run build`) and copies it into a
+Caddy 2 alpine runtime image (stage 2) along with Python 3 and
 Jinja2.
 
 At container start, `entrypoint.sh` either uses `Caddyfile.dev` (for
@@ -205,7 +205,7 @@ Rust-based SSH proxy routing student connections to their containers.
 - Public key authentication
 - HMAC-SHA request signing for API communication
 
-**Stack:** Rust + russh 0.55 + tokio
+**Stack:** Rust + russh 0.65 + tokio
 
 **Source structure:** `src/main.rs`, `src/server.rs`, `src/api.rs`, `src/config.rs`, `src/channel/` (shell, direct_tcpip, remote_forward, x11, forwarder)
 
@@ -238,7 +238,7 @@ from ref_utils import IPCSerializer, safe_dumps, safe_loads
 
 ### 5. Database
 
-PostgreSQL 17.2 storing:
+PostgreSQL 17 storing:
 - Users and groups
 - Exercise definitions and services
 - Instance state and services
