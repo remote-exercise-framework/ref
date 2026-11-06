@@ -2,9 +2,10 @@
 //!
 //! Handles X11 display forwarding from container to client.
 
+use bytes::Bytes;
 use anyhow::Result;
 use russh::server::Handle as ServerHandle;
-use russh::{ChannelId, ChannelMsg, CryptoVec};
+use russh::{ChannelId, ChannelMsg};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 
@@ -80,7 +81,7 @@ pub async fn handle_x11_channel(
 /// Spawn bidirectional X11 forwarding between container and client.
 fn spawn_x11_forwarder(
     mut container_read: russh::ChannelReadHalf,
-    mut container_write: russh::ChannelWriteHalf<russh::client::Msg>,
+    container_write: russh::ChannelWriteHalf<russh::client::Msg>,
     mut client_read: russh::ChannelReadHalf,
     _client_write: russh::ChannelWriteHalf<russh::server::Msg>,
     server_handle: ServerHandle,
@@ -92,7 +93,7 @@ fn spawn_x11_forwarder(
             let should_break = match msg {
                 ChannelMsg::Data { data } => {
                     server_handle
-                        .data(client_channel_id, CryptoVec::from_slice(&data))
+                        .data(client_channel_id, Bytes::copy_from_slice(&data))
                         .await
                         .is_err()
                 }

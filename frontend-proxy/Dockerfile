@@ -1,11 +1,11 @@
-FROM node:22-alpine AS spa-builder
+FROM node:24-alpine AS spa-builder
 WORKDIR /build
 COPY spa-frontend/package.json spa-frontend/package-lock.json ./
 RUN npm ci
 COPY spa-frontend/ ./
 RUN npm run build
 
-FROM caddy:2.8-alpine
+FROM caddy:2.11.9-alpine
 RUN apk add --no-cache python3 py3-jinja2
 COPY --from=spa-builder /build/dist /srv/spa-dist
 COPY frontend-proxy/Caddyfile.dev /etc/caddy/Caddyfile.dev

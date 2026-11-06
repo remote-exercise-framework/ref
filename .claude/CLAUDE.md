@@ -47,9 +47,12 @@ The test infrastructure (`tests/helpers/ref_instance.py`) automatically sets thi
 Python code must pass the same checks as CI. **Always run these checks on new or modified code.**
 
 ```bash
-# Install tools (if needed)
-uv tool install ruff
-uv tool install mypy
+# Install tools (if needed). Pin to the versions CI uses, otherwise a
+# linter release that changes its default rule set will disagree with CI.
+# The authoritative versions are RUFF_VERSION and MYPY_VERSION in
+# .github/workflows/ci.yml.
+uv tool install 'ruff==0.15.10'
+uv tool install 'mypy==2.4.1'
 
 # Install test dependencies (required for mypy)
 cd tests && uv sync

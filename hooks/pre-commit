@@ -15,7 +15,8 @@ echo "Running pre-commit checks..."
 # Check if ruff is available
 if ! command -v ruff &> /dev/null; then
     echo "Error: ruff is not installed."
-    echo "Install with: uv tool install ruff"
+    echo "Install with: uv tool install 'ruff==0.15.10'"
+    echo "(the version CI pins; see RUFF_VERSION in .github/workflows/ci.yml)"
     exit 1
 fi
 

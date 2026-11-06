@@ -42,9 +42,18 @@ RUN apt update && apt install -y \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
-# Install Python dependencies using uv
-COPY pyproject.toml /tmp/pyproject.toml
-RUN cd /tmp && uv pip install --system --break-system-packages . && rm /tmp/pyproject.toml
+# Install from uv.lock, not from the floors in pyproject.toml. The manifest
+# only says "at least this version", so resolving it at build time would put
+# whatever is current on PyPI into the image and two builds of the same commit
+# would not match. Exporting the lock first pins every package, direct and
+# transitive, to the versions the commit was tested with. --frozen makes the
+# build fail rather than silently relock if the lock and the manifest have
+# drifted apart.
+COPY pyproject.toml uv.lock /tmp/
+RUN cd /tmp \
+    && uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.txt \
+    && uv pip install --system --break-system-packages -r requirements.txt \
+    && rm /tmp/pyproject.toml /tmp/uv.lock /tmp/requirements.txt
 
 # Install Rust toolchain via rustup (system-wide, stable, default profile:
 # rustc, cargo, rust-std, rust-docs, rustfmt, clippy).

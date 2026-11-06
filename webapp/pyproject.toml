@@ -2,48 +2,59 @@
 name = "ref-webapp"
 version = "0.1.0"
 description = "Web application dependencies for REF"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    "ansi2html==1.9.2",
-    "colorama==0.4.6",
-    "argh==0.31.3",
-    "arrow==1.4.0",
-    "async-timeout==5.0.1",
-    "backports.tarfile==1.2.0",
-    "cffi==2.0.0",
-    "coloredlogs==15.0.1",
-    "docker==7.1.0",
-    "flask-bcrypt==1.0.1",
-    "flask-debugtoolbar==0.16.0",
-    "flask-failsafe==0.2",
-    "flask-limiter==4.1.1",
-    "flask-login==0.6.3",
-    "flask-migrate==4.1.0",
-    "flask-moment==1.0.6",
-    "fuzzywuzzy==0.18.0",
-    "gunicorn==25.3.0",
-    "hypothesis==6.152.1",
-    "importlib-metadata==9.0.0",
-    "jaraco.collections==5.2.1",
-    "pip-chill==1.0.5",
-    "platformdirs==4.9.6",
-    "psycopg2-binary==2.9.11",
-    "py==1.11.0",
-    "pycryptodome==3.23.0",
-    "pyparsing==3.3.2",
-    "python-levenshtein==0.27.3",
-    "python-telegram-handler==2.2.1",
-    "pytz==2026.1.post1",
-    "pyyaml==6.0.3",
-    "rq==2.7.0",
-    "toml==0.10.2",
-    "tomli==2.4.1",
-    "uwsgi==2.0.31",
-    "wcwidth==0.6.0",
-    "websocket-client==1.9.0",
-    "wtforms==3.2.1",
-    "cloudpickle>=3.0.0",
-    "cryptography>=46.0.7",
+    # --- Web framework and extensions ---
+    "flask>=3.1.3",
+    "flask-bcrypt>=1.0.1",
+    "flask-debugtoolbar>=0.16.0",
+    "flask-failsafe>=0.2",
+    "flask-limiter>=4.1.1",
+    "flask-login>=0.6.3",
+    "flask-migrate>=4.1.0",
+    "flask-moment>=1.0.6",
+    "flask-sqlalchemy>=3.1.1",
+    "jinja2>=3.1.6",
+    "werkzeug>=3.1.9",
+    "wtforms>=3.3.2",
+
+    # --- Database ---
+    "alembic>=1.20.1",
+    "psycopg2-binary>=2.9.13",
+    "sqlalchemy>=2.1.8",
+
+    # --- Crypto and signing ---
+    "cryptography>=50.0.2",
+    "itsdangerous>=2.2.0",
+    "pycryptodome>=4.3.0",
+
+    # --- Container and remote execution ---
+    "cloudpickle>=3.1.2",
+    "docker>=7.2.0",
+
+    # --- Output rendering and formatting ---
+    "ansi2html>=1.9.5",
+    "colorama>=0.4.6",
+    "pygments>=2.21.0",
+
+    # --- Dates and times ---
+    "arrow>=1.4.0",
+    "python-dateutil>=4.0.0",
+    "pytz>=2026.6",
+
+    # --- Grading: fuzzy string matching.
+    # python-levenshtein is not imported directly; fuzzywuzzy uses it as its
+    # C speedup backend and warns loudly when it is missing.
+    "fuzzywuzzy>=0.18.0",
+    "python-levenshtein>=0.27.5",
+
+    # --- Misc ---
+    "charset-normalizer>=3.5.2",
+    "python-telegram-handler>=2.2.1",
+    "pyyaml>=6.0.3",
+
+    # --- WSGI server (invoked as a binary by run-server.sh) ---
+    "uwsgi>=2.0.31",
 ]
 
 [tool.uv]

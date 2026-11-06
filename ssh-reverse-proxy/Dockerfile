@@ -1,5 +1,8 @@
-# Build stage - use bookworm for GLIBC compatibility with runtime
-FROM rust:bookworm AS builder
+# Build stage. The Debian release here must match the runtime stage below,
+# because the binary is copied between them and links against that glibc.
+# The Rust version is pinned rather than floating on latest stable, so a
+# new compiler release cannot change the build without a deliberate bump.
+FROM rust:1.99-trixie AS builder
 
 WORKDIR /build
 
@@ -13,11 +16,12 @@ RUN apt-get update && apt-get install -y \
 COPY Cargo.toml Cargo.lock* ./
 COPY src ./src
 
-# Build release binary
-RUN cargo build --release
+# Build release binary. --locked makes the build fail if Cargo.lock does not
+# match Cargo.toml, rather than quietly resolving new versions.
+RUN cargo build --release --locked
 
-# Runtime stage
-FROM debian:bookworm-slim
+# Runtime stage - same Debian release as the builder, see above.
+FROM debian:trixie-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \

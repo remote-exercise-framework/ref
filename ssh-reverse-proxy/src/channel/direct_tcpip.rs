@@ -3,13 +3,14 @@
 //! This module handles the forwarding of TCP connections from the client
 //! through the SSH proxy to a target host:port via the container SSH.
 
+use bytes::Bytes;
 use crate::channel::forwarder::ChannelForwarder;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use russh::client::{self, Msg};
 use russh::keys::{PrivateKey, PrivateKeyWithHashAlg};
 use russh::server::Handle;
-use russh::{ChannelId, ChannelMsg, ChannelWriteHalf, CryptoVec};
+use russh::{ChannelId, ChannelMsg, ChannelWriteHalf};
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
@@ -22,7 +23,7 @@ impl client::Handler for ContainerHandler {
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &russh::keys::PublicKey,
+        _server_public_key: &russh::keys::PublicKeyOrCertificate,
     ) -> Result<bool, Self::Error> {
         // Accept any server key from containers (internal network)
         Ok(true)
@@ -123,7 +124,7 @@ impl DirectTcpIpForwarder {
                 let should_break = match msg {
                     ChannelMsg::Data { data } => {
                         session_handle
-                            .data(client_channel_id, CryptoVec::from_slice(&data))
+                            .data(client_channel_id, Bytes::copy_from_slice(&data))
                             .await
                             .is_err()
                     }

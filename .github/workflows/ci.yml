@@ -7,14 +7,16 @@ on:
     branches: [dev, main]
 
 env:
-  PYTHON_VERSION: "3.10"
+  PYTHON_VERSION: "3.12"
+  RUFF_VERSION: "0.15.10"
+  MYPY_VERSION: "2.4.1"
 
 jobs:
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Initialize submodules (excluding ref-linux)
         run: |
@@ -22,15 +24,20 @@ jobs:
           git submodule update --init webapp/ref/static/ace-builds
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v10
 
       - name: Set up Python
         run: uv python install ${{ env.PYTHON_VERSION }}
 
+      # Pin the linters. Installing them unpinned means a release that changes
+      # the default rule set turns CI red on an unmodified codebase, which is
+      # what ruff 0.16 did: it enabled many rule families that used to be
+      # opt-in, taking this repo from zero findings to several hundred. Bump
+      # these deliberately, together with whatever fixes the new rules demand.
       - name: Install linting tools
         run: |
-          uv tool install ruff
-          uv tool install mypy
+          uv tool install 'ruff==${{ env.RUFF_VERSION }}'
+          uv tool install 'mypy==${{ env.MYPY_VERSION }}'
 
       - name: Install test dependencies (for mypy)
         working-directory: tests
@@ -50,7 +57,7 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Initialize submodules (excluding ref-linux)
         run: |
@@ -58,7 +65,7 @@ jobs:
           git submodule update --init webapp/ref/static/ace-builds
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v10
 
       - name: Set up Python
         run: uv python install ${{ env.PYTHON_VERSION }}
@@ -76,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Initialize submodules (excluding ref-linux)
         run: |
@@ -89,7 +96,7 @@ jobs:
           sudo apt-get install -y jq
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v10
 
       - name: Set up Python
         run: uv python install ${{ env.PYTHON_VERSION }}
@@ -101,10 +108,10 @@ jobs:
         run: ./prepare.py
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Cache Docker layers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -127,7 +134,7 @@ jobs:
         run: uv run pytest e2e/ -v --timeout=300
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-report
@@ -143,7 +150,7 @@ jobs:
           fi
 
       - name: Upload failure logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: failure-logs
@@ -151,7 +158,7 @@ jobs:
           retention-days: 7
 
       - name: Upload container logs on failure
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: container-logs
@@ -159,7 +166,7 @@ jobs:
           retention-days: 7
 
       - name: Upload build logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: build-logs

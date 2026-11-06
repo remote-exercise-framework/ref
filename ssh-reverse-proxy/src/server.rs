@@ -1,13 +1,16 @@
 //! SSH server implementation using russh.
 
+use bytes::Bytes;
 use crate::api::{ApiClient, ApiError, ApiErrorKind};
 use crate::channel::{ChannelForwarder, ContainerEvent, DirectTcpIpForwarder, RemoteForwardManager, ShellForwarder, X11ForwardState, channel_msg_to_event};
 use russh::ChannelReadHalf;
 use crate::config::Config;
 use anyhow::{Context, Result};
 use russh::keys::PrivateKey;
-use russh::server::{self, Auth, Handle, Msg, Server, Session};
-use russh::{Channel, ChannelId, CryptoVec};
+use russh::server::{
+    self, Auth, ChannelOpenHandle, Handle, Msg, Server, Session, VerifiedPublicKey,
+};
+use russh::{Channel, ChannelId, ChannelOpenFailure};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -256,7 +259,7 @@ impl SshConnection {
             self.state.exercise_name, error_id
         );
         session.channel_success(channel_id)?;
-        session.extended_data(channel_id, 1, CryptoVec::from_slice(msg.as_bytes()))?;
+        session.extended_data(channel_id, 1, Bytes::copy_from_slice(msg.as_bytes()))?;
         session.exit_status_request(channel_id, 1)?;
         session.close(channel_id)?;
         Ok(())
@@ -281,7 +284,7 @@ impl SshConnection {
         session.channel_success(channel_id)?;
         // stderr (extended_data type 1) so interactive clients and scripts
         // both route it to the user's stderr.
-        session.extended_data(channel_id, 1, CryptoVec::from_slice(msg.as_bytes()))?;
+        session.extended_data(channel_id, 1, Bytes::copy_from_slice(msg.as_bytes()))?;
         session.exit_status_request(channel_id, 1)?;
         session.close(channel_id)?;
         Ok(true)
@@ -335,13 +338,13 @@ impl SshConnection {
                 let result: Result<(), String> = match event {
                     ContainerEvent::Data(data) => {
                         session_handle
-                            .data(client_channel_id, CryptoVec::from_slice(&data))
+                            .data(client_channel_id, Bytes::copy_from_slice(&data))
                             .await
                             .map_err(|e| format!("data: {:?}", e))
                     }
                     ContainerEvent::ExtendedData { ext_type, data } => {
                         session_handle
-                            .extended_data(client_channel_id, ext_type, CryptoVec::from_slice(&data))
+                            .extended_data(client_channel_id, ext_type, Bytes::copy_from_slice(&data))
                             .await
                             .map_err(|e| format!("extended_data: {:?}", e))
                     }
@@ -416,14 +419,14 @@ impl server::Handler for SshConnection {
     async fn auth_publickey(
         &mut self,
         user: &str,
-        public_key: &russh::keys::PublicKey,
+        public_key: VerifiedPublicKey<'_>,
     ) -> Result<Auth, Self::Error> {
         info!("[AUTH] Auth attempt started: user={}", user);
 
         // Store the exercise name from the username
         self.state.exercise_name = user.to_string();
 
-        let key_str = Self::format_pubkey(public_key);
+        let key_str = Self::format_pubkey(public_key.public_key);
         info!("[AUTH] Client public key: {}", key_str);
 
         // Helper to check if key is in cache
@@ -550,8 +553,9 @@ impl server::Handler for SshConnection {
     async fn channel_open_session(
         &mut self,
         channel: Channel<Msg>,
+        reply: ChannelOpenHandle,
         _session: &mut Session,
-    ) -> Result<bool, Self::Error> {
+    ) -> Result<(), Self::Error> {
         let channel_id = channel.id();
         debug!("Session channel opened: {:?}", channel_id);
 
@@ -564,7 +568,8 @@ impl server::Handler for SshConnection {
             },
         );
 
-        Ok(true)
+        reply.accept().await;
+        Ok(())
     }
 
     /// Called when a PTY is requested.
@@ -668,7 +673,7 @@ impl server::Handler for SshConnection {
             // so clients that wait for the reply do not hang.
             session.channel_success(channel_id)?;
             let msg = format!("Error: Failed to start shell: {}\r\n", e);
-            session.data(channel_id, CryptoVec::from_slice(msg.as_bytes()))?;
+            session.data(channel_id, Bytes::copy_from_slice(msg.as_bytes()))?;
             session.exit_status_request(channel_id, 1)?;
             session.close(channel_id)?;
             return Ok(());
@@ -694,7 +699,7 @@ impl server::Handler for SshConnection {
         if has_pty {
             if let Some(welcome) = self.current_welcome_message().await {
                 let msg = format!("{}\r\n", welcome.replace('\n', "\r\n"));
-                session.data(channel_id, CryptoVec::from_slice(msg.as_bytes()))?;
+                session.data(channel_id, Bytes::copy_from_slice(msg.as_bytes()))?;
             }
         }
 
@@ -982,8 +987,9 @@ impl server::Handler for SshConnection {
         port_to_connect: u32,
         originator_address: &str,
         originator_port: u32,
+        reply: ChannelOpenHandle,
         session: &mut Session,
-    ) -> Result<bool, Self::Error> {
+    ) -> Result<(), Self::Error> {
         debug!(
             "Direct TCP/IP requested: {}:{} from {}:{}",
             host_to_connect, port_to_connect, originator_address, originator_port
@@ -991,14 +997,18 @@ impl server::Handler for SshConnection {
 
         if !self.state.tcp_forwarding_allowed {
             warn!("TCP forwarding not allowed for this user");
-            return Ok(false);
+            reply
+                .reject(ChannelOpenFailure::AdministrativelyProhibited)
+                .await;
+            return Ok(());
         }
 
         let container_ip = match &self.state.container_ip {
             Some(ip) => ip.clone(),
             None => {
                 error!("No container IP available for direct-tcpip");
-                return Ok(false);
+                reply.reject(ChannelOpenFailure::ConnectFailed).await;
+                return Ok(());
             }
         };
 
@@ -1027,7 +1037,8 @@ impl server::Handler for SshConnection {
                     "Failed to open direct-tcpip to {}:{} through container: {}",
                     host_to_connect, port_to_connect, e
                 );
-                return Ok(false);
+                reply.reject(ChannelOpenFailure::ConnectFailed).await;
+                return Ok(());
             }
         };
 
@@ -1048,7 +1059,8 @@ impl server::Handler for SshConnection {
             host_to_connect, port_to_connect, container_ip, channel_id
         );
 
-        Ok(true)
+        reply.accept().await;
+        Ok(())
     }
 
     /// Called when a TCP/IP forwarding request is made (remote port forwarding).
@@ -1222,7 +1234,7 @@ pub async fn run_server(config: Config) -> Result<()> {
             key_path
         );
         let key = russh::keys::PrivateKey::random(
-            &mut rand::thread_rng(),
+            &mut rand::rng(),
             russh::keys::Algorithm::Ed25519,
         )
         .context("Failed to generate host key")?;

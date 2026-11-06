@@ -209,11 +209,12 @@ async function onSubmit() {
           clear-icon="mdi-close"
           @click:clear.stop="resetGroup"
         >
+          <!-- The selection slot hands over the entry from `:items` itself;
+               the wrapper Vuetify builds around it is a separate
+               `internalItem` slot prop. -->
           <template #selection="{ item }">
-            <span
-              :class="{ 'term-placeholder': item.raw.value === AUTO_ASSIGN_VALUE }"
-            >
-              {{ item.raw.title }}
+            <span :class="{ 'term-placeholder': item.value === AUTO_ASSIGN_VALUE }">
+              {{ item.title }}
             </span>
           </template>
         </v-select>

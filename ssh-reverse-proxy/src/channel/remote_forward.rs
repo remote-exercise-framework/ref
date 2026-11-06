@@ -2,11 +2,12 @@
 //!
 //! Handles forwarding connections from the container back to the client.
 
+use bytes::Bytes;
 use anyhow::{anyhow, Result};
 use russh::client::{self, Session as ClientSession};
 use russh::keys::{PrivateKey, PrivateKeyWithHashAlg};
 use russh::server::Handle as ServerHandle;
-use russh::{Channel, ChannelId, ChannelMsg, CryptoVec};
+use russh::{Channel, ChannelId, ChannelMsg};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
@@ -130,7 +131,7 @@ impl client::Handler for ContainerForwardHandler {
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &russh::keys::PublicKey,
+        _server_public_key: &russh::keys::PublicKeyOrCertificate,
     ) -> Result<bool, Self::Error> {
         // Accept any server key from containers (internal network)
         Ok(true)
@@ -144,6 +145,7 @@ impl client::Handler for ContainerForwardHandler {
         connected_port: u32,
         originator_address: &str,
         originator_port: u32,
+        reply: client::ChannelOpenHandle,
         _session: &mut ClientSession,
     ) -> Result<(), Self::Error> {
         info!(
@@ -175,6 +177,11 @@ impl client::Handler for ContainerForwardHandler {
             client_channel_id
         );
 
+        // The client side is up, so confirm the container's channel. Dropping
+        // `reply` instead would reject it, and the error paths above rely on
+        // exactly that.
+        reply.accept().await;
+
         // Split the client channel for bidirectional forwarding
         let (client_read, client_write) = client_channel.split();
 
@@ -199,7 +206,7 @@ impl client::Handler for ContainerForwardHandler {
 /// Spawn bidirectional forwarding between container and client channels.
 fn spawn_bidirectional_forwarder(
     mut container_read: russh::ChannelReadHalf,
-    mut container_write: russh::ChannelWriteHalf<russh::client::Msg>,
+    container_write: russh::ChannelWriteHalf<russh::client::Msg>,
     mut client_read: russh::ChannelReadHalf,
     _client_write: russh::ChannelWriteHalf<russh::server::Msg>,
     server_handle: ServerHandle,
@@ -211,7 +218,7 @@ fn spawn_bidirectional_forwarder(
             let should_break = match msg {
                 ChannelMsg::Data { data } => {
                     server_handle
-                        .data(client_channel_id, CryptoVec::from_slice(&data))
+                        .data(client_channel_id, Bytes::copy_from_slice(&data))
                         .await
                         .is_err()
                 }

@@ -2,7 +2,7 @@
 
 use anyhow::{anyhow, Result};
 use base64::Engine;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, error, instrument};

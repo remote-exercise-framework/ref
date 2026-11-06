@@ -7,7 +7,7 @@ authors = ["REF Team"]
 
 [dependencies]
 # SSH implementation (russh re-exports russh-keys as russh::keys)
-russh = "0.55"
+russh = "0.65"
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -17,31 +17,35 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # HTTP client for API calls (use rustls for TLS, no OpenSSL dependency)
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "webpki-roots"] }
 
 # Configuration
-toml = "0.8"
+toml = "1"
 
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Error handling
-thiserror = "1"
+thiserror = "2"
 anyhow = "1"
 
 # Crypto for request signing (itsdangerous compatible)
-hmac = "0.12"
-sha1 = "0.10"
-sha2 = "0.10"
-base64 = "0.22"
+hmac = "0.13"
+sha1 = "0.11"
+sha2 = "0.11"
+base64 = "0.23"
+
+# Zero-copy byte buffers, the payload type russh channel writes take
+bytes = "1"
 
 # Async utilities
 async-trait = "0.1"
 futures = "0.3"
 
-# Random number generation (match russh's rand version)
-rand = "0.8"
+# Random number generation (kept on the major that russh depends on,
+# so a single rand version is linked)
+rand = "0.10"
 
 # UUID generation for error tracking
 uuid = { version = "1", features = ["v4"] }
