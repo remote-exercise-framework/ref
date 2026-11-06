@@ -353,6 +353,10 @@ class REFWebClient:
         """
         Register a new student account and get SSH keys.
 
+        Posts to the SPA registration endpoint, which is what the student
+        registration page uses. The response carries the key material
+        directly, so the download routes do not need to be called.
+
         Args:
             mat_num: Matriculation number
             firstname: First name
@@ -364,68 +368,21 @@ class REFWebClient:
             Tuple of (success, private_key, public_key)
             If pubkey was provided, private_key will be None.
         """
-        data = {
+        payload = {
             "mat_num": mat_num,
             "firstname": firstname,
             "surname": surname,
             "password": password,
             "password_rep": password,
             "pubkey": pubkey or "",
-            "submit": "Get Key",
         }
 
-        response = self.client.post("/student/getkey", data=data)
+        response = self.client.post("/api/v2/registration", json=payload)
         if response.status_code != 200:
             return False, None, None
 
-        soup = BeautifulSoup(response.text, "lxml")
-
-        # Check for error messages
-        error_elements = soup.find_all(class_="error") + soup.find_all(
-            class_="alert-danger"
-        )
-        for error in error_elements:
-            error_text = error.get_text().lower()
-            if "already registered" in error_text:
-                return False, None, None
-
-        # Extract private key from the page (displayed in a textarea or pre element)
-        private_key = None
-        public_key = None
-
-        # Look for key in various elements
-        for elem in soup.find_all(["textarea", "pre", "code"]):
-            text = elem.get_text(strip=True)
-            if (
-                "-----BEGIN RSA PRIVATE KEY-----" in text
-                or "-----BEGIN PRIVATE KEY-----" in text
-            ):
-                private_key = text
-            elif text.startswith("ssh-rsa "):
-                public_key = text
-
-        # Also check for download links
-        for link in soup.find_all("a", href=True):
-            href = str(link.get("href", ""))
-            if "/student/download/privkey/" in href:
-                # Fetch the private key
-                key_response = self.client.get(href)
-                if key_response.status_code == 200:
-                    private_key = key_response.text
-            elif "/student/download/pubkey/" in href:
-                # Fetch the public key
-                key_response = self.client.get(href)
-                if key_response.status_code == 200:
-                    public_key = key_response.text
-
-        # If a pubkey was provided and no error, consider it successful
-        if pubkey and not private_key:
-            public_key = pubkey
-            return True, None, public_key
-
-        # Check if we got at least one key
-        success = private_key is not None or public_key is not None
-        return success, private_key, public_key
+        body = response.json()
+        return True, body.get("privkey"), body.get("pubkey")
 
     def create_student(
         self,
@@ -466,35 +423,14 @@ class REFWebClient:
         Returns:
             Tuple of (success, private_key, public_key)
         """
-        data = {
-            "mat_num": mat_num,
-            "password": password,
-            "submit": "Restore",
-        }
-
-        response = self.client.post("/student/restoreKey", data=data)
+        response = self.client.post(
+            "/api/v2/restore-key", json={"mat_num": mat_num, "password": password}
+        )
         if response.status_code != 200:
             return False, None, None
 
-        soup = BeautifulSoup(response.text, "lxml")
-
-        private_key = None
-        public_key = None
-
-        # Look for download links
-        for link in soup.find_all("a", href=True):
-            href = str(link.get("href", ""))
-            if "/student/download/privkey/" in href:
-                key_response = self.client.get(href)
-                if key_response.status_code == 200:
-                    private_key = key_response.text
-            elif "/student/download/pubkey/" in href:
-                key_response = self.client.get(href)
-                if key_response.status_code == 200:
-                    public_key = key_response.text
-
-        success = private_key is not None or public_key is not None
-        return success, private_key, public_key
+        body = response.json()
+        return True, body.get("privkey"), body.get("pubkey")
 
     def get_student(self, mat_num: str) -> Optional[Dict[str, Any]]:
         """

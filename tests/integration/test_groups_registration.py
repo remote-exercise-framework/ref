@@ -80,7 +80,10 @@ def _setup_list_and_users(
                 first_name="Test",
                 surname=mat_num,
                 password="TestPassword123!",
-                pub_key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ+dummy",
+                # Each student needs a distinct key: the user table has a
+                # unique index on the hash of pub_key, so reusing one
+                # placeholder across the loop fails on the second insert.
+                pub_key=f"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ+dummy{mat_num}",
                 group=group,
             )
             current_app.db.session.add(user)
@@ -114,11 +117,25 @@ def _teardown(ref_instance: "REFInstance", mat_nums: list[str], list_name: str) 
             if user is not None:
                 UserManager.delete_with_instances(user)
 
+        # Make the user deletions visible before asking which groups are
+        # empty; until they are flushed, UserGroup.users still reports the
+        # members that were just removed.
+        current_app.db.session.flush()
+
+        lst = GroupNameList.query.filter(GroupNameList.name == list_name).one_or_none()
+
+        # user_group.source_list_id references group_name_list, so the groups
+        # this list produced have to go before the list itself.
+        if lst is not None:
+            for g in UserGroup.query.filter(UserGroup.source_list_id == lst.id).all():
+                current_app.db.session.delete(g)
+
         for g in UserGroup.query.all():
             if not g.users:
                 current_app.db.session.delete(g)
 
-        lst = GroupNameList.query.filter(GroupNameList.name == list_name).one_or_none()
+        current_app.db.session.flush()
+
         if lst is not None:
             current_app.db.session.delete(lst)
 
