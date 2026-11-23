@@ -486,21 +486,26 @@ class REFSSHClient:
         # The connection will be closed by the server
         self._connected = False
 
-        # Check for success indicators in output
-        # The reset command outputs "Resetting instance now" before disconnecting
-        success = (
+        # The reset command prints "Resetting instance now" and then tears
+        # the connection down, so whether that line is read before the
+        # socket dies is a matter of which happens first. It is evidence
+        # when it arrives, never evidence of failure when it does not.
+        saw_banner = (
             "Resetting instance now" in output or "closed by remote host" in output
         )
 
         if reconnect:
-            # Wait for the new container to be ready and reconnect
-            # Use shorter wait times since containers typically restart in 5-10s
+            # Reconnecting is the real confirmation: the proxy only accepts
+            # a connection again once the container has been recreated, so
+            # a successful reconnect means the reset completed.
             try:
                 self.reconnect(wait_time=1.0, max_retries=20)
             except ConnectionError as e:
                 return False, f"{output}\nFailed to reconnect after reset: {e}"
+            return True, output
 
-        return success, output
+        # Without a reconnect there is nothing to observe but the banner.
+        return saw_banner, output
 
     def get_info(self, timeout: float = 30.0) -> Tuple[bool, str]:
         """

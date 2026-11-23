@@ -147,7 +147,8 @@ function toggleImportWarnings(icon) {
             </tr>
         </thead>
         <tbody>
-    {% for exercise in importable|sort(attribute='category') %}
+    {# Already ordered by the view, which can cope with a null category. #}
+    {% for exercise in importable %}
         <tr>
                 <td>
                     {{ exercise.short_name }}

@@ -11,12 +11,13 @@ Tests that multiple users have isolated containers:
 
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 import pytest
 
 from helpers.conditions import InstanceConditions
 from helpers.exercise_factory import create_sample_exercise
+from helpers.method_exec import enable_exercise, is_exercise_default
 from helpers.ssh_client import REFSSHClient
 from helpers.web_client import REFWebClient
 
@@ -135,6 +136,7 @@ class TestUserIsolationSetup:
         admin_client: REFWebClient,
         exercises_path: Path,
         isolation_state: IsolationTestState,
+        ref_instance: Any,
     ):
         """Import and build exercise for isolation tests."""
         assert isolation_state.exercise_name is not None
@@ -156,8 +158,17 @@ class TestUserIsolationSetup:
         )
         assert build_success, "Build failed"
 
-        success = admin_client.toggle_exercise_default(isolation_state.exercise_id)
-        assert success, "Failed to enable exercise"
+        # `enable_exercise` sets the flag; `toggle_exercise_default` flips
+        # it. A successful import already makes the first version the
+        # default, so toggling here turns the exercise *off* whenever
+        # nothing has cleared the flag in between - and then every SSH
+        # login fails with "Requested task not found", far from the cause.
+        assert enable_exercise(ref_instance, isolation_state.exercise_id), (
+            "could not make the exercise the default version"
+        )
+        assert is_exercise_default(ref_instance, isolation_state.exercise_id), (
+            "exercise is not the default after enabling it"
+        )
 
     @pytest.mark.e2e
     def test_02_register_students(
@@ -167,7 +178,6 @@ class TestUserIsolationSetup:
         isolation_state: IsolationTestState,
     ):
         """Register two test students."""
-        web_client.logout()
 
         # Register student 1
         isolation_state.student1_mat_num = str(uuid.uuid4().int)[:8]
@@ -192,7 +202,6 @@ class TestUserIsolationSetup:
         isolation_state.student2_private_key = private_key
 
         # Re-login as admin for subsequent tests that may use admin_client
-        web_client.login("0", admin_password)
 
 
 @pytest.mark.timeout(60)

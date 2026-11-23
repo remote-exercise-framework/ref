@@ -1,6 +1,7 @@
 """User management operations."""
 
 import datetime
+import typing
 
 from flask import current_app
 
@@ -54,6 +55,29 @@ class UserManager:
         if group is not None:
             user.group = group
         return user
+
+    @staticmethod
+    def set_auth_groups(
+        user: User, groups: "typing.Iterable[UserAuthorizationGroups]"
+    ) -> bool:
+        """
+        Replace a user's authorization groups.
+
+        The user is NOT added to the session - the caller must add and commit.
+
+        Args:
+            user: The user to modify
+            groups: The groups the user should end up with. Duplicates are
+                collapsed, and the order is not preserved.
+
+        Returns:
+            Whether the groups actually changed, so a caller can log or
+            flash only on a real change.
+        """
+        new_groups = set(groups)
+        changed = new_groups != set(user.auth_groups)
+        user.auth_groups = list(new_groups)
+        return changed
 
     @staticmethod
     def delete_with_instances(user: User) -> None:

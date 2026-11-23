@@ -8,11 +8,12 @@ Connects via the ssh_port fixture to the SSH reverse proxy.
 import logging
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import pytest
 
 from helpers.exercise_factory import create_sample_exercise
+from helpers.method_exec import enable_exercise, is_exercise_default
 from helpers.ssh_client import REFSSHClient
 from helpers.web_client import REFWebClient
 
@@ -70,13 +71,18 @@ class TestRustProxySetup:
 
     def test_01_admin_login(
         self,
-        web_client: REFWebClient,
+        web_client_factory: Callable[[], REFWebClient],
         admin_password: str,
     ):
-        """Verify admin can login."""
-        web_client.logout()
-        success = web_client.login("0", admin_password)
-        assert success, "Admin login failed"
+        """
+        An admin can log in.
+
+        A throwaway client rather than the module's `web_client`, which
+        stays anonymous for the whole file so the permission checks
+        elsewhere mean something.
+        """
+        client = web_client_factory()
+        assert client.login("0", admin_password), "Admin login failed"
 
     def test_02_create_exercise(
         self,
@@ -130,12 +136,29 @@ class TestRustProxySetup:
     def test_04_enable_exercise(
         self,
         admin_client: REFWebClient,
+        ref_instance,
         rust_proxy_state: RustProxyTestState,
     ):
         """Enable the exercise."""
         assert rust_proxy_state.exercise_id is not None
-        success = admin_client.toggle_exercise_default(rust_proxy_state.exercise_id)
-        assert success, "Failed to enable exercise"
+        # `enable_exercise` sets the flag; `toggle_exercise_default` flips
+        # it. A successful import already makes the first version the
+        # default, so toggling here turns the exercise *off* whenever
+        # nothing has cleared the flag in between - and then every SSH
+        # login fails with "Requested task not found", far from the cause.
+        assert enable_exercise(ref_instance, rust_proxy_state.exercise_id), (
+            "could not make the exercise the default version"
+        )
+        assert is_exercise_default(ref_instance, rust_proxy_state.exercise_id), (
+            "exercise is not the default after enabling it"
+        )
+        # The route flips the flag rather than setting it, and the helper
+        # only sees HTTP 200, so the outcome has to be read back. Without
+        # the flag, every SSH login below fails with "Requested task not
+        # found" and nothing points here.
+        assert is_exercise_default(ref_instance, rust_proxy_state.exercise_id), (
+            "exercise is not the default after enabling it"
+        )
 
     def test_05_register_student(
         self,
@@ -144,7 +167,6 @@ class TestRustProxySetup:
         rust_proxy_state: RustProxyTestState,
     ):
         """Register a test student."""
-        web_client.logout()
         mat_num = str(uuid.uuid4().int)[:8]
         rust_proxy_state.mat_num = mat_num
         logger.info(f"[TEST] Registering student with mat_num: {mat_num}")
@@ -175,9 +197,6 @@ class TestRustProxySetup:
             logger.info(f"[TEST] Derived public key: {pub_key_str}")
         except Exception as e:
             logger.error(f"[TEST] Failed to parse private key: {e}")
-
-        # Re-login as admin
-        web_client.login("0", admin_password)
 
 
 @pytest.mark.e2e

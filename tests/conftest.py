@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 from types import FrameType
 from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional
@@ -674,36 +675,89 @@ def test_config(ref_instance: REFInstance) -> Dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def web_client(ref_instance: REFInstance) -> Generator["REFWebClient", None, None]:
+def web_client_factory(
+    ref_instance: REFInstance,
+) -> Generator[Callable[[], "REFWebClient"], None, None]:
     """
-    Creates an HTTP client for interacting with the REF web interface.
+    Mint independent HTTP clients against the instance.
 
-    Module-scoped to ensure each test file gets its own client instance,
-    preventing authentication state corruption when running tests in parallel
-    with pytest-xdist.
+    Each client owns its own cookie jar, which is what lets an anonymous
+    client, an admin and a grading assistant coexist in one test module.
+
+    Module-scoped so every test file gets its own set, which keeps
+    authentication state from leaking between files under pytest-xdist.
     """
     from helpers.web_client import REFWebClient
 
-    client = REFWebClient(ref_instance.web_url)
-    yield client
-    client.close()
+    clients: List["REFWebClient"] = []
+
+    def _create() -> "REFWebClient":
+        client = REFWebClient(ref_instance.web_url)
+        clients.append(client)
+        return client
+
+    yield _create
+
+    for client in clients:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@pytest.fixture(scope="module")
+def web_client(
+    web_client_factory: Callable[[], "REFWebClient"],
+) -> "REFWebClient":
+    """
+    An anonymous client.
+
+    Logging out of this one no longer de-authenticates `admin_client`:
+    the two used to be the same object, so a test that logged out to act
+    as a student silently dropped the admin session as well.
+    """
+    return web_client_factory()
 
 
 @pytest.fixture(scope="module")
 def admin_client(
-    web_client: "REFWebClient", admin_password: str
-) -> Generator["REFWebClient", None, None]:
-    """
-    Creates an authenticated admin client.
-
-    Module-scoped to match web_client scope and ensure each test file
-    gets its own authenticated session.
-    """
-    # Login as admin (mat_num=0)
-    success = web_client.login("0", admin_password)
-    if not success:
+    web_client_factory: Callable[[], "REFWebClient"], admin_password: str
+) -> "REFWebClient":
+    """An authenticated admin client (mat_num 0)."""
+    client = web_client_factory()
+    if not client.login("0", admin_password):
         pytest.fail("Failed to login as admin")
-    yield web_client
+    return client
+
+
+@pytest.fixture(scope="module")
+def grading_assistant_client(
+    web_client_factory: Callable[[], "REFWebClient"],
+    ref_instance: REFInstance,
+) -> "REFWebClient":
+    """
+    A client logged in as a freshly created grading assistant.
+
+    `UserManager` has no role API, so the account is created the way
+    `ref/view/student.py` does it — see
+    `helpers.method_exec.create_grading_assistant`.
+    """
+    from helpers.method_exec import create_grading_assistant
+
+    mat_num = str(uuid.uuid4().int)[:8]
+    password = "GradingAssistant123!"
+    create_grading_assistant(
+        ref_instance,
+        mat_num=mat_num,
+        first_name="Grading",
+        surname="Assistant",
+        password=password,
+    )
+
+    client = web_client_factory()
+    if not client.login(mat_num, password):
+        pytest.fail(f"Failed to login as grading assistant {mat_num}")
+    return client
 
 
 @pytest.fixture(scope="function")

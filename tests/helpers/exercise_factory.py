@@ -31,9 +31,13 @@ import yaml
 # Path to template files
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-# Mirrors the webapp's own validation, so a bad name fails here with a
-# readable message instead of inside remote_exec.
-SHORT_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+# The webapp validates short-name against `([a-zA-Z0-9._])*`, so dots are
+# allowed and **hyphens are not** — a hyphenated name fails the import.
+# This pattern uses the same character class so a bad name fails here with
+# a readable message instead of inside remote_exec, but additionally
+# requires a non-empty name: the webapp's `*` quantifier accepts the empty
+# string, which is never what a test meant to write.
+SHORT_NAME_RE = re.compile(r"^[a-zA-Z0-9._]+$")
 
 
 def unique_short_name(stem: str) -> str:
@@ -48,7 +52,7 @@ def unique_short_name(stem: str) -> str:
     if not SHORT_NAME_RE.match(name):
         raise ValueError(
             f"{name!r} is not a usable short-name; the stem may only contain "
-            "letters, digits, underscores and hyphens"
+            "letters, digits, underscores and dots"
         )
     return name
 
@@ -131,7 +135,7 @@ def create_sample_exercise(
     exercise_dir: Path,
     short_name: str,
     version: int = 1,
-    category: str = "Test Category",
+    category: Optional[str] = "Test Category",
     has_deadline: bool = True,
     has_submission_test: bool = True,
     grading_points: int = 10,
@@ -145,7 +149,10 @@ def create_sample_exercise(
             and should come from unique_short_name() — see the module
             docstring on ExerciseConfig sharing.
         version: Exercise version number
-        category: Exercise category
+        category: Exercise category. Pass None to omit the key entirely,
+            which the webapp allows — `ExerciseConfig.category` is
+            nullable, and a category-less exercise is worth being able to
+            build because several admin views have to cope with one.
         has_deadline: Whether to set a deadline
         has_submission_test: Whether to include submission tests
         grading_points: Maximum grading points
@@ -164,13 +171,17 @@ def create_sample_exercise(
     settings: dict[str, Any] = {
         "short-name": short_name,
         "version": version,
-        "category": category,
         "submission-test": has_submission_test,
         "entry": {
             "files": ["solution.c", "Makefile"],
             "build-cmd": ["chown user:user solution.c"],
         },
     }
+    # Omitted rather than written as null: the parser treats a key whose
+    # value is None as absent anyway, and leaving it out keeps the
+    # generated settings.yml readable.
+    if category is not None:
+        settings["category"] = category
 
     # grading-points and deadline must both be set or neither (webapp validation)
     if has_deadline:

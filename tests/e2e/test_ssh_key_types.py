@@ -9,11 +9,12 @@ and successfully connect to exercise containers via SSH.
 
 import uuid
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import pytest
 
 from helpers.exercise_factory import create_sample_exercise
+from helpers.method_exec import enable_exercise, is_exercise_default
 from helpers.ssh_client import REFSSHClient
 from helpers.web_client import REFWebClient
 
@@ -106,13 +107,17 @@ class TestKeyTypeSetup:
 
     def test_01_admin_login(
         self,
-        web_client: REFWebClient,
+        web_client_factory: Callable[[], REFWebClient],
         admin_password: str,
     ):
-        """Verify admin can login."""
-        web_client.logout()
-        success = web_client.login("0", admin_password)
-        assert success, "Admin login failed"
+        """
+        An admin can log in.
+
+        A throwaway client rather than the module's `web_client`, which
+        stays anonymous for the whole file.
+        """
+        client = web_client_factory()
+        assert client.login("0", admin_password), "Admin login failed"
 
     def test_02_create_exercise(
         self,
@@ -167,11 +172,21 @@ class TestKeyTypeSetup:
         self,
         admin_client: REFWebClient,
         key_type_state: KeyTypeTestState,
+        ref_instance: Any,
     ):
         """Enable the exercise."""
         assert key_type_state.exercise_id is not None
-        success = admin_client.toggle_exercise_default(key_type_state.exercise_id)
-        assert success, "Failed to enable exercise"
+        # `enable_exercise` sets the flag; `toggle_exercise_default` flips
+        # it. A successful import already makes the first version the
+        # default, so toggling here turns the exercise *off* whenever
+        # nothing has cleared the flag in between - and then every SSH
+        # login fails with "Requested task not found", far from the cause.
+        assert enable_exercise(ref_instance, key_type_state.exercise_id), (
+            "could not make the exercise the default version"
+        )
+        assert is_exercise_default(ref_instance, key_type_state.exercise_id), (
+            "exercise is not the default after enabling it"
+        )
 
     def test_05_register_rsa_student(
         self,
@@ -180,7 +195,6 @@ class TestKeyTypeSetup:
         key_type_state: KeyTypeTestState,
     ):
         """Register a test student with auto-generated RSA key."""
-        web_client.logout()
         mat_num = str(uuid.uuid4().int)[:8]
         key_type_state.rsa_mat_num = mat_num
 
@@ -195,9 +209,6 @@ class TestKeyTypeSetup:
         assert private_key is not None
         key_type_state.rsa_private_key = private_key
 
-        # Re-login as admin
-        web_client.login("0", admin_password)
-
     def test_06_register_ed25519_student(
         self,
         web_client: REFWebClient,
@@ -205,7 +216,6 @@ class TestKeyTypeSetup:
         key_type_state: KeyTypeTestState,
     ):
         """Register a test student with ed25519 key."""
-        web_client.logout()
         mat_num = str(uuid.uuid4().int)[:8]
         key_type_state.ed25519_mat_num = mat_num
 
@@ -222,9 +232,6 @@ class TestKeyTypeSetup:
         assert success, "Failed to register ed25519 student"
         key_type_state.ed25519_private_key = private_pem
 
-        # Re-login as admin
-        web_client.login("0", admin_password)
-
     def test_07_register_ecdsa_student(
         self,
         web_client: REFWebClient,
@@ -232,7 +239,6 @@ class TestKeyTypeSetup:
         key_type_state: KeyTypeTestState,
     ):
         """Register a test student with ECDSA key."""
-        web_client.logout()
         mat_num = str(uuid.uuid4().int)[:8]
         key_type_state.ecdsa_mat_num = mat_num
 
@@ -248,9 +254,6 @@ class TestKeyTypeSetup:
 
         assert success, "Failed to register ECDSA student"
         key_type_state.ecdsa_private_key = private_pem
-
-        # Re-login as admin
-        web_client.login("0", admin_password)
 
 
 @pytest.mark.e2e

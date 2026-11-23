@@ -55,8 +55,12 @@ def grading_view_all():
     exercises: typing.List[Exercise] = Exercise.all()
     exercises_by_category = defaultdict(lambda: defaultdict(list))
 
+    # `category` is optional, so it is coerced before comparing: sorting
+    # runs over every exercise before the visibility filter below, and one
+    # category-less exercise alongside a categorised one would otherwise
+    # raise a TypeError and 500 the page.
     for exercise in sorted(
-        exercises, key=lambda e: (e.category, e.short_name, e.version)
+        exercises, key=lambda e: (e.category or "", e.short_name, e.version)
     ):
         if not is_current_user_allowed_to_view(exercise):
             continue

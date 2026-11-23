@@ -13,7 +13,9 @@ This ensures tests exercise the same code paths as the real application.
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any, Iterator, List, Tuple
+
+from helpers.ssh_keys import generate_ed25519_keypair
 
 if TYPE_CHECKING:
     from helpers.ref_instance import REFInstance
@@ -77,6 +79,10 @@ def create_user(
             "id": user.id,
             "mat_num": user.mat_num,
             "private_key": privkey,
+            # Returned because the admin edit form has `pubkey` as a
+            # DataRequired field, so any caller POSTing that form needs to
+            # send the key back unchanged.
+            "pub_key": pubkey,
         }
 
     return ref_instance.remote_exec(_create)
@@ -614,10 +620,19 @@ def create_grading_assistant(
     """
     Create a user who is both a student and a grading assistant.
 
-    UserManager has no role API, so this replicates what
-    ref/view/student.py does: build the student, then assign
-    `auth_groups = [STUDENT, GRADING_ASSISTANT]`.
+    A keypair is generated and stored because `User.pub_key` and
+    `User.priv_key` are NOT NULL in the schema while
+    `UserManager.create_student` defaults them to None - the registration
+    view mints the pair before calling it, so a caller that skips that
+    step hits an IntegrityError rather than a validation error.
     """
+    # Unpacked into plain strings before the closure captures them:
+    # cloudpickle would otherwise serialise the SSHKeyPair class by
+    # reference, and the web container has no `helpers` package to import
+    # it from.
+    keypair = generate_ed25519_keypair(comment=f"grading-assistant-{mat_num}")
+    pub_key = keypair.public
+    priv_key = keypair.private
 
     def _create() -> dict[str, Any]:
         from flask import current_app
@@ -632,17 +647,172 @@ def create_grading_assistant(
             first_name=first_name,
             surname=surname,
             password=password,
+            pub_key=pub_key,
+            priv_key=priv_key,
         )
-        user.auth_groups = [
-            UserAuthorizationGroups.STUDENT,
-            UserAuthorizationGroups.GRADING_ASSISTANT,
-        ]
+        UserManager.set_auth_groups(
+            user,
+            [
+                UserAuthorizationGroups.STUDENT,
+                UserAuthorizationGroups.GRADING_ASSISTANT,
+            ],
+        )
         current_app.db.session.add(user)
         current_app.db.session.commit()
         return {
             "id": user.id,
             "mat_num": user.mat_num,
             "auth_groups": [g.value for g in user.auth_groups],
+            "pub_key": user.pub_key,
         }
 
     return ref_instance.remote_exec(_create)
+
+
+def parse_exercise_template(
+    ref_instance: "REFInstance", template_path: str
+) -> Tuple[bool, str]:
+    """
+    Parse an exercise definition the way the import view does, without
+    importing it.
+
+    Calls `ExerciseManager.from_template()`, which is exactly what
+    `ref/view/exercise.py` calls, and reports the `ExerciseConfigError`
+    message instead of letting it surface as a flash string. Nothing is
+    written: `from_template` neither copies the exercise nor adds it to the
+    session, so an invalid definition leaves no trace and a valid one is
+    discarded.
+
+    Args:
+        template_path: path to the exercise folder *inside the container*.
+
+    Returns:
+        (ok, message). `message` is the validation error when ok is False,
+        and the parsed exercise's short name when it is True.
+    """
+
+    def _parse() -> Tuple[bool, str]:
+        from ref.core.exercise import ExerciseConfigError, ExerciseManager
+
+        try:
+            exercise = ExerciseManager.from_template(template_path)
+        except ExerciseConfigError as e:
+            return False, str(e)
+        return True, str(exercise.short_name)
+
+    return ref_instance.remote_exec(_parse)
+
+
+def template_warnings(ref_instance: "REFInstance", template_path: str) -> List[str]:
+    """
+    The deprecation warnings a template parse records.
+
+    Separate from parse_exercise_template() because warnings are not
+    errors: a config using the deprecated admin keys parses fine and still
+    has something to say about it.
+    """
+
+    def _warnings() -> List[str]:
+        from ref.core.exercise import ExerciseManager
+
+        exercise = ExerciseManager.from_template(template_path)
+        return list(exercise.warnings or [])
+
+    return ref_instance.remote_exec(_warnings)
+
+
+def max_peripheral_services(ref_instance: "REFInstance") -> int:
+    """
+    The webapp's own cap on peripheral services per exercise.
+
+    Read from the container rather than duplicated in a test, so raising
+    the subnet size does not leave an assertion quietly checking the old
+    number.
+    """
+
+    def _get() -> int:
+        from ref.core.exercise import MAX_PERIPHERAL_SERVICES
+
+        return int(MAX_PERIPHERAL_SERVICES)
+
+    return ref_instance.remote_exec(_get)
+
+
+def is_exercise_default(ref_instance: "REFInstance", exercise_id: int) -> bool:
+    """
+    Whether an exercise is the default version students are provisioned.
+
+    Worth asserting after any call that claims to enable an exercise:
+    `/admin/exercise/default/toggle/<id>` flips the flag, and a helper that
+    only checks for HTTP 200 reports success either way. With the flag off,
+    SSH logins fail with "Requested task not found" far from the cause.
+    """
+
+    def _get() -> bool:
+        from ref.model.exercise import Exercise
+
+        exercise = Exercise.query.get(exercise_id)
+        return bool(exercise is not None and exercise.is_default)
+
+    return ref_instance.remote_exec(_get)
+
+
+def submission_ids_for_exercise(
+    ref_instance: "REFInstance", exercise_id: int
+) -> List[int]:
+    """
+    The submissions the grading pages would list for an exercise.
+
+    Reads what `Exercise.submission_heads_global()` returns, which is the
+    same query `grading_view_exercise` renders from. Useful opposite the
+    HTTP helper: it separates "no submission was recorded" from "the
+    submission exists but the page did not show it".
+    """
+
+    def _get() -> List[int]:
+        from ref.model.exercise import Exercise
+
+        exercise = Exercise.query.get(exercise_id)
+        if exercise is None:
+            return []
+        return [submission.id for submission in exercise.submission_heads_global()]
+
+    return ref_instance.remote_exec(_get)
+
+
+def user_auth_groups(ref_instance: "REFInstance", user_id: int) -> List[str]:
+    """
+    A user's authorization group values, as stored.
+
+    Reads the column rather than the admin page, so a test can tell a
+    failed write apart from a page that simply renders the checkboxes
+    differently.
+    """
+
+    def _get() -> List[str]:
+        from ref.model.user import User
+
+        user = User.query.get(user_id)
+        if user is None:
+            return []
+        return sorted(group.value for group in user.auth_groups)
+
+    return ref_instance.remote_exec(_get)
+
+
+def user_login_token(ref_instance: "REFInstance", user_id: int) -> str:
+    """
+    A user's current session token.
+
+    Changing a user's authorization groups is supposed to invalidate their
+    login, which `User.invalidate_session()` does by minting a new token.
+    Comparing the token before and after is how a test sees that happen.
+    """
+
+    def _get() -> str:
+        from ref.model.user import User
+
+        user = User.query.get(user_id)
+        return "" if user is None else str(user.login_token)
+
+    return ref_instance.remote_exec(_get)

@@ -27,7 +27,7 @@ from wtforms import (
 )
 
 from ref import limiter, refbp
-from ref.core import admin_required, flash
+from ref.core import UserManager, admin_required, flash
 from ref.core.logging import get_logger
 from ref.core.util import (
     redirect_to_next,
@@ -285,13 +285,12 @@ def student_edit(user_id):
         user.pub_key = form.pubkey.data
 
         # Invalidate login if the authentication group changed
-        new_auth_groups = set()
         assert form.auth_group.data is not None
-        for auth_group in form.auth_group.data:
-            new_auth_groups.add(UserAuthorizationGroups(auth_group))
-        if new_auth_groups != set(user.auth_groups):
+        new_auth_groups = [
+            UserAuthorizationGroups(auth_group) for auth_group in form.auth_group.data
+        ]
+        if UserManager.set_auth_groups(user, new_auth_groups):
             user.invalidate_session()
-        user.auth_groups = list(new_auth_groups)
 
         target_name = (form.group.data or "").strip()
         if target_name == "":

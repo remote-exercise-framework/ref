@@ -29,6 +29,7 @@ from helpers.exercise_factory import (
     create_correct_solution,
     create_incorrect_solution,
 )
+from helpers.method_exec import enable_exercise, is_exercise_default
 from helpers.ssh_client import REFSSHClient, wait_for_ssh_ready
 from helpers.web_client import REFWebClient
 
@@ -77,15 +78,20 @@ class TestExerciseLifecycle:
     """
 
     @pytest.mark.e2e
-    def test_01_admin_can_login(self, web_client: REFWebClient, admin_password: str):
-        """Verify admin can login."""
-        # First logout if already logged in
-        web_client.logout()
+    def test_01_admin_can_login(
+        self,
+        web_client_factory: Callable[[], REFWebClient],
+        admin_password: str,
+    ):
+        """
+        An admin can log in.
 
-        # Login as admin
-        success = web_client.login("0", admin_password)
-        assert success, "Admin login failed"
-        assert web_client.is_logged_in(), "Admin not logged in after login"
+        A throwaway client rather than the module's `web_client`, which
+        stays anonymous for the whole file.
+        """
+        client = web_client_factory()
+        assert client.login("0", admin_password), "Admin login failed"
+        assert client.is_logged_in(), "Admin not logged in after login"
 
     @pytest.mark.e2e
     def test_02_create_test_exercise(
@@ -190,8 +196,17 @@ class TestExerciseLifecycle:
         """Enable the exercise (set as default)."""
         assert lifecycle_state.exercise_id is not None, "Exercise ID not set"
 
-        success = admin_client.toggle_exercise_default(lifecycle_state.exercise_id)
-        assert success, "Failed to toggle exercise as default"
+        # `enable_exercise` sets the flag; `toggle_exercise_default` flips
+        # it. A successful import already makes the first version the
+        # default, so toggling here turns the exercise *off* whenever
+        # nothing has cleared the flag in between - and then every SSH
+        # login fails with "Requested task not found", far from the cause.
+        assert enable_exercise(ref_instance, lifecycle_state.exercise_id), (
+            "could not make the exercise the default version"
+        )
+        assert is_exercise_default(ref_instance, lifecycle_state.exercise_id), (
+            "exercise is not the default after enabling it"
+        )
 
         # Post-condition: Verify exercise is enabled in database
         ExerciseConditions.post_exercise_enabled(
@@ -209,7 +224,6 @@ class TestExerciseLifecycle:
     ):
         """Register a test student and get SSH keys."""
         # Logout admin first to use student endpoint
-        web_client.logout()
 
         lifecycle_state.student_mat_num = test_student_mat_num
 
@@ -238,7 +252,6 @@ class TestExerciseLifecycle:
         UserConditions.post_user_has_ssh_key(ref_instance, test_student_mat_num)
 
         # Re-login as admin for subsequent tests that may use admin_client
-        web_client.login("0", admin_password)
 
 
 class TestSSHConnection:

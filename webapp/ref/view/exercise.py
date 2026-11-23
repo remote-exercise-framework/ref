@@ -1,5 +1,6 @@
 import json
 import subprocess
+import typing
 import urllib
 from collections import defaultdict
 from pathlib import Path
@@ -302,6 +303,17 @@ def exercise_do_import(cfg_path):
     return render()
 
 
+def _category_sort_key(exercise) -> typing.Tuple[str, str, int]:
+    """
+    Order exercises by category, then name, then version.
+
+    `Exercise.category` is optional, so it is coerced: comparing None with
+    a str raises TypeError, and one category-less exercise alongside a
+    categorised one would otherwise take down the whole page.
+    """
+    return (exercise.category or "", exercise.short_name, exercise.version)
+
+
 @refbp.route("/admin/exercise/view")
 @admin_required
 def exercise_view_all():
@@ -350,11 +362,17 @@ def exercise_view_all():
         else:
             importable.append(exercise)
 
+    # Sorted here rather than in the template: Jinja's
+    # `sort(attribute='category')` offers no way to coerce the key, and
+    # these are uncommitted templates parsed straight off disk, so a
+    # single category-less exercise directory is enough to reach it.
+    importable.sort(key=_category_sort_key)
+
     # Check whether our DB and the local docker repo are in sync.
     # This basically fixes situations where changes have been made to docker
     # without involvement of REF.
     exercises = Exercise.query.all()
-    exercises = sorted(exercises, key=lambda e: e.category)
+    exercises = sorted(exercises, key=_category_sort_key)
 
     for exercise in exercises:
         is_build = ExerciseImageManager(exercise).is_build()
@@ -371,7 +389,7 @@ def exercise_view_all():
     db.session.commit()
 
     categories = defaultdict(lambda: defaultdict(list))
-    for e in sorted(exercises, key=lambda e: (e.category, e.short_name, e.version)):
+    for e in sorted(exercises, key=_category_sort_key):
         categories[e.category][e.short_name] += [e]
 
     return render()

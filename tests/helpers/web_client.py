@@ -5,6 +5,7 @@ HTTP client for interacting with the REF web interface during E2E tests.
 """
 
 import json
+from urllib.parse import urlsplit
 import logging
 import re
 import time
@@ -239,13 +240,23 @@ class REFWebClient:
 
     def toggle_exercise_default(self, exercise_id: int) -> bool:
         """
-        Toggle an exercise as default.
+        Flip whether an exercise is the default version.
+
+        This is a toggle, not a setter, and the route gives nothing back
+        but a rendered page, so the return value says only that the
+        request was served. To *enable* an exercise in a test setup use
+        `helpers.method_exec.enable_exercise`, which sets the flag, and
+        confirm it with `is_exercise_default`: a successful import already
+        marks the first version default, so toggling turns it off and the
+        failure then surfaces as "Requested task not found" on every SSH
+        login.
 
         Args:
             exercise_id: The exercise ID
 
         Returns:
-            True if successful
+            Whether the request was served, which is not the same as the
+            exercise ending up default.
         """
         response = self.client.get(f"/admin/exercise/default/toggle/{exercise_id}")
         return response.status_code == 200
@@ -651,105 +662,180 @@ class REFWebClient:
     # Instance Management
     # -------------------------------------------------------------------------
 
-    def get_instances(self, exercise_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    def instances_page_reachable(self, exercise_id: Optional[int] = None) -> bool:
         """
-        Get list of instances.
+        Whether the instance overview renders for the current user.
 
-        Args:
-            exercise_id: Optional filter by exercise ID
-
-        Returns:
-            List of instance dicts
+        Deliberately not a list of instances: the page is a Jinja table
+        with no stable identifier per row, and `InstanceManager` via
+        `remote_exec` is the right way to inspect instances. A method that
+        returned an empty list unconditionally was worse than none,
+        because tests asserted on it and passed.
         """
         url = "/admin/instances/view"
         if exercise_id:
             url += f"?exercise_id={exercise_id}"
 
-        response = self.client.get(url)
-        if response.status_code != 200:
-            return []
-
-        return []
+        return self.client.get(url).status_code == 200
 
     # -------------------------------------------------------------------------
     # Submission and Grading
     # -------------------------------------------------------------------------
 
-    def get_submissions(
-        self, exercise_id: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+    def get_submission_ids(self, exercise_id: int) -> List[int]:
         """
-        Get list of submissions.
+        The gradeable submissions listed for one exercise.
 
-        Args:
-            exercise_id: Optional filter by exercise ID
+        Scraped from the links to the grading page rather than from table
+        columns, because the link target is the only thing on that page
+        that carries a submission id.
 
         Returns:
-            List of submission dicts
+            Submission ids, in the order the page lists them. Empty when
+            the exercise has no submissions or the page is not reachable
+            for the current user.
         """
-        url = "/admin/grading/"
-        if exercise_id:
-            url += f"?exercise_id={exercise_id}"
-
-        response = self.client.get(url)
-        if response.status_code != 200:
+        path = f"/admin/grading/{exercise_id}"
+        response = self.client.get(path)
+        # A client that may not view the exercise is redirected away with a
+        # flash, and the page it lands on also answers 200 with no grading
+        # links on it - indistinguishable from "no submissions" unless the
+        # final path is checked.
+        if response.status_code != 200 or not self._landed_under(response, path):
             return []
 
-        return []
+        soup = BeautifulSoup(response.text, "html.parser")
+        ids: List[int] = []
+        for link in soup.find_all("a", href=True):
+            match = re.search(r"/admin/grading/grade/(\d+)", link["href"])
+            if match:
+                submission_id = int(match.group(1))
+                if submission_id not in ids:
+                    ids.append(submission_id)
+        return ids
+
+    def get_grading(self, submission_id: int) -> Optional[Dict[str, Any]]:
+        """
+        The grade currently stored for a submission.
+
+        Returns:
+            `{"points": Optional[int], "notes": str}`, or None when the
+            grading page is not reachable. `points` is None when the
+            submission has not been graded yet, which the form renders as
+            an empty value rather than a zero.
+        """
+        path = f"/admin/grading/grade/{submission_id}"
+        response = self.client.get(path)
+        if response.status_code != 200 or not self._landed_under(response, path):
+            return None
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        points_field = soup.find("input", attrs={"name": "points"})
+        raw_points = points_field.get("value", "") if points_field else ""
+
+        # `notes` goes through `render_textarea`, so its content is the
+        # element's text and not a value attribute.
+        notes_field = soup.find("textarea", attrs={"name": "notes"})
+        notes = notes_field.get_text() if notes_field else ""
+
+        return {
+            "points": int(raw_points) if str(raw_points).strip() != "" else None,
+            "notes": notes,
+        }
+
+    def _landed_under(self, response: Any, prefix: str) -> bool:
+        """
+        Whether a request ended up under the route tree it asked for.
+
+        The admin and grading routes bounce an unauthorized client to the
+        login page, which the client follows and which answers 200, so
+        without checking where the request landed every "can this role
+        reach X" probe reads a login form as success. A prefix rather than
+        an exact path because "save and next" redirects to a *different*
+        grading page, which is a success.
+        """
+        return urlsplit(str(response.url)).path.startswith(prefix)
 
     def grade_submission(
         self,
         submission_id: int,
-        points: float,
-        comment: str = "",
-        private_note: str = "",
-    ) -> bool:
+        points: int,
+        notes: str = "",
+        action: str = "save",
+    ) -> Tuple[bool, List[str]]:
         """
         Grade a submission.
 
         Args:
-            submission_id: The submission ID
-            points: Points to award
-            comment: Public comment
-            private_note: Private note (not visible to student)
+            submission_id: The submission to grade.
+            points: Points awarded. An IntegerField in `GradingForm`, so a
+                float is not accepted.
+            notes: Stored as the grading's private note. There is no public
+                comment field.
+            action: Which submit button to press — "save", "save_and_next"
+                or "save_next_user_task". The form also declares "next",
+                "next_user_task" and "reset", but those do not save.
 
         Returns:
-            True if grading was successful
+            (ok, errors). A rejected grade re-renders the form with HTTP
+            200, so the status code alone is not a verdict: the errors list
+            carries what the page complained about. Grading is refused
+            while the exercise deadline is still open, and refused when
+            points exceed the exercise maximum.
         """
-        data = {
-            "points": points,
-            "comment": comment,
-            "private_note": private_note,
-            "submit": "Save",
-        }
+        saving_actions = ("save", "save_and_next", "save_next_user_task")
+        if action not in saving_actions:
+            raise ValueError(f"{action!r} does not save; use one of {saving_actions}")
 
-        response = self.client.post(f"/admin/grading/edit/{submission_id}", data=data)
-        return response.status_code == 200
+        data = {
+            "points": str(points),
+            "notes": notes,
+            action: "1",
+        }
+        path = f"/admin/grading/grade/{submission_id}"
+        response = self.client.post(path, data=data)
+        if response.status_code != 200:
+            return False, [f"HTTP {response.status_code}"]
+        if not self._landed_under(response, "/admin/grading/grade/"):
+            return False, [f"redirected away from {path} to {response.url}"]
+
+        errors = self._flash_messages(response.text, level="error")
+        errors += self._field_errors(response.text)
+        if errors:
+            return False, errors
+
+        return True, []
+
+    def _field_errors(self, html: str) -> List[str]:
+        """
+        Per-field validation messages on a re-rendered admin form.
+
+        Separate from `_flash_messages`: a points-over-maximum rejection
+        sets `form.points.errors` and never flashes, so a caller looking
+        only at flash messages would read it as a success.
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        messages: List[str] = []
+        for element in soup.select(".invalid-feedback, .form-error, ul.errors li"):
+            text = element.get_text(strip=True)
+            if text:
+                messages.append(text)
+        return messages
 
     # -------------------------------------------------------------------------
     # System Settings
     # -------------------------------------------------------------------------
 
-    def get_system_settings(self) -> Dict[str, Any]:
-        """Get current system settings."""
-        response = self.client.get("/admin/system/settings/")
-        if response.status_code != 200:
-            return {}
-        return {}
-
-    def update_system_setting(self, key: str, value: Any) -> bool:
+    def settings_page_reachable(self) -> bool:
         """
-        Update a system setting.
+        Whether the system settings form renders for the current user.
 
-        Args:
-            key: Setting key
-            value: New value
-
-        Returns:
-            True if update was successful
+        Reading or writing a setting goes through
+        `helpers.method_exec.system_setting` instead: the settings POST
+        writes every field of a form group at once, so a partial post
+        blanks `COURSE_NAME`, `TIMEZONE` and the rest of the group.
         """
-        # Implementation depends on specific setting endpoints
-        return False
+        return self.client.get("/admin/system/settings/").status_code == 200
 
     # -------------------------------------------------------------------------
     # API Endpoints
