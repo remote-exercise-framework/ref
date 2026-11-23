@@ -185,18 +185,18 @@ const challengeRanking = computed(() => {
 </script>
 
 <template>
-  <div v-if="disabled">
+  <div v-if="disabled" data-test="scoreboard-disabled">
     <v-alert type="warning" variant="tonal">
       The scoreboard is currently disabled.
     </v-alert>
   </div>
-  <div v-else-if="error && !config">
+  <div v-else-if="error && !config" data-test="scoreboard-error">
     <v-alert type="error" variant="tonal">Failed to load scoreboard: {{ error }}</v-alert>
   </div>
-  <div v-else-if="!config">
+  <div v-else-if="!config" data-test="scoreboard-loading">
     <v-progress-circular indeterminate color="secondary" />
   </div>
-  <div v-else>
+  <div v-else data-test="scoreboard-board">
     <!-- Header -->
     <header style="margin-bottom: 3.5rem; display: flex; flex-direction: column; gap: 0.75rem">
       <div
@@ -208,6 +208,7 @@ const challengeRanking = computed(() => {
         <span class="term-eyebrow term-hot">{{ config.course_name }}</span>
         <a
           v-if="auth.isAdmin"
+          data-test="admin-toggle"
           class="term-view-toggle"
           @click.prevent="toggleAdminView"
         >{{ adminView ? '[ admin view ]' : '[ user view ]' }}</a>
@@ -226,7 +227,7 @@ const challengeRanking = computed(() => {
     </div>
 
     <!-- Ranking table -->
-    <section class="term-section">
+    <section class="term-section" data-test="overall-section">
       <div class="term-section-head">
         <h2 class="term-section-title">[ ranking ]</h2>
       </div>
@@ -250,12 +251,13 @@ const challengeRanking = computed(() => {
     </div>
 
     <!-- Assignment summary: countdown + per-assignment ranking -->
-    <section class="term-section">
+    <section class="term-section" data-test="assignment-section">
       <div class="term-section-head">
         <h2 class="term-section-title">[ {{ activeAssignment ?? 'assignment' }} ranking ]</h2>
-        <ul class="term-tabs">
+        <ul class="term-tabs" data-test="assignment-tabs">
           <li v-for="name in assignmentNames" :key="'as-' + name">
             <a
+              :data-test="'assignment-tab-' + name"
               :class="{
                 'is-current': name === activeAssignment,
                 'is-disabled': assignmentDisabled(name),
@@ -279,14 +281,15 @@ const challengeRanking = computed(() => {
     </section>
 
     <!-- Per-challenge plots -->
-    <section class="term-section">
+    <section class="term-section" data-test="challenge-section">
       <div class="term-section-head">
         <h2 class="term-section-title">[ challenges ]</h2>
       </div>
       <div v-if="activeAssignment">
-        <ul class="term-tabs" style="margin: 0 0 1rem">
+        <ul class="term-tabs" style="margin: 0 0 1rem" data-test="challenge-tabs">
           <li v-for="ch in activeChallenges" :key="ch">
             <a
+              :data-test="'challenge-tab-' + ch"
               :class="{ 'is-current': ch === activeChallengeSelected }"
               @click.prevent="pickChallenge(activeAssignment, ch)"
               >{{ ch }}</a

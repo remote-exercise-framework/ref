@@ -113,12 +113,13 @@ async function onSubmit() {
       color="secondary"
     />
 
-    <v-alert v-else-if="metaError" type="error" variant="tonal">
+    <v-alert v-else-if="metaError" data-test="meta-error" type="error" variant="tonal">
       Failed to load registration metadata: {{ metaError }}
     </v-alert>
 
     <v-alert
       v-else-if="meta && !meta.registration_enabled && !result"
+      data-test="registration-disabled"
       type="warning"
       variant="tonal"
       class="term-form-box"
@@ -134,11 +135,13 @@ async function onSubmit() {
 
     <v-card
       v-else-if="meta"
+      data-test="register-card"
       class="term-panel term-form-box"
       style="padding: 1.5rem"
     >
       <v-alert
         v-if="formError && Object.keys(fieldErrors).length === 0"
+        data-test="form-error"
         type="error"
         variant="tonal"
         density="compact"
@@ -147,9 +150,10 @@ async function onSubmit() {
         {{ formError }}
       </v-alert>
 
-      <v-form @submit.prevent="onSubmit">
+      <v-form data-test="register-form" @submit.prevent="onSubmit">
         <v-text-field
           v-model="form.mat_num"
+          data-test="register-mat-num"
           label="Matriculation number"
           :error-messages="errsFor('mat_num')"
           :disabled="submitting || !meta.registration_enabled"
@@ -158,6 +162,7 @@ async function onSubmit() {
         />
         <v-text-field
           v-model="form.firstname"
+          data-test="register-firstname"
           label="First name"
           :error-messages="errsFor('firstname')"
           :disabled="submitting || !meta.registration_enabled"
@@ -165,6 +170,7 @@ async function onSubmit() {
         />
         <v-text-field
           v-model="form.surname"
+          data-test="register-surname"
           label="Surname"
           :error-messages="errsFor('surname')"
           :disabled="submitting || !meta.registration_enabled"
@@ -172,6 +178,7 @@ async function onSubmit() {
         />
         <v-text-field
           v-model="form.password"
+          data-test="register-password"
           label="Password"
           type="password"
           :hint="passwordHint"
@@ -182,6 +189,7 @@ async function onSubmit() {
         />
         <v-text-field
           v-model="form.password_rep"
+          data-test="register-password-rep"
           label="Repeat password"
           type="password"
           :error-messages="errsFor('password_rep')"
@@ -190,6 +198,7 @@ async function onSubmit() {
         />
         <v-textarea
           v-model="form.pubkey"
+          data-test="register-pubkey"
           label="Public SSH key (optional — leave empty to generate)"
           hint="Supported: RSA, Ed25519, ECDSA (OpenSSH format)."
           persistent-hint
@@ -201,6 +210,7 @@ async function onSubmit() {
         <v-select
           v-if="meta.groups_enabled"
           v-model="form.group_name"
+          data-test="group-select"
           :items="groupItems"
           label="Group"
           :error-messages="errsFor('group_name')"
@@ -220,6 +230,7 @@ async function onSubmit() {
         </v-select>
 
         <v-btn
+          data-test="register-submit"
           type="submit"
           color="primary"
           :loading="submitting"

@@ -19,6 +19,12 @@ dependencies = [
     "httpx>=0.28.1",
     "paramiko>=5.1.0",
 
+    # --- Driving the Vue SPA in a real browser. The browser binary is not
+    # on PyPI: run `uv run playwright install chromium` once before the
+    # e2e suite. pytest-playwright is a pytest plugin, so it looks unused.
+    "playwright>=1.56.0",
+    "pytest-playwright>=0.7.1",
+
     # --- Parsing admin HTML. lxml is not imported; it is the parser
     # beautifulsoup4 is asked for by name.
     "beautifulsoup4>=4.15.0",

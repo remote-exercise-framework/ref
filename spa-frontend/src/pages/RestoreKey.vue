@@ -53,6 +53,7 @@ async function onSubmit() {
     >
       <v-alert
         v-if="formError && Object.keys(fieldErrors).length === 0"
+        data-test="form-error"
         type="error"
         variant="tonal"
         density="compact"
@@ -60,9 +61,10 @@ async function onSubmit() {
       >
         {{ formError }}
       </v-alert>
-      <v-form @submit.prevent="onSubmit">
+      <v-form data-test="restore-form" @submit.prevent="onSubmit">
         <v-text-field
           v-model="form.mat_num"
+          data-test="restore-mat-num"
           label="Matriculation number"
           :error-messages="errsFor('mat_num')"
           :disabled="submitting"
@@ -71,6 +73,7 @@ async function onSubmit() {
         />
         <v-text-field
           v-model="form.password"
+          data-test="restore-password"
           label="Password"
           type="password"
           :error-messages="errsFor('password')"
@@ -78,6 +81,7 @@ async function onSubmit() {
           autocomplete="current-password"
         />
         <v-btn
+          data-test="restore-submit"
           type="submit"
           color="primary"
           :loading="submitting"

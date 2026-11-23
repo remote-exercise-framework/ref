@@ -2,7 +2,12 @@
 
 ## Ongoing
 
-_Nothing in flight._
+- **SPA + end-to-end test coverage** (WIP, 2026-11-23 12:40) — phase 1 is done:
+  382 vitest tests in `spa-frontend/`, plus `tests/e2e/test_spa_forms.py` (32) and
+  `tests/e2e/test_spa_scoreboard_flow.py` (27) driving the real bundle in Chromium.
+  Phase 2 is the rest of the generated exercise catalogue, the grading e2e extensions
+  and the `tests/api/` revival. See
+  `plans/ongoing/2026-11-23_10-50_spa-and-e2e-tests.md`.
 
 ## Recent changes
 

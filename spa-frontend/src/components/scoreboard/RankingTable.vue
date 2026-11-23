@@ -25,7 +25,7 @@ const colSpan = props.hideBadges ? 3 : 4;
 </script>
 
 <template>
-  <div class="term-panel">
+  <div class="term-panel" data-test="ranking-table">
     <table class="term-table">
       <thead>
         <tr>
@@ -36,10 +36,10 @@ const colSpan = props.hideBadges ? 3 : 4;
         </tr>
       </thead>
       <tbody>
-        <tr v-if="!ranking || ranking.length === 0" class="term-empty">
+        <tr v-if="!ranking || ranking.length === 0" data-test="ranking-empty" class="term-empty">
           <td :colspan="colSpan">// awaiting submissions</td>
         </tr>
-        <tr v-for="([team, score], i) in ranking" :key="team">
+        <tr v-for="([team, score], i) in ranking" :key="team" data-test="ranking-row">
           <td class="term-col-rank"><span class="term-rank">{{ i + 1 }}</span></td>
           <td class="term-team">{{ team }}</td>
           <td v-if="!hideBadges">

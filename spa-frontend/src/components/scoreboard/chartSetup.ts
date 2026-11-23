@@ -57,7 +57,7 @@ type ThemeTokens = {
   sliderFill: string;
 };
 
-function rgbToken(value: string, alpha?: number): string {
+export function rgbToken(value: string, alpha?: number): string {
   const triple = value.trim();
   if (!triple) return alpha === undefined ? 'rgb(0,0,0)' : `rgba(0,0,0,${alpha})`;
   return alpha === undefined ? `rgb(${triple})` : `rgba(${triple}, ${alpha})`;

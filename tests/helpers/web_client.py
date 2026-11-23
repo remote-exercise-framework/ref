@@ -4,10 +4,12 @@ REF Web Client Helper
 HTTP client for interacting with the REF web interface during E2E tests.
 """
 
+import json
 import logging
 import re
 import time
 import urllib.parse
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -325,18 +327,163 @@ class REFWebClient:
         # Parse status from HTML - simplified
         return None
 
-    def set_exercise_as_default(self, exercise_id: int) -> bool:
+    def _flash_messages(self, html: str, level: str = "error") -> List[str]:
         """
-        Set an exercise version as the default.
+        Pull the flash messages out of a rendered admin page.
+
+        Needed because the admin views signal a rejected form by
+        re-rendering with a flash and HTTP 200 — the status code alone
+        never says whether anything was saved.
 
         Args:
-            exercise_id: The ID of the exercise
+            level: "error", "warning", "success" or "all".
+        """
+        classes = {
+            "error": ["alert-danger"],
+            "warning": ["alert-warning"],
+            "success": ["alert-success"],
+        }
+        wanted = (
+            ["alert-danger", "alert-warning", "alert-success"]
+            if level == "all"
+            else classes[level]
+        )
+        soup = BeautifulSoup(html, "lxml")
+        messages: List[str] = []
+        for cls in wanted:
+            for node in soup.select(f"div.{cls}"):
+                # The dismiss button's text is part of the div.
+                for button in node.select("button"):
+                    button.decompose()
+                text = node.get_text(strip=True)
+                if text:
+                    messages.append(text)
+        return messages
+
+    def set_exercise_config(
+        self,
+        short_name: str,
+        *,
+        category: str,
+        deadline_start: Optional[datetime] = None,
+        deadline_end: Optional[datetime] = None,
+        submission_test_enabled: bool = True,
+        max_grading_points: Optional[int] = None,
+        per_task_scoring_policies: Optional[Dict[str, Any]] = None,
+        new_short_name: Optional[str] = None,
+    ) -> Tuple[bool, List[str]]:
+        """
+        Write the shared administrative configuration for an exercise.
+
+        This is the only way to set per-task scoring policies: the column
+        has no YAML representation and no manager of its own, so the view
+        *is* the business logic — and going through it exercises the three
+        validators that are the most interesting untested code in the
+        feature.
+
+        Call it after the build and after the version has been made
+        default. Task names are discovered from the default version's
+        `submission_tests` file, and before then discovery returns an empty
+        list, which makes the unknown-task check skip itself: an invalid
+        policy would be accepted in silence.
+
+        Args:
+            category: required by the form, and an exercise needs a
+                non-null category to appear on the scoreboard at all.
+            deadline_start/deadline_end: both or neither. Naive datetimes
+                in the instance's local timezone; set `TIMEZONE` to UTC
+                first if a test wants to assert the value back.
+            max_grading_points: must be set if and only if a deadline is.
+            per_task_scoring_policies: task name -> policy dict. `None`
+                leaves the field empty, which sets the column to NULL.
+            new_short_name: renames the exercise and every version of it.
 
         Returns:
-            True if successful
+            `(saved, error_messages)`. A rejected form re-renders with
+            HTTP 200, so the flash messages are the verdict.
         """
-        response = self.client.get(f"/admin/exercise/set_default/{exercise_id}")
-        return response.status_code == 200
+        if (deadline_start is None) != (deadline_end is None):
+            raise ValueError(
+                "deadline_start and deadline_end must both be given or both omitted; "
+                "the view rejects a half-set deadline"
+            )
+
+        data: Dict[str, Any] = {
+            "short_name": new_short_name or short_name,
+            "category": category,
+            "submission_deadline_start": (
+                deadline_start.strftime("%Y-%m-%dT%H:%M") if deadline_start else ""
+            ),
+            "submission_deadline_end": (
+                deadline_end.strftime("%Y-%m-%dT%H:%M") if deadline_end else ""
+            ),
+            "per_task_scoring_policies_json": (
+                json.dumps(per_task_scoring_policies)
+                if per_task_scoring_policies is not None
+                else ""
+            ),
+            "submit": "Save",
+        }
+        # BooleanField: present means true, absent means false. Sending
+        # "0" or "false" would still read as true.
+        if submission_test_enabled:
+            data["submission_test_enabled"] = "y"
+        if max_grading_points is not None:
+            data["max_grading_points"] = str(max_grading_points)
+
+        url = f"/admin/exercise/config/{short_name}/edit"
+        csrf = self._get_csrf_token(self.client.get(url).text)
+        if csrf:
+            data["csrf_token"] = csrf
+
+        response = self.client.post(url, data=data)
+        if response.status_code != 200:
+            return False, [f"HTTP {response.status_code}"]
+
+        errors = self._flash_messages(response.text, "error")
+        return not errors, errors
+
+    def get_exercise_config(self, short_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Read back the exercise configuration form.
+
+        Scrapes the form because `max_grading_points` and
+        `submission_test_enabled` are not exposed as JSON anywhere. Prefer
+        `/api/scoreboard/config` for the category, deadlines and scoring
+        policies, where the data is already JSON.
+
+        Returns:
+            Field name -> value, or None when no config row exists.
+        """
+        response = self.client.get(f"/admin/exercise/config/{short_name}/edit")
+        if response.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(response.text, "lxml")
+        form = soup.find("form")
+        if form is None:
+            return None
+
+        config: Dict[str, Any] = {}
+        for field in form.select("input, textarea"):
+            name = field.get("name")
+            if not name or name in ("csrf_token", "submit"):
+                continue
+            if field.get("type") == "checkbox":
+                config[name] = field.has_attr("checked")
+            elif field.name == "textarea":
+                config[name] = field.get_text()
+            else:
+                config[name] = field.get("value", "")
+
+        raw = config.get("per_task_scoring_policies_json") or ""
+        try:
+            config["per_task_scoring_policies"] = (
+                json.loads(raw) if raw.strip() else None
+            )
+        except json.JSONDecodeError:
+            config["per_task_scoring_policies"] = None
+        return config
 
     # -------------------------------------------------------------------------
     # Student Management

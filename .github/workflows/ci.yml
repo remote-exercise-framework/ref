@@ -10,6 +10,9 @@ env:
   PYTHON_VERSION: "3.12"
   RUFF_VERSION: "0.15.10"
   MYPY_VERSION: "2.4.1"
+  # Match the spa-builder stage of frontend-proxy/Dockerfile, so the tests
+  # and the shipped bundle are built by the same major.
+  NODE_VERSION: "24"
 
 jobs:
   lint:
@@ -78,10 +81,51 @@ jobs:
         working-directory: tests
         run: uv run pytest unit/ -v -m "not slow"
 
+  spa-tests:
+    name: SPA Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: spa-frontend/package-lock.json
+
+      - name: Install SPA dependencies
+        working-directory: spa-frontend
+        run: npm ci
+
+      - name: Type check
+        working-directory: spa-frontend
+        run: npm run typecheck
+
+      - name: Run SPA unit tests
+        working-directory: spa-frontend
+        run: npm run test:coverage
+
+      - name: Upload SPA coverage report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: spa-coverage-report
+          path: spa-frontend/coverage/
+          retention-days: 7
+
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Each e2e module boots its own compose stack, and the SPA scoreboard
+    # module builds an exercise image on top of that.
+    timeout-minutes: 45
+    env:
+      # Must match the default in tests/e2e/conftest.py: a runner's
+      # ~/.cache is writable, but keeping the browsers in the repo makes
+      # the cache key and the test run agree on one path.
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/tests/.playwright-browsers
     steps:
       - uses: actions/checkout@v7
 
@@ -128,6 +172,18 @@ jobs:
       - name: Install test dependencies
         working-directory: tests
         run: uv sync
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('tests/uv.lock') }}
+
+      # The browser binary is not on PyPI, so uv sync does not bring it.
+      # Headless Chromium needs no display server, hence no xvfb.
+      - name: Install Playwright Chromium
+        working-directory: tests
+        run: uv run playwright install --with-deps chromium
 
       - name: Run E2E tests
         working-directory: tests

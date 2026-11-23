@@ -550,11 +550,16 @@ def ref_instance(
     module_name = (
         request.module.__name__.split(".")[-1] if request.module else "unknown"
     )
+    # Truncating can land on a separator, and docker compose derives image
+    # tags from this prefix: a tag like "<prefix>_-web" is rejected as an
+    # invalid reference, because a separator may not sit next to another
+    # one. Trim whatever the cut left dangling.
+    module_name = module_name[:20].rstrip("_-.")
     exercises_dir = tmp_path_factory.mktemp("exercises")
     data_dir = tmp_path_factory.mktemp("data")
 
     config = REFInstanceConfig(
-        prefix=f"ref_e2e_{module_id}_{module_name[:20]}",
+        prefix=f"ref_e2e_{module_id}_{module_name}",
         exercises_dir=exercises_dir,
         data_dir=data_dir,
         testing=True,
@@ -741,11 +746,16 @@ def sample_exercise_path(
     """
     Creates a sample exercise for testing.
     Returns the path to the exercise directory.
-    """
-    from helpers.exercise_factory import create_sample_exercise
 
-    exercise_dir = exercises_path / "sample_test_exercise"
-    create_sample_exercise(exercise_dir)
+    The short name is minted per module. ExerciseConfig rows are keyed by
+    short name and the first import of one owns its admin values, so a
+    fixed name would make two modules share a config.
+    """
+    from helpers.exercise_factory import create_sample_exercise, unique_short_name
+
+    short_name = unique_short_name("sample_test_exercise")
+    exercise_dir = exercises_path / short_name
+    create_sample_exercise(exercise_dir, short_name=short_name)
     return exercise_dir
 
 

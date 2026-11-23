@@ -56,6 +56,7 @@ const hasPrivkey = !!props.result.privkey;
     <!-- Register page: explain how the key got here. -->
     <v-alert
       v-if="props.variant === 'register' && hasPrivkey"
+      data-test="variant-alert"
       type="info"
       density="compact"
       style="margin-bottom: 1.25rem"
@@ -67,6 +68,7 @@ const hasPrivkey = !!props.result.privkey;
     </v-alert>
     <v-alert
       v-else-if="props.variant === 'register' && !hasPrivkey"
+      data-test="variant-alert"
       type="info"
       density="compact"
       style="margin-bottom: 1.25rem"
@@ -77,6 +79,7 @@ const hasPrivkey = !!props.result.privkey;
     <!-- Restore Key page: the user just re-fetched an existing keypair. -->
     <v-alert
       v-else-if="props.variant === 'restore' && hasPrivkey"
+      data-test="variant-alert"
       type="info"
       density="compact"
       style="margin-bottom: 1.25rem"
@@ -85,6 +88,7 @@ const hasPrivkey = !!props.result.privkey;
     </v-alert>
     <v-alert
       v-else-if="props.variant === 'restore' && !hasPrivkey"
+      data-test="variant-alert"
       type="info"
       density="compact"
       style="margin-bottom: 1.25rem"
@@ -99,6 +103,7 @@ const hasPrivkey = !!props.result.privkey;
           public key
         </div>
         <v-textarea
+          data-test="pubkey-text"
           :model-value="props.result.pubkey"
           readonly
           rows="3"
@@ -107,6 +112,7 @@ const hasPrivkey = !!props.result.privkey;
         />
         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
           <v-btn
+            data-test="pubkey-download"
             :href="props.result.pubkey_url"
             :download="pubkeyFilename"
             prepend-icon="mdi-download"
@@ -115,6 +121,7 @@ const hasPrivkey = !!props.result.privkey;
             Download {{ pubkeyFilename }}
           </v-btn>
           <v-btn
+            data-test="pubkey-copy"
             size="small"
             :prepend-icon="pubCopied ? 'mdi-check' : 'mdi-content-copy'"
             @click="copy(props.result.pubkey, 'pub')"
@@ -124,11 +131,12 @@ const hasPrivkey = !!props.result.privkey;
         </div>
       </div>
 
-      <div v-if="hasPrivkey">
+      <div v-if="hasPrivkey" data-test="privkey-block">
         <div class="term-eyebrow" style="margin-bottom: 0.4rem">
           private key
         </div>
         <v-textarea
+          data-test="privkey-text"
           :model-value="props.result.privkey ?? ''"
           readonly
           rows="6"
@@ -138,6 +146,7 @@ const hasPrivkey = !!props.result.privkey;
         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
           <v-btn
             v-if="props.result.privkey_url"
+            data-test="privkey-download"
             :href="props.result.privkey_url"
             :download="privkeyFilename"
             prepend-icon="mdi-download"
@@ -146,6 +155,7 @@ const hasPrivkey = !!props.result.privkey;
             Download {{ privkeyFilename }}
           </v-btn>
           <v-btn
+            data-test="privkey-copy"
             size="small"
             :prepend-icon="privCopied ? 'mdi-check' : 'mdi-content-copy'"
             @click="copy(props.result.privkey, 'priv')"

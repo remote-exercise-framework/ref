@@ -31,6 +31,12 @@ ssh-reverse-proxy/target/
 
 spa-frontend/node_modules/
 spa-frontend/dist/
+spa-frontend/coverage/
+
+# Playwright's browser binaries. Kept in-tree because the e2e conftest
+# points PLAYWRIGHT_BROWSERS_PATH here; the default ~/.cache location is
+# not writable in sandboxed environments.
+tests/.playwright-browsers/
 docker-compose.ref_e2e_*.yml
 .docker-cache/
 todo.md

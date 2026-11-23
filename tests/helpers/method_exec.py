@@ -12,7 +12,8 @@ This ensures tests exercise the same code paths as the real application.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import contextlib
+from typing import TYPE_CHECKING, Any, Iterator
 
 if TYPE_CHECKING:
     from helpers.ref_instance import REFInstance
@@ -522,3 +523,126 @@ def sign_file_browser_path(
         return signer.dumps(dataclasses.asdict(token))
 
     return ref_instance.remote_exec(_sign)
+
+
+# =============================================================================
+# System settings
+# =============================================================================
+#
+# These go through remote_exec rather than HTTP on purpose.
+# POST /admin/system/settings/ writes every field of a form group at once,
+# so a partial POST blanks COURSE_NAME, TIMEZONE and the rest of the group.
+# SystemSettingsManager is the manager class for this data, which makes it
+# the sanctioned writer under the project's no-direct-model-writes rule.
+
+
+def get_system_setting(ref_instance: "REFInstance", name: str) -> Any:
+    """
+    Read one system setting by its attribute name on SystemSettingsManager.
+
+    Note the spelling of some names in webapp/ref/model/settings.py —
+    REGESTRATION_ENABLED is misspelled there, and the attribute is the
+    source of truth.
+    """
+
+    def _get() -> Any:
+        from ref.model.settings import SystemSettingsManager
+
+        setting = getattr(SystemSettingsManager, name, None)
+        if setting is None:
+            raise AttributeError(f"SystemSettingsManager has no setting {name!r}")
+        return setting.value
+
+    return ref_instance.remote_exec(_get)
+
+
+def set_system_setting(ref_instance: "REFInstance", name: str, value: Any) -> Any:
+    """
+    Write one system setting and return its previous value, so a caller can
+    put it back.
+
+    The Setting descriptor's setter only calls `session.add()`, so this
+    commits. It also asserts the value's type matches the setting's
+    declared one, which turns a wrong type into a clear failure here rather
+    than a confusing one later.
+
+    Returns:
+        The value the setting had before the write.
+    """
+
+    def _set() -> Any:
+        from flask import current_app
+
+        from ref.model.settings import SystemSettingsManager
+
+        setting = getattr(SystemSettingsManager, name, None)
+        if setting is None:
+            raise AttributeError(f"SystemSettingsManager has no setting {name!r}")
+        previous = setting.value
+        setting.value = value
+        current_app.db.session.commit()
+        return previous
+
+    return ref_instance.remote_exec(_set)
+
+
+@contextlib.contextmanager
+def system_setting(ref_instance: "REFInstance", name: str, value: Any) -> Iterator[Any]:
+    """
+    Set a system setting for the duration of a block, then restore it.
+
+    Worth using even in a module that owns its instance: the e2e files run
+    ordered steps against one stack, so a setting left flipped changes what
+    every later step sees.
+
+    Yields the previous value.
+    """
+    previous = set_system_setting(ref_instance, name, value)
+    try:
+        yield previous
+    finally:
+        set_system_setting(ref_instance, name, previous)
+
+
+def create_grading_assistant(
+    ref_instance: "REFInstance",
+    mat_num: str,
+    first_name: str,
+    surname: str,
+    password: str,
+) -> dict[str, Any]:
+    """
+    Create a user who is both a student and a grading assistant.
+
+    UserManager has no role API, so this replicates what
+    ref/view/student.py does: build the student, then assign
+    `auth_groups = [STUDENT, GRADING_ASSISTANT]`.
+    """
+
+    def _create() -> dict[str, Any]:
+        from flask import current_app
+
+        from ref.core.user import UserManager
+        from ref.model.enums import UserAuthorizationGroups
+
+        # create_student deliberately does not add to the session; the
+        # caller owns that, which is what lets the roles be set first.
+        user = UserManager.create_student(
+            mat_num=mat_num,
+            first_name=first_name,
+            surname=surname,
+            password=password,
+        )
+        user.auth_groups = [
+            UserAuthorizationGroups.STUDENT,
+            UserAuthorizationGroups.GRADING_ASSISTANT,
+        ]
+        current_app.db.session.add(user)
+        current_app.db.session.commit()
+        return {
+            "id": user.id,
+            "mat_num": user.mat_num,
+            "auth_groups": [g.value for g in user.auth_groups],
+        }
+
+    return ref_instance.remote_exec(_create)
