@@ -189,6 +189,14 @@ def test_submission() -> TestResult:
     return TestResult(success=True, score=score)
 ```
 
+#### Environment of programs run by tests
+
+`rf.run()` and the helpers built on it (`run_capture_output`, `run_with_payload`, `get_payload_from_executable`) run programs as the student, with dropped privileges. Unless the test passes `env=` itself, the program gets the environment of whoever called `task`. That keeps the stack layout identical to the student's own runs, which exercises with hard-coded stack offsets depend on.
+
+In a submission, the caller is a grader. Every `task` run in the student's instance saves the student's environment to `/home/user/.user_environ`, and that file is persisted into the submission. `task check` in a submission therefore uses the student's environment by default. A grader who wants their own environment instead runs `task check --caller-env`. If the snapshot is missing, `task check` warns and falls back to the grader's environment.
+
+The snapshot is written by the student and can contain anything. Only read it through these helpers, which read it after dropping privileges, and never in the root context the test functions themselves run in.
+
 #### Multi-task scored exercises
 
 Exercises with multiple independently scored parts combine `task_name` with `TestResult`:

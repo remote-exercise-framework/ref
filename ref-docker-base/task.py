@@ -10,7 +10,7 @@ import sys
 import traceback
 import typing as ty
 from pathlib import Path
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 import requests
 from itsdangerous import TimedSerializer
@@ -18,10 +18,12 @@ from itsdangerous import TimedSerializer
 from ref_utils import (
     InstanceInfoError,
     TaskTestResult,
+    get_config,
     get_instance_info,
     print_err,
     print_ok,
     print_warn,
+    set_config,
 )
 from ref_utils.decorator import run_tests, suppress_run_tests
 
@@ -31,7 +33,13 @@ with open("/etc/key", "rb") as f:
 with open("/etc/instance_id", "r") as f:  # type: ignore
     INSTANCE_ID = int(f.read())
 
+IS_SUBMISSION = os.path.isfile("/etc/is_submission")
 MAX_TEST_OUTPUT_LENGTH = 1024 * 64
+
+# Written by `task-wrapper.c` in the student's instance and persisted into the
+# submission, so tests in a submission can run with the environment the student
+# had, which matters for exercises that depend on the stack layout.
+STUDENT_ENVIRON_SNAPSHOT = Path("/home/user/.user_environ")
 
 _LOG_PATH = "/var/log/ref-task.log"
 
@@ -255,10 +263,39 @@ def cmd_submit(args: argparse.Namespace):
     print_ok(ret)
 
 
+def _select_test_environment(use_caller_env: bool) -> None:
+    """Choose the environment that `ref_utils.run()` gives the programs it runs.
+
+    By default that is the caller's environment, which `task-wrapper.c` dumps
+    right before this script runs. In a submission, the caller is a grader, so
+    the student's snapshot is used instead unless `use_caller_env` is set.
+
+    The snapshot is student-controlled. This function only points the config at
+    it; `get_user_environment()` reads it after privileges are dropped, so root
+    never opens it.
+    """
+    if not IS_SUBMISSION or use_caller_env:
+        return
+
+    if not os.path.lexists(STUDENT_ENVIRON_SNAPSHOT):
+        print_warn(
+            f"[!] No student environment snapshot at {STUDENT_ENVIRON_SNAPSHOT}, "
+            "running tests with your environment."
+        )
+        return
+
+    set_config(replace(get_config(), user_environ_path=STUDENT_ENVIRON_SNAPSHOT))
+    print_ok(
+        "[+] Running tests with the student's environment recorded at submission time."
+    )
+    print_ok("[+] Pass --caller-env to use your own environment instead.")
+
+
 def cmd_check(args: argparse.Namespace):
     """
     Run tests and exit with non-zero status if any test fails.
     """
+    _select_test_environment(args.caller_env)
     only_run_these_tasks = args.only_run_these_tasks
     _, test_results = _run_tests(only_run_these_tasks=only_run_these_tasks)
     any_test_failed = any(not t.success for t in test_results)
@@ -317,6 +354,11 @@ def main():
         metavar="task-name",
         nargs="*",
         help="Only run the checks for the passed `task-name`s",
+    )
+    check_parser.add_argument(
+        "--caller-env",
+        action="store_true",
+        help="In a submission, run the tests with your current environment instead of the student's environment recorded at submission time. Has no effect in a student instance.",
     )
     check_parser.set_defaults(func=cmd_check)
 
