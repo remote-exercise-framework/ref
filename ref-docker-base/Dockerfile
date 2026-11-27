@@ -118,12 +118,12 @@ RUN chown root:root /usr/local/bin/_task \
 
 # Allow the user to run _task using sudo. We can not use setuid, since
 # this is a python script.
-RUN echo "user ALL=(ALL) NOPASSWD: /usr/local/bin/_task" >> /etc/sudoers
+RUN echo "user ALL=(root) NOPASSWD: /usr/local/bin/_task" >> /etc/sudoers
 
 # Install wrapper for the _task script that dumps the users environment
 # and calls sudo /usr/local/bin/_task.
 COPY task-wrapper.c /tmp/task-wrapper.c
-RUN gcc -O3 -Wall -Werror -Wl,-z,rel -D_FORTIFY_SOURCE=2 -pie -fPIE \
+RUN gcc -O3 -Wall -Werror -Wl,-z,relro,-z,now -D_FORTIFY_SOURCE=2 -pie -fPIE \
     -fstack-protector-strong /tmp/task-wrapper.c -o /usr/local/bin/task
 RUN chmod 555 /usr/local/bin/task
 

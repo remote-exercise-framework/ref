@@ -9,7 +9,6 @@ import os
 import sys
 import traceback
 import typing as ty
-import shutil
 from pathlib import Path
 from dataclasses import asdict
 
@@ -32,7 +31,6 @@ with open("/etc/key", "rb") as f:
 with open("/etc/instance_id", "r") as f:  # type: ignore
     INSTANCE_ID = int(f.read())
 
-IS_SUBMISSION = os.path.isfile("/etc/is_submission")
 MAX_TEST_OUTPUT_LENGTH = 1024 * 64
 
 _LOG_PATH = "/var/log/ref-task.log"
@@ -291,17 +289,6 @@ def main():
     parser = argparse.ArgumentParser(prog="task")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.required = True
-
-    if not IS_SUBMISSION:
-        # Copy the 'snapshotted' user environment stored at /tmp/.user_environ.
-        # The `/tmp/.user_environ` file is created by `task-wrapper.c`
-        # just before this script is executed.
-        p = Path("/home/user/.user_environ")
-        if p.exists():
-            # Grant permission in case the user messed with `.user_environ`.
-            p.chmod(0o777)
-            p.unlink()
-        shutil.copy("/tmp/.user_environ", "/home/user/.user_environ")
 
     reset_parser = subparsers.add_parser(
         "reset",
