@@ -631,7 +631,10 @@ def create_grading_assistant(
     # reference, and the web container has no `helpers` package to import
     # it from.
     keypair = generate_ed25519_keypair(comment=f"grading-assistant-{mat_num}")
-    pub_key = keypair.public
+    # Stored without the comment, the way registration stores keys: the SSH
+    # proxy sends the bare `<type> <base64>` key and the webapp looks the
+    # user up by exact match, so a stored comment would make SSH login fail.
+    pub_key = " ".join(keypair.public.split()[:2])
     priv_key = keypair.private
 
     def _create() -> dict[str, Any]:
@@ -666,7 +669,11 @@ def create_grading_assistant(
             "pub_key": user.pub_key,
         }
 
-    return ref_instance.remote_exec(_create)
+    created = ref_instance.remote_exec(_create)
+    # Returned so the assistant can SSH into submissions, which is how
+    # grading assistants inspect them.
+    created["private_key"] = priv_key
+    return created
 
 
 def parse_exercise_template(
@@ -776,6 +783,24 @@ def submission_ids_for_exercise(
         if exercise is None:
             return []
         return [submission.id for submission in exercise.submission_heads_global()]
+
+    return ref_instance.remote_exec(_get)
+
+
+def submitted_instance_id(ref_instance: "REFInstance", submission_id: int) -> int:
+    """
+    The id of the instance that holds a submission's frozen state.
+
+    This is the instance a grader reaches with `ssh instance-<id>@...`.
+    """
+
+    def _get() -> int:
+        from ref.model.instance import Submission
+
+        submission = Submission.query.get(submission_id)
+        if submission is None:
+            raise ValueError(f"no submission with id {submission_id}")
+        return submission.submitted_instance_id
 
     return ref_instance.remote_exec(_get)
 
